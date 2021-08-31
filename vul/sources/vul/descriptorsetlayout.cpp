@@ -291,7 +291,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
 }
 
 vul::ExpectedResult<vul::DescriptorSetLayout>
-vul::DescriptorSetLayoutBuilder::create() {
+vul::DescriptorSetLayoutBuilder::create() const{
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     //TODO figure out what to do with this nullptr
@@ -357,7 +357,6 @@ void vul::DescriptorSetLayoutBuilder::setStageFlags(
 }
 
 vul::DescriptorSetUpdateBuilder
-vul::DescriptorSetLayoutBuilder::createUpdateBuilder() {
-
-    return vul::DescriptorSetUpdateBuilder(gsl::span());
+vul::DescriptorSetLayoutBuilder::createUpdateBuilder() const{
+    return DescriptorSetUpdateBuilder(m_bindings, m_nameBindingMap);
 }

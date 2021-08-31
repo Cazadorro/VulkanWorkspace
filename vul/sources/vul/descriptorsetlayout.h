@@ -234,10 +234,10 @@ namespace vul {
 
 
         [[nodiscard]]
-        ExpectedResult<DescriptorSetLayout> create();
+        ExpectedResult<DescriptorSetLayout> create() const;
 
         [[nodiscard]]
-        DescriptorSetUpdateBuilder createUpdateBuilder();
+        DescriptorSetUpdateBuilder createUpdateBuilder() const;
         [[nodiscard]]
         std::vector<VkDescriptorPoolSize> calcPoolSizes(std::uint32_t multiplier = 0) const;
     private:

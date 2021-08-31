@@ -4,104 +4,162 @@
 
 #ifndef VULKANWORKSPACE_GRAPHICSPIPELINE_H
 #define VULKANWORKSPACE_GRAPHICSPIPELINE_H
+
 #include "vul/vertexinputstate.h"
-#include "vul/shadermodule.h"
+#include "vul/bitmasksfwd.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <array>
+#include <unordered_map>
 
-namespace vul{
+namespace vul {
 
-//    VkPipelineRasterizationStateCreateInfo rasterizationState = vks::initializers::pipelineRasterizationStateCreateInfo(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE, 0);
-//    VkPipelineColorBlendAttachmentState blendAttachmentState = vks::initializers::pipelineColorBlendAttachmentState(0xf, VK_FALSE);
-//    VkPipelineColorBlendStateCreateInfo colorBlendState = vks::initializers::pipelineColorBlendStateCreateInfo(1, &blendAttachmentState);
-//    VkPipelineDepthStencilStateCreateInfo depthStencilState = vks::initializers::pipelineDepthStencilStateCreateInfo(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);
-//    VkPipelineViewportStateCreateInfo viewportState = vks::initializers::pipelineViewportStateCreateInfo(1, 1, 0);
-//    VkPipelineMultisampleStateCreateInfo multisampleState = vks::initializers::pipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, 0);
-//    std::vector<VkDynamicState> dynamicStateEnables = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
-//    VkPipelineDynamicStateCreateInfo dynamicState = vks::initializers::pipelineDynamicStateCreateInfo(dynamicStateEnables);
-//    std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages;
-//
-//    // Final fullscreen pass pipeline
-//    VkGraphicsPipelineCreateInfo pipelineCI = vks::initializers::pipelineCreateInfo(pipelineLayouts.offscreen, renderPass, 0);
-//    pipelineCI.pInputAssemblyState = &inputAssemblyState;
-//    pipelineCI.pRasterizationState = &rasterizationState;
-//    pipelineCI.pColorBlendState = &colorBlendState;
-//    pipelineCI.pMultisampleState = &multisampleState;
-//    pipelineCI.pViewportState = &viewportState;
-//    pipelineCI.pDepthStencilState = &depthStencilState;
-//    pipelineCI.pDynamicState = &dynamicState;
-//    pipelineCI.stageCount = static_cast<uint32_t>(shaderStages.size());
-//    pipelineCI.pStages = shaderStages.data();
-//    pipelineCI.subpass = 0;
-//    pipelineCI.pVertexInputState = vkglTF::Vertex::getPipelineVertexInputState({vkglTF::VertexComponent::Position, vkglTF::VertexComponent::Color, vkglTF::VertexComponent::Normal, vkglTF::VertexComponent::UV});
-//
-//    std::array<VkPipelineColorBlendAttachmentState, 4> blendAttachmentStates = {
-//            vks::initializers::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-//            vks::initializers::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-//            vks::initializers::pipelineColorBlendAttachmentState(0xf, VK_FALSE),
-//            vks::initializers::pipelineColorBlendAttachmentState(0xf, VK_FALSE)
-//    };
-//
-//    colorBlendState.attachmentCount = static_cast<uint32_t>(blendAttachmentStates.size());
-//    colorBlendState.pAttachments = blendAttachmentStates.data();
-//
-//    // Offscreen scene rendering pipeline
-//    shaderStages[0] = loadShader(getShadersPath() + "subpasses/gbuffer.vert.spv", VK_SHADER_STAGE_VERTEX_BIT);
-//    shaderStages[1] = loadShader(getShadersPath() + "subpasses/gbuffer.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT);
-//    VK_CHECK_RESULT(vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipelineCI, nullptr, &pipelines.offscreen));
-    class GraphicsPipelineBuilder{
+    template<typename T>
+    class ExpectedResult;
+
+    class Device;
+
+    class PipelineLayout;
+
+    class RenderPass;
+
+    class PipelineCache;
+
+    class GraphicsPipeline {
     public:
+        GraphicsPipeline() = default;
+
+        GraphicsPipeline(const Device &device,
+                         VkPipeline handle,
+                         const VkAllocationCallbacks *pAllocator = nullptr);
+
+        [[nodiscard]]
+        VkPipeline get() const;
+
+        ~GraphicsPipeline();
+
+        GraphicsPipeline(GraphicsPipeline &&rhs) noexcept;
+
+//        was noexcept?
+        GraphicsPipeline &operator=(GraphicsPipeline &&rhs) noexcept;
+
+        GraphicsPipeline(const GraphicsPipeline &rhs) = delete;
+
+        GraphicsPipeline &operator=(GraphicsPipeline &rhs) = delete;
+
+        Result setObjectName(const std::string &string);
+
+    private:
+        const Device *m_pDevice = nullptr;
+        const VkAllocationCallbacks *m_pAllocator = nullptr;
+        VkPipeline m_handle = VK_NULL_HANDLE;
+    };
+
+    class PipelineVertexShaderStageCreateInfo;
+    class PipelineFragmentShaderStageCreateInfo;
+    class GraphicsPipelineBuilder {
+    public:
+
+        explicit GraphicsPipelineBuilder(const Device &device,
+                                         const VkAllocationCallbacks *pAllocator = nullptr);
+
+        void setFlags(vul::PipelineCreateBitMask flags);
+
         void setShaderCreateInfo(
                 PipelineVertexShaderStageCreateInfo vertexInfo,
                 PipelineFragmentShaderStageCreateInfo fragmentInfo);
 //        std::uint32_t binding = 0, vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex
-        void clearBindings();
 
         template<typename T>
-        void addBinding(std::uint32_t binding = 0, vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex){
-            m_bindingDescriptions.push_back(createVertexBindingDescription<T>(binding, inputRate));
-            auto attributeDescriptions = createVertexAttributeDescriptions<T>(binding);
-            m_attributeDescriptions.insert(m_attributeDescriptions.end(), attributeDescriptions.begin(), m_attributeDescriptions.end());
+        void setBinding(std::uint32_t binding = 0,
+                        vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex) {
+            auto attributeDescriptions = createVertexAttributeDescriptions<T>(
+                    binding);
+            m_bindingAttributeDescriptions[binding] = {
+                    createVertexBindingDescription<T>(binding, inputRate),
+                    attributeDescriptions};
         }
 
-        void setPrimitiveStateInfo(vul::PrimitiveTopology topology, VkBool32 primitiveRestartEnable = VK_FALSE, const void* pNext = nullptr);
+        void setPrimitiveStateInfo(vul::PrimitiveTopology topology,
+                                   VkBool32 primitiveRestartEnable = VK_FALSE,
+                                   const void *pNext = nullptr);
 
+        void setViewportState(const std::vector<VkViewport> &viewports,
+                              const std::vector<VkRect2D> &scissor);
 
-        void setViewportState(const std::vector<VkViewport>& viewports, const std::vector<VkViewport>& scissor);
-        void setDefaultViewportState();
-        void setRasterizationState(const VkPipelineRasterizationStateCreateInfo& rasterizer);
+        void setViewportStateFromExtent(const VkExtent2D &extent);
+
+        void setRasterizationState(
+                const VkPipelineRasterizationStateCreateInfo &rasterizer);
+
         void setDefaultRasterizationState();
-        void setMultisampleState(const VkPipelineMultisampleStateCreateInfo & multisampling);
+
+        void setMultisampleState(
+                const VkPipelineMultisampleStateCreateInfo &multisampling);
+
         void setDefaultMultisampleState();
-        void setDepthStencilState(const VkPipelineDepthStencilStateCreateInfo  & depthStencilState);
-        void setDefaultDepthStencilState();
-        void setBlendState(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentStates, const std::array<float,4>& blendConstants = {0.0f,0.0f,0.0f,0.0f});
-        void setBlendState(vul::LogicOp logicOp, const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentStates, const std::array<float,4>& blendConstants = {0.0f,0.0f,0.0f,0.0f});
+
+        void setDepthStencilState(
+                const VkPipelineDepthStencilStateCreateInfo &depthStencilState);
+
+        void setDefaultDepthStencilStateEnable();
+
+        void setBlendState(
+                const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachmentStates,
+                const std::array<float, 4> &blendConstants = {0.0f, 0.0f, 0.0f,
+                                                              0.0f});
+
+        void setBlendState(vul::LogicOp logicOp,
+                           const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachmentStates,
+                           const std::array<float, 4> &blendConstants = {0.0f,
+                                                                         0.0f,
+                                                                         0.0f,
+                                                                         0.0f});
+
         void setDefaultBlendState();
 
-        //TODO pipeline layout which needs descriptor set layouts.
-        //TODO add dynamic states
+        void
+        setDynamicState(const std::vector<vul::DynamicState> &dynamicStates);
 
-        //TODO VkRenderPass      renderPass;
-        //TODO uint32_t          subpass;
-        //TODO VkPipeline        basePipelineHandle;
-        //TODO int32_t           basePipelineIndex;
+        void setPipelineLayout(const PipelineLayout &pipelineLayout);
 
-        //TODO    const VkPipelineTessellationStateCreateInfo*     pTessellationState;
+        void setRenderPass(const RenderPass &renderpass, std::uint32_t subpass);
 
+        void setBasePipeline(const GraphicsPipeline &basePipeline,
+                             std::int32_t basePipelineIndex);
+
+        void setTesselationState(uint32_t patchControlPoints);
+
+        [[nodiscard]]
+        ExpectedResult<GraphicsPipeline>
+        create(const PipelineCache &pipelineCache) const;
 
     private:
-        VkPipelineInputAssemblyStateCreateInfo m_inputAssemblyInfo;
-        std::array<VkPipelineShaderStageCreateInfo,2> m_shaderStages;
-        std::vector<VkVertexInputBindingDescription> m_bindingDescriptions;
-        std::vector<VkVertexInputAttributeDescription> m_attributeDescriptions;
+        const Device *m_pDevice = nullptr;
+        const VkAllocationCallbacks *m_pAllocator = nullptr;
+        VkPipelineCreateFlags m_flags = {};
+        VkPipelineInputAssemblyStateCreateInfo m_inputAssemblyInfo = {};
+        std::array<VkPipelineShaderStageCreateInfo, 2> m_shaderStages;
+        struct InputBindingAttributes {
+            VkVertexInputBindingDescription bindingDescription = {};
+            std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
+        };
+        std::unordered_map<std::uint32_t, InputBindingAttributes> m_bindingAttributeDescriptions;
         std::vector<VkViewport> m_viewports;
-        std::vector<VkViewport> m_scissors;
-        VkPipelineRasterizationStateCreateInfo m_rasterizationState;
-        VkPipelineDepthStencilStateCreateInfo m_depthStencilState;
-        std::vector<VkPipelineColorBlendAttachmentState>& m_blendAttachmentStates;
+        std::vector<VkRect2D> m_scissors;
+        VkPipelineRasterizationStateCreateInfo m_rasterizationState = {};
+        VkPipelineDepthStencilStateCreateInfo m_depthStencilState = {};
+        VkPipelineMultisampleStateCreateInfo m_multiSampleState = {};
+        std::vector<VkPipelineColorBlendAttachmentState> m_blendAttachmentStates;
+        std::array<float, 4> m_blendConstants = {0.0f, 0.0f, 0.0f, 0.0f};
         std::optional<vul::LogicOp> m_logicOp;
+        std::vector<vul::DynamicState> m_dynamicStates;
+        VkPipelineLayout m_layout = VK_NULL_HANDLE;
+        VkRenderPass m_renderPass = VK_NULL_HANDLE;
+        std::uint32_t m_subpass = 0;
+        VkPipeline m_basePipelineHandle = VK_NULL_HANDLE;
+        std::int32_t m_basePipelineIndex = 0;
+        std::uint32_t m_patchControlPoints = 0;
     };
 }
 #endif //VULKANWORKSPACE_GRAPHICSPIPELINE_H
