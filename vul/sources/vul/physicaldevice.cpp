@@ -401,6 +401,12 @@ vul::ExpectedResult<vul::Device> vul::PhysicalDevice::createDevice(
                         pAllocator);
 }
 
+VkPhysicalDeviceLimits vul::PhysicalDevice::getLimits() const {
+    VkPhysicalDeviceProperties properties{};
+    vkGetPhysicalDeviceProperties(m_handle, &properties);
+    return properties.limits;
+}
+
 
 vul::SingleQueueCreateInfo::SingleQueueCreateInfo(
         std::uint32_t queueFamilyIndex_t, float priority_t) : queueFamilyIndex(

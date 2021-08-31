@@ -4,7 +4,40 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul sources/vul/instance.cpp sources/vul/instance.h sources/vul/debugutils.cpp sources/vul/debugutils.h sources/vul/expectedresult.cpp sources/vul/expectedresult.h sources/vul/physicaldevice.cpp sources/vul/physicaldevice.h sources/vul/surface.cpp sources/vul/surface.h sources/vul/device.cpp sources/vul/device.h sources/vul/queue.cpp sources/vul/queue.h sources/vul/vmaallocator.cpp sources/vul/vmaallocator.h sources/vul/image2d.cpp sources/vul/image2d.h sources/vul/imageview.cpp sources/vul/imageview.h sources/vul/swapchain.cpp sources/vul/swapchain.h sources/vul/semaphore.cpp sources/vul/semaphore.h sources/vul/vkassert.cpp sources/vul/vkassert.h sources/vul/renderpass.cpp sources/vul/renderpass.h sources/vul/colorformatutils.cpp sources/vul/colorformatutils.h)
+add_library(vul sources/vul/containerutils.cpp sources/vul/containerutils.h sources/vul/shadermodule.cpp sources/vul/shadermodule.h sources/vul/vertexinputstate.cpp sources/vul/vertexinputstate.h sources/vul/struct_to_tuple.h sources/vul/repeat_macro.h sources/vul/tuple_to_array.h sources/vul/graphicspipeline.cpp sources/vul/graphicspipeline.h sources/vul/descriptorsetlayout.cpp sources/vul/descriptorsetlayout.h sources/vul/sampler.cpp sources/vul/sampler.h sources/vul/descriptorpool.cpp sources/vul/descriptorpool.h sources/vul/descriptorset.cpp sources/vul/descriptorset.h sources/vul/inputproxy.h sources/vul/pipelinelayout.cpp sources/vul/pipelinelayout.h sources/vul/vkutils.h sources/vul/temparrayproxy.h)
+target_sources(vul PRIVATE
+        sources/vul/instance.cpp
+        sources/vul/instance.h
+        sources/vul/debugutils.cpp
+        sources/vul/debugutils.h
+        sources/vul/expectedresult.cpp
+        sources/vul/expectedresult.h
+        sources/vul/physicaldevice.cpp
+        sources/vul/physicaldevice.h
+        sources/vul/surface.cpp
+        sources/vul/surface.h
+        sources/vul/device.cpp
+        sources/vul/device.h
+        sources/vul/queue.cpp
+        sources/vul/queue.h
+        sources/vul/vmaallocator.cpp
+        sources/vul/vmaallocator.h
+        sources/vul/image2d.cpp
+        sources/vul/image2d.h
+        sources/vul/imageview.cpp
+        sources/vul/imageview.h
+        sources/vul/swapchain.cpp
+        sources/vul/swapchain.h
+        sources/vul/semaphore.cpp
+        sources/vul/semaphore.h
+        sources/vul/vkassert.cpp
+        sources/vul/vkassert.h
+        sources/vul/renderpass.cpp
+        sources/vul/renderpass.h
+        sources/vul/colorformatutils.cpp
+        sources/vul/colorformatutils.h
+        sources/vul/stdutils.cpp
+        sources/vul/stdutils.h)
 target_sources(vul PRIVATE
         ./generated_sources/vul/bitmasks.cpp
         ./generated_sources/vul/enums.cpp
@@ -28,6 +61,7 @@ target_include_directories(vul
 
 target_link_libraries(vul
         PUBLIC
+        glm
         Vulkan::Vulkan
         fmt::fmt
         VulkanMemoryAllocator

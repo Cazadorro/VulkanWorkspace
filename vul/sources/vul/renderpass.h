@@ -10,6 +10,7 @@
 
 #include <vulkan/vulkan.h>
 #include <gsl/span>
+#include <optional>
 
 namespace vul {
 
@@ -24,6 +25,9 @@ namespace vul {
     //present attachment
     //depth attachment
     //color attachment
+
+    //https://www.reddit.com/r/vulkan/comments/k9l9rd/did_something_change_in_the_spec_vk_image_layout/
+    //unless separateDepthStencilLayouts  enabled, only depth-stencil layouts in attachment references
     class AttachmentDescription {
     public:
         AttachmentDescription(vul::Format format,
@@ -147,207 +151,6 @@ namespace vul {
     };
 
 
-    //attachment description that **will be** presented.
-    class PresentAttachmentDescription {
-    public:
-        PresentAttachmentDescription(vul::Format format,
-                                     vul::ImageLayout initialLayout,
-                                     vul::AttachmentLoadOp loadOp,
-                                     vul::AttachmentStoreOp storeOp,
-                                     vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                     vul::AttachmentDescriptionBitMask flags = {});
-
-        static PresentAttachmentDescription only(vul::Format format,
-                                                 vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
-
-        static PresentAttachmentDescription last(vul::Format format,
-                                                 vul::ImageLayout initialLayout,
-                                                 vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
-
-        [[nodiscard]]
-        const VkAttachmentDescription &get() const;
-
-    private:
-        VkAttachmentDescription m_attachmentDescription;
-    };
-
-    //color attachment description that **will be** used as ie storage image read/write and/or sampled.
-    class UsedColorAttachmentDescription {
-    public:
-        UsedColorAttachmentDescription(vul::Format format,
-                                       vul::ImageLayout initialLayout,
-                                       vul::ImageLayout finalLayout,
-                                       vul::AttachmentLoadOp loadOp,
-                                       vul::AttachmentStoreOp storeOp,
-                                       vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                       vul::AttachmentDescriptionBitMask flags = {});
-
-        static UsedColorAttachmentDescription only(vul::Format format,
-                                                   vul::ImageLayout finalLayout,
-                                                   vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                   vul::AttachmentDescriptionBitMask flags = {});
-
-        static UsedColorAttachmentDescription last(vul::Format format,
-                                                   vul::ImageLayout initialLayout,
-                                                   vul::ImageLayout finalLayout,
-                                                   vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                   vul::AttachmentDescriptionBitMask flags = {});
-
-        [[nodiscard]]
-        const VkAttachmentDescription &get() const;
-
-    private:
-        VkAttachmentDescription m_attachmentDescription;
-    };
-
-    //depth stencil attachment description that **will be** used as ie storage image read/write and/or sampled.
-    class UsedDepthStencilAttachmentDescription {
-    public:
-        UsedDepthStencilAttachmentDescription(vul::Format format,
-                                              vul::ImageLayout initialLayout,
-                                              vul::ImageLayout finalLayout,
-                                              vul::AttachmentLoadOp loadOp,
-                                              vul::AttachmentStoreOp storeOp,
-                                              vul::AttachmentLoadOp stencilLoadOp,
-                                              vul::AttachmentStoreOp stencilStoreOp,
-                                              vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                              vul::AttachmentDescriptionBitMask flags = {});
-
-        static UsedDepthStencilAttachmentDescription only(vul::Format format,
-                                                          vul::ImageLayout finalLayout,
-                                                          vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                          vul::AttachmentDescriptionBitMask flags = {});
-
-        static UsedDepthStencilAttachmentDescription last(vul::Format format,
-                                                          vul::ImageLayout initialLayout,
-                                                          vul::ImageLayout finalLayout,
-                                                          vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                          vul::AttachmentDescriptionBitMask flags = {});
-
-        static UsedDepthStencilAttachmentDescription
-        onlyDepth(vul::Format format,
-                  vul::ImageLayout finalLayout,
-                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                  vul::AttachmentDescriptionBitMask flags = {});
-
-        static UsedDepthStencilAttachmentDescription
-        lastDepth(vul::Format format,
-                  vul::ImageLayout initialLayout,
-                  vul::ImageLayout finalLayout,
-                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                  vul::AttachmentDescriptionBitMask flags = {});
-
-        [[nodiscard]]
-        const VkAttachmentDescription &get() const;
-
-    private:
-        VkAttachmentDescription m_attachmentDescription;
-    };
-
-    class DepthStencilAttachmentDescription {
-    public:
-        DepthStencilAttachmentDescription(vul::Format format,
-                                          vul::ImageLayout initialLayout,
-                                          vul::AttachmentLoadOp loadOp,
-                                          vul::AttachmentStoreOp storeOp,
-                                          vul::AttachmentLoadOp stencilLoadOp,
-                                          vul::AttachmentStoreOp stencilStoreOp,
-                                          vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                          vul::AttachmentDescriptionBitMask flags = {});
-
-        static DepthStencilAttachmentDescription only(vul::Format format,
-                                                      vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                      vul::AttachmentDescriptionBitMask flags = {});
-
-        static DepthStencilAttachmentDescription last(vul::Format format,
-                                                      vul::ImageLayout initialLayout,
-                                                      vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                      vul::AttachmentDescriptionBitMask flags = {});
-
-        static DepthStencilAttachmentDescription onlyDepth(vul::Format format,
-                                                           vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                           vul::AttachmentDescriptionBitMask flags = {});
-
-        static DepthStencilAttachmentDescription lastDepth(vul::Format format,
-                                                           vul::ImageLayout initialLayout,
-                                                           vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                           vul::AttachmentDescriptionBitMask flags = {});
-
-        [[nodiscard]]
-        const VkAttachmentDescription &get() const;
-
-    private:
-        VkAttachmentDescription m_attachmentDescription;
-    };
-
-
-    //Attachment Description meant to be used *only* within the current renderpass.
-    class TemporaryColorAttachmentDescription {
-    public:
-        TemporaryColorAttachmentDescription(vul::Format format,
-                                            vul::ImageLayout initialLayout,
-                                            vul::AttachmentLoadOp loadOp,
-                                            vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                            vul::AttachmentDescriptionBitMask flags = {});
-
-        static TemporaryColorAttachmentDescription only(vul::Format format,
-                                                        vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                        vul::AttachmentDescriptionBitMask flags = {});
-
-        static TemporaryColorAttachmentDescription last(vul::Format format,
-                                                        vul::ImageLayout initialLayout,
-                                                        vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                        vul::AttachmentDescriptionBitMask flags = {});
-
-        [[nodiscard]]
-        const VkAttachmentDescription &get() const;
-
-    private:
-        VkAttachmentDescription m_attachmentDescription;
-    };
-
-
-    class ColorAttachmentDescription {
-    public:
-        ColorAttachmentDescription(vul::Format format,
-                                   vul::ImageLayout initialLayout,
-                                   vul::ImageLayout finalLayout,
-                                   vul::AttachmentLoadOp loadOp,
-                                   vul::AttachmentStoreOp storeOp,
-                                   vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                   vul::AttachmentDescriptionBitMask flags = {});
-
-        //TODO get rid of?
-        static ColorAttachmentDescription first(vul::Format format,
-                                                vul::ImageLayout finalLayout = vul::ImageLayout::ColorAttachmentOptimal,
-                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                vul::AttachmentDescriptionBitMask flags = {});
-
-        static ColorAttachmentDescription only(vul::Format format,
-                                               vul::ImageLayout finalLayout = vul::ImageLayout::ColorAttachmentOptimal,
-                                               vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
-
-        //TODO get rid of?
-        static ColorAttachmentDescription next(vul::Format format,
-                                               vul::ImageLayout initialLayout,
-                                               vul::ImageLayout finalLayout = vul::ImageLayout::ColorAttachmentOptimal,
-                                               vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
-
-        static ColorAttachmentDescription last(vul::Format format,
-                                               vul::ImageLayout initialLayout = vul::ImageLayout::ColorAttachmentOptimal,
-                                               vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
-
-        [[nodiscard]]
-        const VkAttachmentDescription &get() const;
-
-    private:
-        VkAttachmentDescription m_attachmentDescription;
-    };
 
 
 
@@ -391,185 +194,133 @@ namespace vul {
     //auto renderPass = graph.createRenderPass();
     //auto& graphi
 
+    struct AttachmentReference{
+        std::uint32_t attachment = 0;
+        vul::ImageLayout layout = {};
+        AttachmentReference() = default;
+        AttachmentReference(std::uint32_t attachment, vul::ImageLayout layout);
+    };
+    template<typename T>
+    class ExpectedResult;
+    class Device;
+
+    class RenderPass{
+    public:
+        RenderPass() = default;
+
+        RenderPass(const Device &device, VkRenderPass handle,
+                  std::uint32_t subpassCount,
+                  const VkAllocationCallbacks *pAllocator = nullptr);
+
+        [[nodiscard]]
+        VkRenderPass get() const;
+
+        ~RenderPass();
+
+        RenderPass(RenderPass &&rhs) noexcept;
+
+//        was noexcept?
+        RenderPass &operator=(RenderPass &&rhs) noexcept;
+
+        RenderPass(const RenderPass &rhs) = delete;
+
+        RenderPass &operator=(RenderPass &rhs) = delete;
+
+        Result setObjectName(const std::string &string);
+
+        [[nodiscard]]
+        std::uint32_t getSubpassCount() const;
+    private:
+        const Device *m_pDevice = nullptr;
+        const VkAllocationCallbacks *m_pAllocator = nullptr;
+        VkRenderPass m_handle = VK_NULL_HANDLE;
+        std::uint32_t m_subpassCount = 0;
+    };
+
+    class SubpassGraph;
+    class SubpassNode{
+
+    public:
+        explicit SubpassNode(SubpassGraph& parentGraph, std::uint32_t subpassIndex);
+        std::uint32_t SubpassExternal = VK_SUBPASS_EXTERNAL;
+        //TODO set depth writes instead? not sure what the point of not having a seperate write is.
+        SubpassNode& setWrites(const gsl::span<const std::uint32_t>& attachmentIndices);
+        SubpassNode& setReads(const gsl::span<const std::uint32_t>& attachmentIndices);
+        SubpassNode& setWrites(const gsl::span<const std::uint32_t>& attachmentIndices, const gsl::span<const std::uint32_t>& resolveIndices);
+        //preserve serves unknown usage,maybe simulataneous use outside subpass?
+        SubpassNode& setPreserve(const gsl::span<const std::uint32_t>& attachmentIndices);
+        SubpassNode& setDependsWriteAfterRead(const gsl::span<const std::uint32_t>& subpassIndices);
+        SubpassNode& setDependsReadAfterWrite(const gsl::span<const std::uint32_t>& subpassIndices);
+        SubpassNode& setDependsWriteAfterWrite(const gsl::span<const std::uint32_t>& subpassIndices);
+
+        SubpassNode& setWrites(const std::initializer_list<const std::uint32_t>& attachmentIndices);
+        SubpassNode& setReads(const std::initializer_list<const std::uint32_t>& attachmentIndices);
+        SubpassNode& setWrites(const std::initializer_list<const std::uint32_t>& attachmentIndices, const std::initializer_list<const std::uint32_t>& resolveIndices);
+        SubpassNode& setPreserve(const std::initializer_list<const std::uint32_t>& attachmentIndices);
+        SubpassNode& setDependsWriteAfterRead(const std::initializer_list<const std::uint32_t>& subpassIndices);
+        SubpassNode& setDependsReadAfterWrite(const std::initializer_list<const std::uint32_t>& subpassIndices);
+        SubpassNode& setDependsWriteAfterWrite(const std::initializer_list<const std::uint32_t>& subpassIndices);
+
+
+        //TODO PipelineStageFlagBitMask should be PipelineStageBitMask2 or something, conflicts with
+        // PipelineStageBitMask
+        //TODO same with AccessFlagBitMask AccessBitMask
+        //set subpass depend on external
+        SubpassNode& setPreDependExternal(vul::PipelineStageBitMask srcStageMask,
+                                    vul::PipelineStageBitMask dstStageMask,
+                                    vul::AccessBitMask srcAccessMask,
+                                    vul::AccessBitMask dstAccessMask);
+
+        //set external dependency that depends on *this subpass*
+        SubpassNode& setPostExternalDepend(vul::PipelineStageBitMask srcStageMask,
+                                       vul::PipelineStageBitMask dstStageMask,
+                                       vul::AccessBitMask srcAccessMask,
+                                       vul::AccessBitMask dstAccessMask);
+
+        void reset();
+    private:
+        friend class SubpassGraph;
+        friend class std::vector<SubpassNode>;
+
+        SubpassNode(const SubpassNode& subpass_node) = default;
+        SubpassNode(SubpassNode&& subpass_node) = default;
+        SubpassNode& operator=(const SubpassNode& subpass_node) = default;
+        SubpassNode& operator=(SubpassNode&& subpass_node) = default;
+        std::uint32_t m_subpassIndex;
+        [[nodiscard]]
+        VkSubpassDescription createDescription(vul::SubpassDescriptionBitMask flags = {}) const;
+        [[nodiscard]]
+        std::vector<VkSubpassDependency> createSubpassDependencies() const;
+        SubpassGraph* m_parentGraph;
+        std::vector<std::uint32_t> m_warDependencies;
+        std::vector<std::uint32_t> m_rawDependencies;
+        std::vector<std::uint32_t> m_wawDependencies;
+        std::vector<AttachmentReference> m_colorAttachmentWriteReferences;
+        std::vector<AttachmentReference> m_inputAttachmentReferences;
+        std::vector<AttachmentReference> m_resolveAttachmentReferences;
+        std::vector<std::uint32_t> m_preserveAttachmentReferences;
+        std::optional<AttachmentReference> m_depthAttachmentWriteReference;
+        std::optional<VkSubpassDependency> m_preExternalDependency;
+        std::optional<VkSubpassDependency> m_postExternalDependency;
+    };
+
+
 
     class SubpassGraph {
     public:
-        SubpassGraph(gsl::span<int &> x);
-
+        SubpassGraph(const gsl::span<const AttachmentDescription>& attachmentDescriptions, std::uint32_t subpassCount);
+        SubpassGraph(const std::initializer_list<AttachmentDescription>& attachmentDescriptions, std::uint32_t subpassCount);
+        SubpassNode& subpassAt(std::uint32_t i);
+        ExpectedResult<RenderPass> createRenderPass(const Device &device, const VkAllocationCallbacks *pAllocator = nullptr);
     private:
-    };
+        friend class SubpassNode;
+        [[nodiscard]]
+        const AttachmentDescription& getAttachmentAt(std::uint32_t i) const;
+        [[nodiscard]]
+        std::size_t getAttachmentCount() const;
+        std::vector<AttachmentDescription> m_attachmentDescriptions;
+        std::vector<SubpassNode> m_subpassNodes;
 
-    class SubpassNode {
-    public:
-
-        void read(std::uint32_t attachment_index);
-
-        void write(std::uint32_t attachment_index);
-
-        void resolve(std::uint32_t attachment_index);
-
-        void write_dependency(std::uint32_t attachment_index,
-                              std::uint32_t subpass_index);
-
-        void read_dependency(std::uint32_t attachment_index,
-                             std::uint32_t subpass_index);
-
-        void resolve_dependency(std::uint32_t attachment_index,
-                                std::uint32_t subpass_index);
-
-    private:
-    };
-
-
-    //https://www.reddit.com/r/vulkan/comments/k9l9rd/did_something_change_in_the_spec_vk_image_layout/
-    //unless separateDepthStencilLayouts  enabled, only depth-stencil layouts in attachment references
-
-    void createRenderPass() {
-        VkAttachmentDescription colorAttachment{};
-        colorAttachment.format = swapChainImageFormat;
-        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        VkAttachmentDescription depthAttachment{};
-        depthAttachment.format = findDepthFormat();
-        depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        VkAttachmentReference colorAttachmentRef{};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkAttachmentReference depthAttachmentRef{};
-        depthAttachmentRef.attachment = 1;
-        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        VkSubpassDescription subpass{};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &colorAttachmentRef;
-        subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-        VkSubpassDependency dependency{};
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependency.dstSubpass = 0;
-        dependency.srcStageMask =
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        dependency.srcAccessMask = 0;
-        dependency.dstStageMask =
-                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-                                   VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-        std::array<VkAttachmentDescription, 2> attachments = {colorAttachment,
-                                                              depthAttachment};
-        VkRenderPassCreateInfo renderPassInfo{};
-        renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());
-        renderPassInfo.pAttachments = attachments.data();
-        renderPassInfo.subpassCount = 1;
-        renderPassInfo.pSubpasses = &subpass;
-        renderPassInfo.dependencyCount = 1;
-        renderPassInfo.pDependencies = &dependency;
-
-        if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) !=
-            VK_SUCCESS) {
-            throw std::runtime_error("failed to create render pass!");
-        }
-    }
-
-    void init_default_renderpass() {
-        //we define an attachment description for our main color image
-        //the attachment is loaded as "clear" when renderpass start
-        //the attachment is stored when renderpass ends
-        //the attachment layout starts as "undefined", and transitions to "Present" so its possible to display it
-        //we dont care about stencil, and dont use multisampling
-
-        VkAttachmentDescription color_attachment = {};
-        color_attachment.format = _swachainImageFormat;
-        color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-        VkAttachmentReference color_attachment_ref = {};
-        color_attachment_ref.attachment = 0;
-        color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkAttachmentDescription depth_attachment = {};
-        // Depth attachment
-        depth_attachment.flags = 0;
-        depth_attachment.format = _depthFormat;
-        depth_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        depth_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        depth_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        depth_attachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        VkAttachmentReference depth_attachment_ref = {};
-        depth_attachment_ref.attachment = 1;
-        depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        //we are going to create 1 subpass, which is the minimum you can do
-        VkSubpassDescription subpass = {};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachmentCount = 1;
-        subpass.pColorAttachments = &color_attachment_ref;
-        //hook the depth attachment into the subpass
-        subpass.pDepthStencilAttachment = &depth_attachment_ref;
-
-        //1 dependency, which is from "outside" into the subpass. And we can read or write color
-        VkSubpassDependency dependency = {};
-        dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        dependency.dstSubpass = 0;
-        dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.srcAccessMask = 0;
-        dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-        VkSubpassDependency2 dependency;
-
-        //array of 2 attachments, one for the color, and other for depth
-        VkAttachmentDescription attachments[2] = {color_attachment,
-                                                  depth_attachment};
-
-        VkRenderPassCreateInfo render_pass_info = {};
-        render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-        //2 attachments from said array
-        render_pass_info.attachmentCount = 2;
-        render_pass_info.pAttachments = &attachments[0];
-        render_pass_info.subpassCount = 1;
-        render_pass_info.pSubpasses = &subpass;
-        render_pass_info.dependencyCount = 1;
-        render_pass_info.pDependencies = &dependency;
-
-        VK_CHECK(vkCreateRenderPass(_device, &render_pass_info, nullptr,
-                                    &_renderPass));
-
-        _mainDeletionQueue.push_function([=]() {
-            vkDestroyRenderPass(_device, _renderPass, nullptr);
-        });
-    }
-
-    class RenderPass {
-    public:
-    private:
     };
 }
 

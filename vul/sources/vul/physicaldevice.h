@@ -87,6 +87,10 @@ namespace vul {
         QueueFamilyProperties getQueueFamilyProperties() const;
         [[nodiscard]]
         ExtensionsProperties getExtensionProperties() const;
+
+        [[nodiscard]]
+        VkPhysicalDeviceLimits getLimits() const;
+
         [[nodiscard]]
         vul::Features getFeatures() const;
         [[nodiscard]]

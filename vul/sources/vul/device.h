@@ -6,6 +6,7 @@
 #define VULKANWORKSPACE_DEVICE_H
 
 #include"vul/physicaldevice.h"
+#include "vul/bitmasks.h"
 #include"vul/debugutils.h"
 #include<vulkan/vulkan.h>
 #include<vector>
@@ -19,7 +20,11 @@ namespace vul {
 
     class BinarySemaphore;
     class TimelineSemaphore;
-
+    class DescriptorPool;
+    class DescriptorSetLayoutBuilder;
+    class DescriptorSetLayout;
+    class LayoutBuilderCount;
+    class PipelineLayout;
     struct QueueFamilyIndexMapping {
         std::uint32_t queueFamilyIndex;
         std::uint32_t queueIndex;
@@ -47,6 +52,23 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<TimelineSemaphore> createTimelineSemaphore(std::uint64_t initialValue, const VkAllocationCallbacks *pAllocator = nullptr);
 
+        [[nodiscard]]
+        ExpectedResult<DescriptorPool> createDescriptorPool(const gsl::span<const LayoutBuilderCount>& layoutBuilders,
+                                                            vul::DescriptorPoolCreateBitMask flags = {},
+                                                            const void *pNext = nullptr,
+                                                            const VkAllocationCallbacks *pAllocator = nullptr);
+        [[nodiscard]]
+        ExpectedResult<PipelineLayout> createPipelineLayout(const gsl::span<const DescriptorSetLayout>& setLayouts,
+                                                            const gsl::span<const VkPushConstantRange>& pushConstantRanges,
+                                                            const void *pNext = nullptr,
+                                                            const VkAllocationCallbacks *pAllocator = nullptr);
+
+        [[nodiscard]]
+        ExpectedResult<PipelineLayout> createPipelineLayout(const gsl::span<const std::reference_wrapper<DescriptorSetLayout>>& setLayouts,
+                                                            const gsl::span<const VkPushConstantRange>& pushConstantRanges,
+                                                            const void *pNext = nullptr,
+                                                            const VkAllocationCallbacks *pAllocator = nullptr);
+
         Result waitIdle() const;
 
         ~Device();
@@ -70,6 +92,8 @@ namespace vul {
         }
 
         Result setObjectName(const std::string& string);
+        [[nodiscard]]
+        const PhysicalDevice& getPhysicalDevice() const;
     private:
         PhysicalDevice m_physicalDevice;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

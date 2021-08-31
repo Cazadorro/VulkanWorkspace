@@ -3,6 +3,7 @@
 //
 
 #include <gul/glfwwindow.h>
+#include <vul/renderpass.h>
 #include <vul/semaphore.h>
 #include <vul/vmaallocator.h>
 #include <vul/queue.h>
@@ -222,6 +223,17 @@ int main() {
         presentationQueue.waitIdle();
         surface.resizeSwapchain(swapchainBuilder, window.getFramebufferExtent());
     };
+
+    auto subpassBuilder = vul::SubpassGraph({vul::AttachmentDescription::PresentTemp(surface.getSwapchain()->getFormat()),
+                                             vul::AttachmentDescription::DepthTemp(vul::Format::D24UnormS8Uint)}, 1);
+    subpassBuilder.subpassAt(0).setWrites({0, 1})
+                                 .setPreDependExternal(vul::PipelineStageFlagBits::ColorAttachmentOutputBit,
+                                                       vul::PipelineStageFlagBits::ColorAttachmentOutputBit,
+                                                       {},
+                                                       vul::AccessFlagBits::ColorAttachmentWriteBit |
+                                                       vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
+    auto renderPass = subpassBuilder.createRenderPass(device);
+
     while(!window.shouldClose()){
 
         glfwPollEvents();
