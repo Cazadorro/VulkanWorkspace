@@ -5,7 +5,7 @@
 #ifndef VULKANWORKSPACE_TEMPARRAYPROXY_H
 #define VULKANWORKSPACE_TEMPARRAYPROXY_H
 
-#include <vkassert>
+#include "vul/vkassert.h"
 #include <gsl/span>
 
 namespace vul {
@@ -108,12 +108,12 @@ namespace vul {
                   m_ptr(data.data()) {}
 
 
-        template<size_t N = std::dynamic_extent>
+        template<size_t N = gsl::dynamic_extent>
         TempArrayProxy(gsl::span<T, N> const &data) noexcept
                 : m_size(static_cast<uint32_t>( data.size())),
                   m_ptr(data.data()) {}
 
-        template<size_t N = std::dynamic_extent,
+        template<size_t N = gsl::dynamic_extent,
                 typename B = T,
                 typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
@@ -121,12 +121,12 @@ namespace vul {
                 : m_size(static_cast<uint32_t>( data.size())),
                   m_ptr(data.data()) {}
 
-        template<size_t N = std::dynamic_extent>
+        template<size_t N = gsl::dynamic_extent>
         TempArrayProxy(gsl::span<T, N> &data) noexcept
                 : m_size(static_cast<uint32_t>( data.size())),
                   m_ptr(data.data()) {}
 
-        template<size_t N = std::dynamic_extent,
+        template<size_t N = gsl::dynamic_extent,
                 typename B = T,
                 typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
@@ -194,6 +194,12 @@ namespace vul {
             return m_ptr;
         }
 
+        const T& operator[](std::size_t i) const{
+            return m_ptr[i];
+        }
+        T& operator[](std::size_t i) {
+            return m_ptr[i];
+        }
     private:
         std::size_t m_size;
         T *m_ptr;

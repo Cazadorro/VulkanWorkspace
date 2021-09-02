@@ -249,3 +249,7 @@ vul::Result vul::Swapchain::present(const vul::Queue &presentQueue,
     presentInfo.pImageIndices = &swapchainImageIndex;
     return static_cast<Result>(vkQueuePresentKHR(presentQueue.get(), &presentInfo));
 }
+
+const std::vector<vul::ImageView> vul::Swapchain::getImageViews() const {
+    return m_imageViews;
+}

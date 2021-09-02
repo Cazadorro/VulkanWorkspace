@@ -197,5 +197,8 @@ namespace vul {
         VkSampleCountFlagBits m_samples;
         VkImageTiling m_tiling;
     };
+    [[nodiscard]]
+    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
 }
 #endif //VULKANWORKSPACE_IMAGE_H

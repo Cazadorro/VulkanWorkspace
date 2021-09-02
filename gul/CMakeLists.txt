@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(gul STATIC)
+add_library(gul STATIC gul/stbimage.cpp gul/stbimage.h)
 target_sources(gul
         PRIVATE
         ./gul/glfwwindow.cpp
@@ -22,7 +22,8 @@ target_link_libraries(gul
         Vulkan::Vulkan
         glm
         glfw
-        vul)
+        vul
+        stb::stb)
 
 
 target_compile_options(gul PRIVATE

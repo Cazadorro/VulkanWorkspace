@@ -171,13 +171,15 @@ void vul::GraphicsPipelineBuilder::setBlendState(vul::LogicOp logicOp,
 
 void vul::GraphicsPipelineBuilder::setDefaultBlendState() {
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
     m_blendAttachmentStates.push_back(colorBlendAttachment);
 }
 
 void vul::GraphicsPipelineBuilder::setDynamicState(
-        const std::vector<vul::DynamicState> & dynamicStates) {
+        const std::vector<vul::DynamicState> &dynamicStates) {
     m_dynamicStates = dynamicStates;
 }
 
@@ -205,12 +207,28 @@ vul::GraphicsPipelineBuilder::setTesselationState(uint32_t patchControlPoints) {
     m_patchControlPoints = patchControlPoints;
 }
 
+
+
+void vul::GraphicsPipelineBuilder::setFlags(vul::PipelineCreateBitMask flags) {
+    m_flags = flags.to_underlying();
+}
+
 vul::ExpectedResult<vul::GraphicsPipeline>
-vul::GraphicsPipelineBuilder::create(const PipelineCache& pipelineCache) const {
+vul::GraphicsPipelineBuilder::create(const PipelineCache &pipelineCache) const {
+    return create(pipelineCache.get());
+}
+
+vul::ExpectedResult<vul::GraphicsPipeline>
+vul::GraphicsPipelineBuilder::create() const {
+    return create(VK_NULL_HANDLE);
+}
+
+vul::ExpectedResult<vul::GraphicsPipeline>
+vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
 
     std::vector<VkVertexInputBindingDescription> inputBindingDescriptions;
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
-    for(const auto& [key, value]: m_bindingAttributeDescriptions){
+    for (const auto&[key, value]: m_bindingAttributeDescriptions) {
         inputBindingDescriptions.push_back(value.bindingDescription);
         vul::extend(attributeDescriptions, value.attributeDescriptions);
     }
@@ -227,7 +245,7 @@ vul::GraphicsPipelineBuilder::create(const PipelineCache& pipelineCache) const {
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = m_viewports.size();
-    viewportState.pViewports =m_viewports.data();
+    viewportState.pViewports = m_viewports.data();
     viewportState.scissorCount = m_scissors.size();
     viewportState.pScissors = m_scissors.data();
 
@@ -245,15 +263,17 @@ vul::GraphicsPipelineBuilder::create(const PipelineCache& pipelineCache) const {
     depthStencil.stencilTestEnable = VK_FALSE;
 
     VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+    colorBlendAttachment.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     colorBlendAttachment.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-    if(m_logicOp.has_value()){
+    if (m_logicOp.has_value()) {
         colorBlending.logicOpEnable = VK_TRUE;
         colorBlending.logicOp = vul::get(m_logicOp.value());
-    }else{
+    } else {
         colorBlending.logicOpEnable = VK_FALSE;
         colorBlending.logicOp = VK_LOGIC_OP_COPY;
     }
@@ -269,7 +289,7 @@ vul::GraphicsPipelineBuilder::create(const PipelineCache& pipelineCache) const {
     dynamicStateInfo.pNext = nullptr;
     dynamicStateInfo.flags = {};
     dynamicStateInfo.dynamicStateCount = m_dynamicStates.size();
-    dynamicStateInfo.pDynamicStates = reinterpret_cast<const VkDynamicState*>(m_dynamicStates.data());
+    dynamicStateInfo.pDynamicStates = reinterpret_cast<const VkDynamicState *>(m_dynamicStates.data());
 
     VkPipelineTessellationStateCreateInfo tesselationStateInfo = {};
     tesselationStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
@@ -289,7 +309,7 @@ vul::GraphicsPipelineBuilder::create(const PipelineCache& pipelineCache) const {
     pipelineInfo.pDepthStencilState = &m_depthStencilState;
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicStateInfo;
-    if(m_patchControlPoints != 0){
+    if (m_patchControlPoints != 0) {
         pipelineInfo.pTessellationState = &tesselationStateInfo;
     }
     pipelineInfo.layout = m_layout;
@@ -299,11 +319,11 @@ vul::GraphicsPipelineBuilder::create(const PipelineCache& pipelineCache) const {
     pipelineInfo.basePipelineIndex = m_basePipelineIndex;
 
     VkPipeline graphicsPipeline;
-    auto result = static_cast<Result>(vkCreateGraphicsPipelines(m_pDevice->get(), pipelineCache.get(), 1, &pipelineInfo, m_pAllocator, &graphicsPipeline));
+    auto result = static_cast<Result>(vkCreateGraphicsPipelines(
+            m_pDevice->get(), pipelineCache, 1, &pipelineInfo, m_pAllocator,
+            &graphicsPipeline));
 
-    return {result, GraphicsPipeline(*m_pDevice, graphicsPipeline, m_pAllocator)};
-}
+    return {result,
+            GraphicsPipeline(*m_pDevice, graphicsPipeline, m_pAllocator)};
 
-void vul::GraphicsPipelineBuilder::setFlags(vul::PipelineCreateBitMask flags) {
-    m_flags = flags.to_underlying();
 }

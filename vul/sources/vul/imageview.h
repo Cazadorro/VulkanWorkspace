@@ -6,6 +6,8 @@
 #define VULKANWORKSPACE_IMAGEVIEW_H
 #include "vul/bitmasks.h"
 #include "vul/enumsfwd.h"
+#include "image.h"
+
 #include <vulkan/vulkan.h>
 #include <cstdint>
 namespace vul {
@@ -56,6 +58,7 @@ namespace vul {
         const VkAllocationCallbacks *m_pAllocator = nullptr;
 
     };
+
 
 
     class SubresourceRange{

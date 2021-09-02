@@ -264,3 +264,25 @@ VkImageMemoryBarrier2KHR vul::Image::createFromnTransferBarrier(
 }
 
 
+VkImageCreateInfo
+vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling) {
+    VkImageCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.pNext = nullptr;
+    info.flags = 0;
+    info.imageType = VK_IMAGE_TYPE_2D;
+    info.format = vul::get(format);
+    info.extent = extent;
+    info.mipLevels = 1;
+    info.arrayLayers = 1;
+    info.samples = VK_SAMPLE_COUNT_1_BIT;
+    info.tiling = vul::get(tiling);
+    info.usage = usage.to_underlying();
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    info.queueFamilyIndexCount  = 0;
+    info.pQueueFamilyIndices = nullptr;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    return info;
+}
+
+

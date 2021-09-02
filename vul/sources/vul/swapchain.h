@@ -124,6 +124,8 @@ namespace vul {
         Result present(const Queue& presentQueue, const BinarySemaphore& renderingFinishedSemaphore,
                        std::uint32_t swapchainImageIndex) const;
 
+        [[nodiscard]]
+        const std::vector<ImageView> getImageViews() const;
 
     private:
         const Device *m_pDevice = nullptr;

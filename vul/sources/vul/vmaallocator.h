@@ -125,7 +125,7 @@ namespace vul {
             }
             auto buffer = std::move(expectedBuffer.value);
             auto result = vul::copy(stagingBuffer, buffer, commandPool, queue);
-            return {result, buffer};
+            return {result, std::move(buffer)};
         }
 
         [[nodiscard]]
@@ -161,9 +161,20 @@ namespace vul {
             }
             auto image = std::move(expectedImage.value);
             auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
-            return {result, image};
+            return {result, std::move(image)};
         }
-
+        template<typename T>
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
+                                                 const TempArrayProxy<const T> &array,
+                                                 const VkImageCreateInfo &imageInfo,
+                                                 std::uint32_t mipLevel = 0){
+            return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
+                                     vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
+                                     vul::AccessFlagBits2KHR::ShaderReadBit,
+                                     vul::ImageLayout::ShaderReadOnlyOptimal,
+                                     mipLevel);
+        }
         //TODO MOVE ONLY!
     private:
         const Device *m_pDevice = nullptr;

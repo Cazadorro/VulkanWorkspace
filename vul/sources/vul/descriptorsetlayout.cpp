@@ -9,6 +9,7 @@
 #include "vul/bitmasks.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
+#include "vul/temparrayproxy.h"
 #include <fmt/core.h>
 #include <algorithm>
 #include <numeric>
@@ -239,7 +240,7 @@ void vul::DescriptorSetLayoutBuilder::setFlags(
 }
 
 void vul::DescriptorSetLayoutBuilder::setBindings(
-        const gsl::span<const VkDescriptorSetLayoutBinding> &descriptorSetBindings) {
+        const TempArrayProxy<const VkDescriptorSetLayoutBinding> &descriptorSetBindings) {
     m_bindings.clear();
     m_bindings.insert(m_bindings.end(), descriptorSetBindings.begin(),
                       descriptorSetBindings.end());
@@ -256,8 +257,8 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
 }
 
 void vul::DescriptorSetLayoutBuilder::setBindings(
-        const gsl::span<const VkDescriptorSetLayoutBinding> &descriptorSetBindings,
-        const gsl::span<const std::string> &bindingName) {
+        const TempArrayProxy<const VkDescriptorSetLayoutBinding> &descriptorSetBindings,
+        const TempArrayProxy<const std::string> &bindingName) {
 
     VUL_ASSERT(descriptorSetBindings.size() == bindingName.size(),
                fmt::format(

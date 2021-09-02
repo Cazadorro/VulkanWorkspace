@@ -212,15 +212,17 @@ namespace vul {
     };
 
     class DescriptorSetUpdateBuilder;
+    template<typename T>
+    class TempArrayProxy;
     class DescriptorSetLayoutBuilder {
     public:
         explicit DescriptorSetLayoutBuilder(const Device &device,
         const VkAllocationCallbacks *pAllocator = nullptr);
         void setFlags(vul::DescriptorSetLayoutCreateBitMask flags);
         void setStageFlags(vul::ShaderStageBitMask stageFlags);
-        void setBindings(const gsl::span<VkDescriptorSetLayoutBinding const>& descriptorSetBindings);
-        void setBindings(const gsl::span<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
-                         const gsl::span<std::string const>& bindingName);
+        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings);
+        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
+                         const TempArrayProxy<std::string const>& bindingName);
 
 
         [[nodiscard]]

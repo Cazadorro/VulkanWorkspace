@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul sources/vul/containerutils.cpp sources/vul/containerutils.h sources/vul/shadermodule.cpp sources/vul/shadermodule.h sources/vul/vertexinputstate.cpp sources/vul/vertexinputstate.h sources/vul/struct_to_tuple.h sources/vul/repeat_macro.h sources/vul/tuple_to_array.h sources/vul/graphicspipeline.cpp sources/vul/graphicspipeline.h sources/vul/descriptorsetlayout.cpp sources/vul/descriptorsetlayout.h sources/vul/sampler.cpp sources/vul/sampler.h sources/vul/descriptorpool.cpp sources/vul/descriptorpool.h sources/vul/descriptorset.cpp sources/vul/descriptorset.h sources/vul/inputproxy.h sources/vul/pipelinelayout.cpp sources/vul/pipelinelayout.h sources/vul/vkutils.h sources/vul/temparrayproxy.h sources/vul/pipelinecache.cpp sources/vul/pipelinecache.h sources/vul/computepipeline.cpp sources/vul/computepipeline.h sources/vul/commandpool.cpp sources/vul/commandpool.h sources/vul/commandbuffer.cpp sources/vul/commandbuffer.h sources/vul/framebuffer.cpp sources/vul/framebuffer.h sources/vul/buffer.cpp sources/vul/buffer.h sources/vul/vmaallocation.cpp sources/vul/vmaallocation.h sources/vul/commandutils.cpp sources/vul/commandutils.h sources/vul/image.cpp sources/vul/image.h)
+add_library(vul )
 target_sources(vul PRIVATE
         sources/vul/instance.cpp
         sources/vul/instance.h
@@ -36,8 +36,50 @@ target_sources(vul PRIVATE
         sources/vul/renderpass.h
         sources/vul/colorformatutils.cpp
         sources/vul/colorformatutils.h
-        sources/vul/stdutils.cpp
-        sources/vul/stdutils.h)
+        sources/vul/containerutils.cpp
+        sources/vul/containerutils.h
+        sources/vul/shadermodule.cpp
+        sources/vul/shadermodule.h
+        sources/vul/vertexinputstate.cpp
+        sources/vul/vertexinputstate.h
+        sources/vul/struct_to_tuple.h
+        sources/vul/repeat_macro.h
+        sources/vul/tuple_to_array.h
+        sources/vul/graphicspipeline.cpp
+        sources/vul/graphicspipeline.h
+        sources/vul/descriptorsetlayout.cpp
+        sources/vul/descriptorsetlayout.h
+        sources/vul/sampler.cpp
+        sources/vul/sampler.h
+        sources/vul/descriptorpool.cpp
+        sources/vul/descriptorpool.h
+        sources/vul/descriptorset.cpp
+        sources/vul/descriptorset.h
+        sources/vul/inputproxy.h
+        sources/vul/pipelinelayout.cpp
+        sources/vul/pipelinelayout.h
+        sources/vul/vkutils.h
+        sources/vul/temparrayproxy.h
+        sources/vul/pipelinecache.cpp
+        sources/vul/pipelinecache.h
+        sources/vul/computepipeline.cpp
+        sources/vul/computepipeline.h
+        sources/vul/commandpool.cpp
+        sources/vul/commandpool.h
+        sources/vul/commandbuffer.cpp
+        sources/vul/commandbuffer.h
+        sources/vul/framebuffer.cpp
+        sources/vul/framebuffer.h
+        sources/vul/buffer.cpp
+        sources/vul/buffer.h
+        sources/vul/vmaallocation.cpp
+        sources/vul/vmaallocation.h
+        sources/vul/commandutils.cpp
+        sources/vul/commandutils.h
+        sources/vul/image.cpp
+        sources/vul/image.h
+        sources/vul/ioutils.cpp
+        sources/vul/ioutils.h)
 target_sources(vul PRIVATE
         ./generated_sources/vul/bitmasks.cpp
         ./generated_sources/vul/enums.cpp

@@ -71,8 +71,8 @@ namespace vul {
 //        std::uint32_t binding = 0, vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex
 
         template<typename T>
-        void setBinding(std::uint32_t binding = 0,
-                        vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex) {
+        void setVertexBinding(std::uint32_t binding = 0,
+                              vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex) {
             auto attributeDescriptions = createVertexAttributeDescriptions<T>(
                     binding);
             m_bindingAttributeDescriptions[binding] = {
@@ -133,8 +133,14 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<GraphicsPipeline>
         create(const PipelineCache &pipelineCache) const;
+        [[nodiscard]]
+        ExpectedResult<GraphicsPipeline>
+        create() const;
 
     private:
+        [[nodiscard]]
+        ExpectedResult<GraphicsPipeline>
+        create(VkPipelineCache pipelineCache) const;
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkPipelineCreateFlags m_flags = {};

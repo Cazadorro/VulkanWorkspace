@@ -3,6 +3,11 @@
 //
 
 #include "vul/device.h"
+#include "vul/imageview.h"
+#include "vul/framebuffer.h"
+#include "vul/renderpass.h"
+#include "vul/commandpool.h"
+#include "vul/shadermodule.h"
 #include "vul/semaphore.h"
 #include "vul/framebuffer.h"
 #include "vul/pipelinelayout.h"
@@ -80,21 +85,24 @@ vul::Result vul::Device::setObjectName(const std::string &string) {
 }
 
 vul::ExpectedResult<vul::BinarySemaphore>
-vul::Device::createBinarySemaphore(const VkAllocationCallbacks *pAllocator) const{
+vul::Device::createBinarySemaphore(
+        const VkAllocationCallbacks *pAllocator) const {
     VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     semaphoreInfo.pNext = nullptr;
     semaphoreInfo.flags = 0;
 
     VkSemaphore semaphore;
-    auto result = static_cast<Result>(vkCreateSemaphore(m_handle, &semaphoreInfo, pAllocator,
-                      &semaphore));
+    auto result = static_cast<Result>(vkCreateSemaphore(m_handle,
+                                                        &semaphoreInfo,
+                                                        pAllocator,
+                                                        &semaphore));
     return {result, vul::BinarySemaphore(*this, semaphore, pAllocator)};
 }
 
 vul::ExpectedResult<vul::TimelineSemaphore>
 vul::Device::createTimelineSemaphore(std::uint64_t initialValue,
-                                     const VkAllocationCallbacks *pAllocator) const{
+                                     const VkAllocationCallbacks *pAllocator) const {
     VkSemaphoreTypeCreateInfo timelineCreateInfo;
     timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
     timelineCreateInfo.pNext = nullptr;
@@ -107,7 +115,9 @@ vul::Device::createTimelineSemaphore(std::uint64_t initialValue,
     semaphoreInfo.flags = 0;
 
     VkSemaphore semaphore;
-    auto result = static_cast<Result>(vkCreateSemaphore(m_handle, &semaphoreInfo, pAllocator,
+    auto result = static_cast<Result>(vkCreateSemaphore(m_handle,
+                                                        &semaphoreInfo,
+                                                        pAllocator,
                                                         &semaphore));
     return {result, vul::TimelineSemaphore(*this, semaphore, pAllocator)};
 }
@@ -124,37 +134,39 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
         const gsl::span<const LayoutBuilderCount> &layoutBuilders,
         vul::DescriptorPoolCreateBitMask flags,
         const void *pNext,
-        const VkAllocationCallbacks *pAllocator) {
+        const VkAllocationCallbacks *pAllocator) const {
 
     std::vector<VkDescriptorPoolSize> poolSizes;
     std::uint32_t setCount = 0;
-    for(const auto& [builder, count] : layoutBuilders){
+    for (const auto&[builder, count] : layoutBuilders) {
         auto newPoolSizes = builder.calcPoolSizes(count);
         setCount += count;
-        poolSizes.insert(poolSizes.begin(), newPoolSizes.begin(), newPoolSizes.end());
+        poolSizes.insert(poolSizes.begin(), newPoolSizes.begin(),
+                         newPoolSizes.end());
     }
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.pNext = pNext;
-    poolInfo.flags =flags.to_underlying();
+    poolInfo.flags = flags.to_underlying();
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = setCount;
 
     VkDescriptorPool descriptorPool;
-    auto result = static_cast<Result>(vkCreateDescriptorPool(m_handle, &poolInfo, pAllocator,
-                                             &descriptorPool));
+    auto result = static_cast<Result>(vkCreateDescriptorPool(m_handle,
+                                                             &poolInfo,
+                                                             pAllocator,
+                                                             &descriptorPool));
     return {result, DescriptorPool(*this, descriptorPool, pAllocator)};
 }
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
-        const gsl::span<const DescriptorSetLayout> &setLayouts,
-        const gsl::span<const VkPushConstantRange> &pushConstantRanges,
-        const void *pNext, const VkAllocationCallbacks *pAllocator) {
-
-
-    auto rawLayouts = setLayouts | ranges::views::transform([](auto& layout){return layout.get();}) | ranges::to<std::vector>();
+        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    auto rawLayouts = setLayouts | ranges::views::transform(
+            [](auto &layout) { return layout->get(); }) |
+                      ranges::to<std::vector>();
 
     VkPipelineLayoutCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -166,16 +178,30 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     createInfo.pPushConstantRanges = pushConstantRanges.data();
 
     VkPipelineLayout pipelineLayout;
-    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle, &createInfo, pAllocator, &pipelineLayout));
+    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle,
+                                                             &createInfo,
+                                                             pAllocator,
+                                                             &pipelineLayout));
 
     return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
 }
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
-        const gsl::span<const std::reference_wrapper<DescriptorSetLayout>> &setLayouts,
-        const gsl::span<const VkPushConstantRange> &pushConstantRanges,
-        const void *pNext, const VkAllocationCallbacks *pAllocator) {
-    auto rawLayouts = setLayouts | ranges::views::transform([](auto& layout){return layout.get().get();}) | ranges::to<std::vector>();
+        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
+        const vul::TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const TempArrayProxy<const DescriptorSetLayout> &setLayouts,
+        const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+
+
+    auto rawLayouts = setLayouts | ranges::views::transform(
+            [](auto &layout) { return layout.get(); }) |
+                      ranges::to<std::vector>();
 
     VkPipelineLayoutCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -187,10 +213,53 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     createInfo.pPushConstantRanges = pushConstantRanges.data();
 
     VkPipelineLayout pipelineLayout;
-    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle, &createInfo, pAllocator, &pipelineLayout));
+    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle,
+                                                             &createInfo,
+                                                             pAllocator,
+                                                             &pipelineLayout));
 
     return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
 }
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const TempArrayProxy<const std::reference_wrapper<DescriptorSetLayout>> &setLayouts,
+        const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    auto rawLayouts = setLayouts | ranges::views::transform(
+            [](auto &layout) { return layout.get().get(); }) |
+                      ranges::to<std::vector>();
+
+    VkPipelineLayoutCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    createInfo.pNext = pNext;
+    createInfo.flags = 0;
+    createInfo.setLayoutCount = rawLayouts.size();
+    createInfo.pSetLayouts = rawLayouts.data();
+    createInfo.pushConstantRangeCount = pushConstantRanges.size();
+    createInfo.pPushConstantRanges = pushConstantRanges.data();
+
+    VkPipelineLayout pipelineLayout;
+    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle,
+                                                             &createInfo,
+                                                             pAllocator,
+                                                             &pipelineLayout));
+
+    return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
+}
+
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const vul::TempArrayProxy<const vul::DescriptorSetLayout> &setLayouts,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const vul::TempArrayProxy<const std::reference_wrapper<DescriptorSetLayout>> &setLayouts,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
+}
+
 
 vul::Result vul::Device::wait(const VkSemaphoreWaitInfo &waitInfo,
                               std::uint64_t timeout) const {
@@ -198,12 +267,15 @@ vul::Result vul::Device::wait(const VkSemaphoreWaitInfo &waitInfo,
 }
 
 vul::Result vul::Device::wait(
-        const vul::TempArrayProxy<const TimelineSemaphore*> &semaphores,
+        const vul::TempArrayProxy<const TimelineSemaphore *> &semaphores,
         const vul::TempArrayProxy<const uint64_t> &values,
         std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
         const void *pNext) const {
-    VUL_ASSERT(semaphores.size() == values.size(), "Expected semaphore count to match value count");
-    auto rawSemaphores = semaphores | ranges::views::transform([](auto& semaphore){return semaphore->get();}) | ranges::to<std::vector>();
+    VUL_ASSERT(semaphores.size() == values.size(),
+               "Expected semaphore count to match value count");
+    auto rawSemaphores = semaphores | ranges::views::transform(
+            [](auto &semaphore) { return semaphore->get(); }) |
+                         ranges::to<std::vector>();
     VkSemaphoreWaitInfo waitInfo;
     waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
     waitInfo.pNext = pNext;
@@ -219,8 +291,11 @@ vul::Result vul::Device::wait(
         const vul::TempArrayProxy<const uint64_t> &values,
         std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
         const void *pNext) const {
-    VUL_ASSERT(semaphores.size() == values.size(), "Expected semaphore count to match value count");
-    auto rawSemaphores = semaphores | ranges::views::transform([](auto& semaphore){return semaphore.get().get();}) | ranges::to<std::vector>();
+    VUL_ASSERT(semaphores.size() == values.size(),
+               "Expected semaphore count to match value count");
+    auto rawSemaphores = semaphores | ranges::views::transform(
+            [](auto &semaphore) { return semaphore.get().get(); }) |
+                         ranges::to<std::vector>();
     VkSemaphoreWaitInfo waitInfo;
     waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
     waitInfo.pNext = pNext;
@@ -230,3 +305,101 @@ vul::Result vul::Device::wait(
     waitInfo.pValues = values.data();
     wait(waitInfo, timeout);
 }
+
+vul::ExpectedResult<vul::ShaderModule> vul::Device::createShaderModule(
+        const vul::TempArrayProxy<const uint32_t> &code,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    VkShaderModuleCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size();
+    createInfo.pCode = code.data();
+
+    VkShaderModule shaderModule;
+    auto result = static_cast<Result>(vkCreateShaderModule(m_handle,
+                                                           &createInfo,
+                                                           pAllocator,
+                                                           &shaderModule));
+
+    return {result, ShaderModule(*this, shaderModule, pAllocator)};
+}
+
+vul::ExpectedResult<vul::CommandPool> vul::Device::createCommandPool(std::uint32_t queueFamilyIndex, vul::CommandPoolCreateBitMask flags, const void * pNext,  const VkAllocationCallbacks *pAllocator) const {
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.pNext = pNext;
+    poolInfo.flags = flags.to_underlying();
+    poolInfo.queueFamilyIndex = queueFamilyIndex;
+
+    VkCommandPool commandPool;
+    auto result = static_cast<Result>(vkCreateCommandPool(m_handle, &poolInfo, pAllocator, &commandPool));
+
+    return {result, CommandPool(*this, commandPool, pAllocator)};
+}
+
+vul::ExpectedResult<vul::Framebuffer>
+vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
+                               const vul::TempArrayProxy<const std::reference_wrapper<ImageView>> &imageViews,
+                               VkExtent2D widthHeight, std::uint32_t layers,
+                               vul::FramebufferCreateBitMask flags,
+                               const void *pNext,
+                               const VkAllocationCallbacks *pAllocator) const {
+    auto rawImageViews = imageViews | ranges::views::transform(
+            [](auto &imageView) { return imageView.get().get(); }) |
+                      ranges::to<std::vector>();
+    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::Framebuffer>
+vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
+                               const vul::TempArrayProxy<const vul::ImageView> &imageViews,
+                               VkExtent2D widthHeight, std::uint32_t layers,
+                               vul::FramebufferCreateBitMask flags,
+                               const void *pNext,
+                               const VkAllocationCallbacks *pAllocator) const {
+    auto rawImageViews = imageViews | ranges::views::transform(
+            [](auto &imageView) { return imageView.get(); }) |
+                         ranges::to<std::vector>();
+    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::Framebuffer>
+vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
+                               const vul::TempArrayProxy<const vul::ImageView *> &imageViews,
+                               VkExtent2D widthHeight, std::uint32_t layers,
+                               vul::FramebufferCreateBitMask flags,
+                               const void *pNext,
+                               const VkAllocationCallbacks *pAllocator) const {
+    auto rawImageViews = imageViews | ranges::views::transform(
+            [](auto &imageView) { return imageView->get(); }) |
+                         ranges::to<std::vector>();
+    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::Framebuffer>
+vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
+                               const vul::TempArrayProxy<VkImageView> &imageViews,
+                               VkExtent2D widthHeight, std::uint32_t layers,
+                               vul::FramebufferCreateBitMask flags,
+                               const void *pNext,
+                               const VkAllocationCallbacks *pAllocator) const {
+    VkFramebufferCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    createInfo.pNext = pNext;
+    createInfo.flags = flags.to_underlying();
+    createInfo.renderPass = renderPass.get();
+    createInfo.attachmentCount = imageViews.size();
+    createInfo.pAttachments = imageViews.data();
+    createInfo.width = widthHeight.width;
+    createInfo.height = widthHeight.height;
+    createInfo.layers = layers;
+
+    VkFramebuffer framebuffer;
+    auto result = static_cast<Result>(vkCreateFramebuffer(m_handle,
+                                                          &createInfo,
+                                                          pAllocator,
+                                                          &framebuffer));
+
+    return {result, Framebuffer(*this, framebuffer, pAllocator)};
+}
+
+
