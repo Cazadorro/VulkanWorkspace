@@ -48,14 +48,7 @@ const VkDeviceSize &vul::Buffer::size() const {
 }
 
 vul::Result vul::Buffer::setDebugObjectName(const std::string &name) {
-    auto device = m_allocation.getAllocator().getVkDevice();
-    auto objectNameInfo = vul::createObjectNameInfo(m_handle, name);
-    auto func = (PFN_vkSetDebugUtilsObjectNameEXT) vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT");
-    if (func != nullptr) {
-        return static_cast<Result>(func(device, &objectNameInfo));
-    } else {
-        return Result::ErrorExtensionNotPresent;
-    }
+    return m_allocation.getAllocator().getDevice().setObjectName(m_handle, name);
 }
 
 VkBufferCopy vul::Buffer::genFullCopyRegion() const {

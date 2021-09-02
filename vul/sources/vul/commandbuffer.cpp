@@ -3,6 +3,7 @@
 //
 
 #include "commandbuffer.h"
+#include "vul/image.h"
 #include "vul/buffer.h"
 #include "vul/renderpass.h"
 #include "vul/framebuffer.h"
@@ -14,6 +15,22 @@
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
+
+VkMemoryBarrier2KHR
+vul::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
+                         vul::AccessFlagBitMask srcAccessMask,
+                         vul::PipelineStageFlagBitMask dstStageMask,
+                         vul::AccessFlagBitMask dstAccessMask,
+                         const void *pNext) {
+    VkMemoryBarrier2KHR barrier = {};
+    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR;
+    barrier.pNext = pNext;
+    barrier.srcStageMask = srcStageMask.to_underlying();
+    barrier.srcAccessMask = srcAccessMask.to_underlying();
+    barrier.dstStageMask = dstStageMask.to_underlying();
+    barrier.dstAccessMask = dstAccessMask.to_underlying();
+    return barrier;
+}
 
 vul::CommandBuffer::CommandBuffer(const vul::CommandPool &commandPool,
                                   VkCommandBuffer handle)
@@ -70,6 +87,46 @@ void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
                                                            dstBuffer.size())});
 }
 
+void
+vul::CommandBuffer::pipelineBarrier(const VkDependencyInfoKHR &dependencyInfo) {
+    vkCmdPipelineBarrier2KHR(m_handle, &dependencyInfo);
+}
+
+void vul::CommandBuffer::copyBufferToImage(const vul::Buffer &srcBuffer,
+                                           vul::Image &dstImage,
+                                           vul::ImageAspectBitMask flags,
+                                           std::uint32_t mipLevel_t) {
+
+    VkBufferImageCopy copyRegion = {};
+    copyRegion.bufferOffset = 0;
+    copyRegion.bufferRowLength = 0;
+    copyRegion.bufferImageHeight = 0;
+    copyRegion.imageSubresource = vul::ImageSubresourceLayers(flags, mipLevel_t).get();
+    copyRegion.imageOffset = {};
+    copyRegion.imageExtent = dstImage.getExtent3D();
+    copyBufferToImage(srcBuffer, dstImage, copyRegion);
+}
+
+void vul::CommandBuffer::copyBufferToImage(const vul::Buffer &srcBuffer,
+                                           vul::Image &dstImage,
+                                           const vul::TempArrayProxy<const VkBufferImageCopy> &copyRegions) {
+    vkCmdCopyBufferToImage(m_handle,
+                           srcBuffer.get(),
+                           dstImage.get(),
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                           copyRegions.size(),
+                           copyRegions.data());
+}
+
+void vul::CommandBuffer::blitImage(const vul::Image &srcImage,
+                                   vul::Image &dstImage,
+                                   const TempArrayProxy<const VkImageBlit> &blitRegions) {
+    vkCmdBlitImage(m_handle,
+                   srcImage.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                   dstImage.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                   blitRegions.size(), blitRegions.data(),
+                   VK_FILTER_LINEAR);
+}
 
 
 vul::Result
@@ -126,7 +183,7 @@ void vul::PrimaryCommandBuffer::executeCommands(
 
 VkCommandBufferSubmitInfoKHR
 vul::PrimaryCommandBuffer::createSubmitInfo(std::uint32_t deviceMask,
-                                     const void *pNext) const {
+                                            const void *pNext) const {
     VkCommandBufferSubmitInfoKHR submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO_KHR;
     submitInfo.pNext = pNext;

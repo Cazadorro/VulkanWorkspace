@@ -7,6 +7,7 @@
 #include "vul/expectedresult.h"
 #include "vul/bitmasks.h"
 #include "vul/enums.h"
+#include "vul/sampler.h"
 
 vul::ImageViewBuilder::ImageViewBuilder(const vul::Device &device,
                                         const VkAllocationCallbacks *pAllocator)
@@ -103,6 +104,12 @@ VkImageView vul::ImageView::get() const {
 
 vul::Result vul::ImageView::setObjectName(const std::string &string) {
     return m_pDevice->setObjectName(m_handle, string);
+}
+
+VkDescriptorImageInfo
+vul::ImageView::createDescriptorInfo(const vul::Sampler &sampler,
+                                     vul::ImageLayout layout) const {
+    return {m_handle, sampler.get(), vul::get(layout)}
 }
 
 vul::SubresourceRange::operator VkImageSubresourceRange() const {

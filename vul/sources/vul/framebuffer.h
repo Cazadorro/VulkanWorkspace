@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include "commandbuffer.h"
+
 namespace vul {
     template<typename T>
     class ExpectedResult;

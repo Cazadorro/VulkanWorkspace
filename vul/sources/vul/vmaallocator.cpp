@@ -164,6 +164,37 @@ vul::VmaAllocator::createDeviceBuffer(VkDeviceSize size,
     return createBuffer(allocInfo, bufferInfo);
 }
 
+vul::ExpectedResult<vul::Image>
+vul::VmaAllocator::createImage(const VmaAllocationCreateInfo &allocInfo,
+                               const VkImageCreateInfo &imageInfo) const {
+    VkImage image;
+    ::VmaAllocation allocation;
+    auto result = static_cast<Result>(vmaCreateImage(m_handle, &imageInfo, &allocInfo, &image,
+                                                      &allocation, nullptr));
+    return {result, Image(vul::VmaAllocation(*this, allocation), image,
+                          imageInfo.imageType,
+                          imageInfo.format,
+                          imageInfo.extent,
+                          imageInfo.mipLevels,
+                          imageInfo.arrayLayers,
+                          imageInfo.samples,
+                          imageInfo.tiling)};
+}
+
+vul::ExpectedResult<vul::Image>
+vul::VmaAllocator::createDeviceImage(const VkImageCreateInfo &imageInfo) const {
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.flags = 0;
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags =VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    allocInfo.preferredFlags = 0;
+//    allocInfo.memoryTypeBits;
+//    allocInfo.pool;
+//    allocInfo.pUserData;
+//    allocInfo.priority;
+    return createImage(allocInfo, imageInfo);
+}
+
 
 
 

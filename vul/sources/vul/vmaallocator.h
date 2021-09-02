@@ -11,12 +11,12 @@
 #include "vul/bitmasks.h"
 #include "vul/expectedresult.h"
 #include "vul/buffer.h"
+#include "vul/image.h"
 #include "vul/commandutils.h"
 #include <vk_mem_alloc.h>
 
 
 namespace vul {
-    class Image;
 
     template<typename T>
     class TempArrayProxy;
@@ -126,6 +126,42 @@ namespace vul {
             auto buffer = std::move(expectedBuffer.value);
             auto result = vul::copy(stagingBuffer, buffer, commandPool, queue);
             return {result, buffer};
+        }
+
+        [[nodiscard]]
+        ExpectedResult<Image>
+        createImage(const VmaAllocationCreateInfo &allocInfo,
+                     const VkImageCreateInfo &imageInfo) const;
+
+        [[nodiscard]]
+        ExpectedResult<Image>
+        createDeviceImage(const VkImageCreateInfo &imageInfo) const;
+
+        template<typename T>
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceImage(
+                CommandPool& commandPool, Queue& queue,
+                const TempArrayProxy<const T> &array,
+                const VkImageCreateInfo &imageInfo,
+                vul::ImageAspectBitMask aspectMask,
+                vul::PipelineStageFlagBits2KHR dstStageMask,
+                vul::AccessFlagBits2KHR dstAccessMask,
+                vul::ImageLayout dstLayout,
+                std::uint32_t mipLevel = 0) const {
+            auto expectedStageBuffer = createStagingBuffer(array);
+            if(!expectedStageBuffer.hasValue()){
+                return {expectedStageBuffer.result, {}};
+            }
+            auto stagingBuffer = std::move(expectedStageBuffer.value);
+            auto tempImageInfo = imageInfo;
+            tempImageInfo.usage |= vul::get(vul::ImageUsageFlagBits::TransferDstBit);
+            auto expectedImage = createDeviceImage(tempImageInfo);
+            if(!expectedImage.hasValue()){
+                return {expectedImage.result, {}};
+            }
+            auto image = std::move(expectedImage.value);
+            auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
+            return {result, image};
         }
 
         //TODO MOVE ONLY!

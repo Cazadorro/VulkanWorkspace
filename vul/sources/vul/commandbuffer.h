@@ -65,8 +65,18 @@ namespace vul {
 
     class Buffer;
 
+    class Image;
+
     template<typename T>
     class TempArrayProxy;
+
+    [[nodiscard]]
+    VkMemoryBarrier2KHR
+    createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
+                        vul::AccessFlagBitMask srcAccessMask,
+                        vul::PipelineStageFlagBitMask dstStageMask,
+                        vul::AccessFlagBitMask dstAccessMask,
+                        const void *pNext);
 
     class RenderPassBlock {
     public:
@@ -125,6 +135,16 @@ namespace vul {
         void copyBuffer(const Buffer &srcBuffer, Buffer &dstBuffer,
                         const TempArrayProxy<const VkBufferCopy> &copyRegions);
 
+        void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
+                               vul::ImageAspectBitMask flags,
+                               std::uint32_t mipLevel_t = 0);
+        void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
+                               const TempArrayProxy<const VkBufferImageCopy> &copyRegions);
+
+        void pipelineBarrier(const VkDependencyInfoKHR &dependencyInfo);
+
+        void blitImage(const Image &srcImage, Image &dstImage,
+                       const TempArrayProxy<const VkImageBlit> &blitRegions);
 
 
     protected:
@@ -174,9 +194,12 @@ namespace vul {
 
         void executeCommands(
                 const TempArrayProxy<SecondaryCommandBuffer *> &secondaryCommandBuffers);
+
         [[nodiscard]]
         VkCommandBufferSubmitInfoKHR createSubmitInfo(
-                std::uint32_t deviceMask  = 0, const void * pNext = nullptr) const;
+                std::uint32_t deviceMask = 0,
+                const void *pNext = nullptr) const;
+
     private:
     };
 }

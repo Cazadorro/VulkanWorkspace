@@ -29,6 +29,7 @@ namespace vul {
 //    VUL_EXCEPT_RESULT(
 //            vkCreateImageView(device, &viewInfo, nullptr, &imageView));
 //    return vul::make_handle(device, imageView);
+    class Sampler;
     class ImageView {
     public:
         ImageView() = default;
@@ -46,6 +47,9 @@ namespace vul {
         VkImageView get() const;
 
         Result setObjectName(const std::string &string);
+
+        [[nodiscard]]
+        VkDescriptorImageInfo createDescriptorInfo(const Sampler& sampler, vul::ImageLayout layout) const;
     private:
         const Device* m_pDevice = nullptr;
         VkImageView m_handle = VK_NULL_HANDLE;
