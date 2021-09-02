@@ -4,6 +4,7 @@
 
 #include "descriptorpool.h"
 #include "vul/device.h"
+#include "vul/enums.h"
 
 vul::DescriptorPool::DescriptorPool(const vul::Device &device,
                                     VkDescriptorPool handle,

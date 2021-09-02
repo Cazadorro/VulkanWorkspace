@@ -7,6 +7,8 @@
 #include<vulkan/vulkan.hpp>
 #include<vul/enumsfwd.h>
 namespace vul {
+    template<typename T>
+    class TempArrayProxy;
     class Device;
     class Queue {
     public:
@@ -14,6 +16,8 @@ namespace vul {
         [[nodiscard]]
         VkQueue get() const;
         Result setObjectName(const std::string &string, const Device& device);
+
+        Result submit(const TempArrayProxy<const VkSubmitInfo2KHR>& submitInfos) const;
 
         Queue(Queue &&rhs) noexcept = default;
 

@@ -46,6 +46,20 @@ vul::Result vul::BinarySemaphore::setObjectName(const std::string &string) {
     return m_pDevice->setObjectName(m_handle, string);
 }
 
+VkSemaphoreSubmitInfoKHR
+vul::BinarySemaphore::createSubmitInfo(vul::PipelineStageFlagBitMask stageMask,
+                                       std::uint32_t deviceIndex,
+                                       const void *pNext) const{
+    VkSemaphoreSubmitInfoKHR submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR;
+    submitInfo.pNext = pNext;
+    submitInfo.semaphore = m_handle;
+    submitInfo.value = 0;
+    submitInfo.stageMask = stageMask.to_underlying();
+    submitInfo.deviceIndex = deviceIndex;
+    return submitInfo;
+}
+
 
 vul::TimelineSemaphore::TimelineSemaphore(const vul::Device &device,
                                       VkSemaphore handle,
@@ -147,4 +161,19 @@ vul::Result vul::TimelineSemaphore::signal(std::uint64_t signalValue) {
     signalInfo.semaphore = m_handle;
     signalInfo.value     = signalValue;
     return static_cast<Result>(vkSignalSemaphore(m_pDevice->get(), &signalInfo));
+}
+
+VkSemaphoreSubmitInfoKHR
+vul::TimelineSemaphore::createSubmitInfo(std::uint64_t value,
+                                         vul::PipelineStageFlagBitMask stageMask,
+                                         std::uint32_t deviceIndex,
+                                         const void *pNext) const{
+    VkSemaphoreSubmitInfoKHR submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO_KHR;
+    submitInfo.pNext = pNext;
+    submitInfo.semaphore = m_handle;
+    submitInfo.value = value;
+    submitInfo.stageMask = stageMask.to_underlying();
+    submitInfo.deviceIndex = deviceIndex;
+    return submitInfo;
 }

@@ -180,6 +180,11 @@ namespace vul {
         }
 
         [[nodiscard]]
+        std::size_t size_bytes() const noexcept{
+            return size() * sizeof(T);
+        }
+
+        [[nodiscard]]
         const T *data() const noexcept {
             return m_ptr;
         }

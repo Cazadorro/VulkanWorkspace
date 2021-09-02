@@ -39,7 +39,10 @@ namespace vul {
         const VkSemaphore& get() const;
 
         Result setObjectName(const std::string &string);
-
+        [[nodiscard]]
+        VkSemaphoreSubmitInfoKHR createSubmitInfo(
+                vul::PipelineStageFlagBitMask stageMask,
+                std::uint32_t deviceIndex = 0, const void* pNext = nullptr) const;
     private:
         const Device *m_pDevice = nullptr;
         VkSemaphore m_handle = VK_NULL_HANDLE;
@@ -92,12 +95,19 @@ namespace vul {
                        const gsl::span<std::uint64_t const>& waitValues,
                        std::uint64_t timeout_ns = UINT64_MAX);
 
+        [[nodiscard]]
+        VkSemaphoreSubmitInfoKHR createSubmitInfo(
+                std::uint64_t value, vul::PipelineStageFlagBitMask stageMask,
+                std::uint32_t deviceIndex = 0, const void* pNext = nullptr) const;
+
 
     private:
         const Device *m_pDevice = nullptr;
         VkSemaphore m_handle = VK_NULL_HANDLE;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
     };
+
+
 
 }
 #endif //VULKANWORKSPACE_SEMAPHORE_H

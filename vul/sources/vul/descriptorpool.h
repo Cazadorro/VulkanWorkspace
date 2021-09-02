@@ -4,7 +4,7 @@
 
 #ifndef VULKANWORKSPACE_DESCRIPTORPOOL_H
 #define VULKANWORKSPACE_DESCRIPTORPOOL_H
-#include "vul/enums.h"
+#include "vul/enumsfwd.h"
 #include <vulkan/vulkan.h>
 #include <string>
 

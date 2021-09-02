@@ -3,12 +3,14 @@
 //
 
 #include "vul/device.h"
+#include "vul/semaphore.h"
+#include "vul/framebuffer.h"
 #include "vul/pipelinelayout.h"
 #include "vul/descriptorpool.h"
 #include "vul/descriptorsetlayout.h"
 #include "vul/queue.h"
-#include "vul/semaphore.h"
 #include "vul/vkassert.h"
+#include "vul/temparrayproxy.h"
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
@@ -78,7 +80,7 @@ vul::Result vul::Device::setObjectName(const std::string &string) {
 }
 
 vul::ExpectedResult<vul::BinarySemaphore>
-vul::Device::createBinarySemaphore(const VkAllocationCallbacks *pAllocator) {
+vul::Device::createBinarySemaphore(const VkAllocationCallbacks *pAllocator) const{
     VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     semaphoreInfo.pNext = nullptr;
@@ -92,7 +94,7 @@ vul::Device::createBinarySemaphore(const VkAllocationCallbacks *pAllocator) {
 
 vul::ExpectedResult<vul::TimelineSemaphore>
 vul::Device::createTimelineSemaphore(std::uint64_t initialValue,
-                                     const VkAllocationCallbacks *pAllocator) {
+                                     const VkAllocationCallbacks *pAllocator) const{
     VkSemaphoreTypeCreateInfo timelineCreateInfo;
     timelineCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
     timelineCreateInfo.pNext = nullptr;
@@ -190,4 +192,41 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
 }
 
+vul::Result vul::Device::wait(const VkSemaphoreWaitInfo &waitInfo,
+                              std::uint64_t timeout) const {
+    return static_cast<Result>(vkWaitSemaphores(m_handle, &waitInfo, timeout));
+}
 
+vul::Result vul::Device::wait(
+        const vul::TempArrayProxy<const TimelineSemaphore*> &semaphores,
+        const vul::TempArrayProxy<const uint64_t> &values,
+        std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
+        const void *pNext) const {
+    VUL_ASSERT(semaphores.size() == values.size(), "Expected semaphore count to match value count");
+    auto rawSemaphores = semaphores | ranges::views::transform([](auto& semaphore){return semaphore->get();}) | ranges::to<std::vector>();
+    VkSemaphoreWaitInfo waitInfo;
+    waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+    waitInfo.pNext = pNext;
+    waitInfo.flags = waitFlags.to_underlying();
+    waitInfo.semaphoreCount = rawSemaphores.size();
+    waitInfo.pSemaphores = rawSemaphores.data();
+    waitInfo.pValues = values.data();
+    wait(waitInfo, timeout);
+}
+
+vul::Result vul::Device::wait(
+        const vul::TempArrayProxy<const std::reference_wrapper<TimelineSemaphore>> &semaphores,
+        const vul::TempArrayProxy<const uint64_t> &values,
+        std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
+        const void *pNext) const {
+    VUL_ASSERT(semaphores.size() == values.size(), "Expected semaphore count to match value count");
+    auto rawSemaphores = semaphores | ranges::views::transform([](auto& semaphore){return semaphore.get().get();}) | ranges::to<std::vector>();
+    VkSemaphoreWaitInfo waitInfo;
+    waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+    waitInfo.pNext = pNext;
+    waitInfo.flags = waitFlags.to_underlying();
+    waitInfo.semaphoreCount = rawSemaphores.size();
+    waitInfo.pSemaphores = rawSemaphores.data();
+    waitInfo.pValues = values.data();
+    wait(waitInfo, timeout);
+}

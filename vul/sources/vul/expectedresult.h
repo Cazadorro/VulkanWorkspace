@@ -44,6 +44,18 @@ namespace vul {
                 std::terminate();
             }
         }
+        bool hasValue(const gsl::span<Result>& other_success_results = {}){
+            if(result == Result::Success){
+                return true;
+            }else{
+                for(const auto& success_result: other_success_results){
+                    if(result == success_result){
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
 
     private:
 

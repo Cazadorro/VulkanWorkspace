@@ -25,6 +25,9 @@ namespace vul {
     class DescriptorSetLayout;
     class LayoutBuilderCount;
     class PipelineLayout;
+    class TimelineSemaphore;
+    template<typename T>
+    class TempArrayProxy;
     struct QueueFamilyIndexMapping {
         std::uint32_t queueFamilyIndex;
         std::uint32_t queueIndex;
@@ -47,10 +50,10 @@ namespace vul {
         std::optional<Queue> getQueueAt(std::uint32_t index);
 
         [[nodiscard]]
-        ExpectedResult<BinarySemaphore> createBinarySemaphore(const VkAllocationCallbacks *pAllocator = nullptr);
+        ExpectedResult<BinarySemaphore> createBinarySemaphore(const VkAllocationCallbacks *pAllocator = nullptr) const;
 
         [[nodiscard]]
-        ExpectedResult<TimelineSemaphore> createTimelineSemaphore(std::uint64_t initialValue, const VkAllocationCallbacks *pAllocator = nullptr);
+        ExpectedResult<TimelineSemaphore> createTimelineSemaphore(std::uint64_t initialValue, const VkAllocationCallbacks *pAllocator = nullptr) const;
 
         [[nodiscard]]
         ExpectedResult<DescriptorPool> createDescriptorPool(const gsl::span<const LayoutBuilderCount>& layoutBuilders,
@@ -94,6 +97,17 @@ namespace vul {
         Result setObjectName(const std::string& string);
         [[nodiscard]]
         const PhysicalDevice& getPhysicalDevice() const;
+        Result wait(const VkSemaphoreWaitInfo& waitInfo, std::uint64_t timeout = UINT64_MAX) const;
+        Result wait(const TempArrayProxy<const TimelineSemaphore*>& semaphores,
+                    const TempArrayProxy<const std::uint64_t>& values,
+                    std::uint64_t timeout = UINT64_MAX,
+                    vul::SemaphoreWaitBitMask waitFlags = {},
+                    const void* pNext = nullptr) const;
+        Result wait(const TempArrayProxy<const std::reference_wrapper<TimelineSemaphore>>& semaphores,
+                    const TempArrayProxy<const std::uint64_t>& values,
+                    std::uint64_t timeout = UINT64_MAX,
+                    vul::SemaphoreWaitBitMask waitFlags = {},
+                    const void* pNext = nullptr) const;
     private:
         PhysicalDevice m_physicalDevice;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

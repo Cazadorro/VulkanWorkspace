@@ -28,6 +28,37 @@
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
 
+//X createInstance();
+//X setupDebugMessenger();
+//X createSurface();
+//X pickPhysicalDevice();
+//X createLogicalDevice();
+//X createSwapChain();
+
+//createImageViews();
+
+//X createRenderPass();
+//X createDescriptorSetLayout();
+//X createGraphicsPipeline();
+//X createCommandPool();
+
+//createDepthResources();
+
+//X createFramebuffers();
+
+//createTextureImage();
+//createTextureImageView();
+
+//X createTextureSampler();
+//X createVertexBuffer();
+//X createIndexBuffer();
+//X createUniformBuffers();
+//X createDescriptorPool();
+//X createDescriptorSets();
+//X createCommandBuffers();
+//X createSyncObjects();
+
+
 std::optional<vul::PhysicalDevice>
 pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
                    const vul::Features &features,
