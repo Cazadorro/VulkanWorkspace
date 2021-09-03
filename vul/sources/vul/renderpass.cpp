@@ -590,7 +590,7 @@ vul::SubpassNode::createSubpassDependencies() const {
                                  [attachment = m_depthAttachmentWriteReference.value()](
                                          auto attachmentReference) {
                                      return attachmentReference.attachment ==
-                                            attachment;
+                                            attachment.attachment;
                                  })) {
                 //these are the possible stages where depth is still being written used/
                 dependencies[dependencyIndex].dstStageMask |=
@@ -606,7 +606,7 @@ vul::SubpassNode::createSubpassDependencies() const {
                     otherSubpass.m_colorAttachmentWriteReferences,
                     m_colorAttachmentWriteReferences,
                     [](auto lhs, auto rhs) {
-                        lhs.attachment == rhs.attachment;
+                        return lhs.attachment == rhs.attachment;
                     })) {
                 dependencies[dependencyIndex].dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
                 dependencies[dependencyIndex].dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -630,7 +630,7 @@ vul::SubpassNode::createSubpassDependencies() const {
                                  [attachment = otherSubpass.m_depthAttachmentWriteReference.value()](
                                          auto attachmentReference) {
                                      return attachmentReference.attachment ==
-                                            attachment;
+                                            attachment.attachment;
                                  })) {
                 //these are the possible stages where depth is still being written used/
                 dependencies[dependencyIndex].srcStageMask |=
@@ -644,7 +644,7 @@ vul::SubpassNode::createSubpassDependencies() const {
                     otherSubpass.m_colorAttachmentWriteReferences,
                     m_colorAttachmentWriteReferences,
                     [](auto lhs, auto rhs) {
-                        lhs.attachment == rhs.attachment;
+                        return lhs.attachment == rhs.attachment;
                     })) {
                 dependencies[dependencyIndex].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
                 dependencies[dependencyIndex].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -685,7 +685,7 @@ vul::SubpassNode::createSubpassDependencies() const {
                     otherSubpass.m_colorAttachmentWriteReferences,
                     m_colorAttachmentWriteReferences,
                     [](auto lhs, auto rhs) {
-                        lhs.attachment == rhs.attachment;
+                        return lhs.attachment == rhs.attachment;
                     })) {
                 dependencies[dependencyIndex].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
                 dependencies[dependencyIndex].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
@@ -716,7 +716,7 @@ vul::SubpassNode &vul::SubpassNode::setPreDependExternal(
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = m_subpassIndex;
-    dependency.srcAccessMask = srcStageMask.to_underlying();
+    dependency.srcStageMask = srcStageMask.to_underlying();
     dependency.dstStageMask = dstStageMask.to_underlying();
     dependency.srcAccessMask = srcAccessMask.to_underlying();
     dependency.dstAccessMask = dstAccessMask.to_underlying();
@@ -733,7 +733,7 @@ vul::SubpassNode &vul::SubpassNode::setPostExternalDepend(
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = m_subpassIndex;
     dependency.dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.srcAccessMask = srcStageMask.to_underlying();
+    dependency.srcStageMask = srcStageMask.to_underlying();
     dependency.dstStageMask = dstStageMask.to_underlying();
     dependency.srcAccessMask = srcAccessMask.to_underlying();
     dependency.dstAccessMask = dstAccessMask.to_underlying();
@@ -754,7 +754,7 @@ vul::SubpassGraph::SubpassGraph(
         const gsl::span<const AttachmentDescription> &attachmentDescriptions,
         std::uint32_t subpassCount) : m_attachmentDescriptions(
         attachmentDescriptions.begin(), attachmentDescriptions.end()) {
-    m_subpassNodes.reserve(subpassCount);
+    //m_subpassNodes.reserve(subpassCount);
     for (std::uint32_t i = 0; i < subpassCount; ++i) {
         m_subpassNodes.emplace_back(*this, i);
     }

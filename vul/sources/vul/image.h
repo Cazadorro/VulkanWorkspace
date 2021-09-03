@@ -51,7 +51,7 @@ namespace vul {
         explicit ImageSubresourceLayers(vul::ImageAspectBitMask aspectMask,
                                         std::uint32_t mipLevel = 0,
                                         std::uint32_t baseArrayLayer = 0,
-                                        std::uint32_t layerCount = VK_REMAINING_ARRAY_LAYERS);
+                                        std::uint32_t layerCount = 1);
 
         vul::ImageAspectBitMask aspectMask;
         std::uint32_t mipLevel = 0;
@@ -170,7 +170,7 @@ namespace vul {
 
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
-                const vul::ImageSubresourceRange &subresourceRange = {},
+                const vul::ImageSubresourceRange &subresourceRange,
                 const VkComponentMapping &components = {},
                 vul::ImageViewCreateBitMask flags = {},
                 const void *pNext = nullptr,
@@ -179,7 +179,7 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
                 vul::ImageViewType viewType,
-                const vul::ImageSubresourceRange &subresourceRange = {},
+                const vul::ImageSubresourceRange &subresourceRange,
                 const VkComponentMapping &components = {},
                 vul::ImageViewCreateBitMask flags = {},
                 const void *pNext = nullptr,

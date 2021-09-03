@@ -74,17 +74,17 @@ vul::QueueFamilyProperties::QueueFamilyProperties(
 
 std::vector<std::uint32_t> vul::QueueFamilyProperties::getQueueFamilyIndexes(
         vul::QueueBitMask queueFamilyBits) const {
-    auto hasQueueBits = [queueFamilyBits](const auto &props) {
-        return props.queueCount > 0 &&
+    auto notHasQueueBits = [queueFamilyBits](const auto &props) {
+        return !(props.queueCount > 0 &&
                vul::QueueBitMask(props.queueFlags).contains(
-                       queueFamilyBits);
+                       queueFamilyBits));
     };
     auto getEnumeratedU32 = [](const auto &pair) {
         return static_cast<std::uint32_t>(pair.first);
     };
     using namespace ranges;
     return m_queueFamilyProperties
-           | views::remove_if(hasQueueBits)
+           | views::remove_if(notHasQueueBits)
            | views::enumerate
            | views::transform(getEnumeratedU32)
            | to<std::vector>();
@@ -93,15 +93,15 @@ std::vector<std::uint32_t> vul::QueueFamilyProperties::getQueueFamilyIndexes(
 std::vector<std::uint32_t>
 vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
         const vul::Surface &surface, vul::QueueBitMask queueFamilyBits) const {
-    auto hasPresentationQueueBits =
+    auto notHasPresentationQueueBits =
             [&physicalDevice = *m_physicalDevice, &surface,
                     queueFamilyBits](const auto &pair) {
                 auto queueFamilyIndex = pair.first;
                 const auto &props = pair.second;
-                return props.queueCount > 0 &&
+                return !(props.queueCount > 0 &&
                        vul::QueueBitMask(props.queueFlags).contains(
                                queueFamilyBits) &&
-                       surface.isSupportedBy(physicalDevice, queueFamilyIndex);
+                       surface.isSupportedBy(physicalDevice, queueFamilyIndex));
             };
     auto getEnumeratedU32 = [](const auto &pair) {
         return static_cast<std::uint32_t>(pair.first);
@@ -109,7 +109,7 @@ vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
     using namespace ranges;
     return m_queueFamilyProperties
            | views::enumerate
-           | views::remove_if(hasPresentationQueueBits)
+           | views::remove_if(notHasPresentationQueueBits)
            | views::transform(getEnumeratedU32)
            | to<std::vector>();
 }

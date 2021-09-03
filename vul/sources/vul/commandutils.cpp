@@ -33,6 +33,7 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
+    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
     submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
     submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
     submitInfo.waitSemaphoreInfoCount = 0;
@@ -55,6 +56,7 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
                       vul::AccessFlagBits2KHR dstAccessMask,
                       vul::ImageLayout dstLayout,
                       std::uint32_t mipLevel) {
+
 
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
     auto toTransferBarrier = dst.createToTransferBarrier(vul::PipelineStageFlagBits2KHR::None,
@@ -105,6 +107,7 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
+    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
     submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
     submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
     submitInfo.waitSemaphoreInfoCount = 0;
@@ -149,6 +152,7 @@ vul::Result transition(const VkImageMemoryBarrier2KHR& barrier, vul::CommandPool
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
+    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
     submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
     submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
     submitInfo.waitSemaphoreInfoCount = 0;

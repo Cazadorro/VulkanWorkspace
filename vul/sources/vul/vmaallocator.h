@@ -85,7 +85,7 @@ namespace vul {
         ExpectedResult<Buffer>
         createMappedCoherentBuffer(const TempArrayProxy<const T> &array,
                                   vul::BufferUsageBitMask otherUsages = {}) const {
-            auto expectedResult = createMappedCoherentBuffer(array.size(),
+            auto expectedResult = createMappedCoherentBuffer(array.size_bytes(),
                                                              otherUsages);
             if (!expectedResult.hasValue()) {
                 return expectedResult;
@@ -99,12 +99,12 @@ namespace vul {
         ExpectedResult<Buffer>
         createStagingBuffer(const TempArrayProxy<const T> &array,
                             vul::BufferUsageBitMask otherUsages = {}) const {
-            auto expectedResult = createStagingBuffer(array.size(),
+            auto expectedResult = createStagingBuffer(array.size_bytes(),
                                                       otherUsages);
             if (!expectedResult.hasValue()) {
                 return expectedResult;
             }
-            expectedResult.value.getAllocation().copyToMapped(array);
+            expectedResult.value.copyToMapped(array);
             return expectedResult;
         }
 
@@ -119,7 +119,7 @@ namespace vul {
                 return {expectedStageBuffer.result, {}};
             }
             auto stagingBuffer = std::move(expectedStageBuffer.value);
-            auto expectedBuffer = createDeviceBuffer(array.size(), vul::BufferUsageFlagBits::TransferDstBit | usages);
+            auto expectedBuffer = createDeviceBuffer(array.size_bytes(), vul::BufferUsageFlagBits::TransferDstBit | usages);
             if(!expectedBuffer.hasValue()){
                 return {expectedBuffer.result, {}};
             }
@@ -170,7 +170,7 @@ namespace vul {
                                                  const VkImageCreateInfo &imageInfo,
                                                  std::uint32_t mipLevel = 0){
             return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
-                                     vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
+                                     vul::PipelineStageFlagBits2KHR::AllCommandsBit,
                                      vul::AccessFlagBits2KHR::ShaderReadBit,
                                      vul::ImageLayout::ShaderReadOnlyOptimal,
                                      mipLevel);

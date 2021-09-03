@@ -13,9 +13,10 @@ namespace vul {
     class Queue {
     public:
         Queue() = default;
+        Queue(const Device& device, VkQueue handle);
         [[nodiscard]]
         VkQueue get() const;
-        Result setObjectName(const std::string &string, const Device& device);
+        Result setObjectName(const std::string &string);
 
         Result submit(const TempArrayProxy<const VkSubmitInfo2KHR>& submitInfos) const;
 
@@ -29,6 +30,7 @@ namespace vul {
 
         Result waitIdle() const;
     private:
+        const Device *m_pDevice = nullptr;
         VkQueue m_handle = VK_NULL_HANDLE;
     };
 }

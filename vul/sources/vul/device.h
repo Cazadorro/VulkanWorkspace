@@ -14,7 +14,7 @@
 #include<unordered_map>
 
 namespace vul {
-    class PhysicalDevice;;
+    class PhysicalDevice;
 
     class Queue;
 

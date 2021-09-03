@@ -144,36 +144,59 @@ namespace vul{
         return bindingDescription;
     }
 
+    template<typename T, size_t... I>
+    auto
+    reverse_tuple_impl(T&& t, std::index_sequence<I...>)
+    {
+        return std::make_tuple(std::get<sizeof...(I) - 1 - I>(std::forward<T>(t))...);
+    }
+
+    template<typename T>
+    auto
+    reverse_tuple(T&& t)
+    {
+        return reverse_tuple_impl(std::forward<T>(t),
+                            std::make_index_sequence<std::tuple_size<T>::value>());
+    }
+
     template<typename T>
     auto createVertexAttributeDescriptions(std::uint32_t binding = 0) {
-        auto attribute_tuple = vul::struct_to_tuple(T{});
+        auto attribute_tuple = reverse_tuple(vul::struct_to_tuple(T{}));
         using tuple_type = decltype(attribute_tuple);
         std::array<VkVertexInputAttributeDescription,
         std::tuple_size_v<tuple_type>> attributeDescriptions;
+        std::size_t reversing_factor = attributeDescriptions.size() > 0 ?attributeDescriptions.size() - 1 : 0;
         std::uint32_t array_index = 0;
         std::uint32_t offset = 0;
         // for each attribute description for each element in the struct,
         // we are going to extract the tuple type for the format and calculate offset
+        auto foo = [&array_index, &offset, &binding, &attributeDescriptions, &reversing_factor](auto argument){
+            std::uint32_t reverse_index = array_index;
+            attributeDescriptions[reverse_index].location = reverse_index;
+            attributeDescriptions[reverse_index].binding = binding;
+            attributeDescriptions[reverse_index].format = vul::get(getAttributeFormat<decltype(argument)>());
+            auto element_size = sizeof(argument);
+            auto alignment = std::alignment_of<decltype(argument)>();
+            auto remainder = offset % alignment;
+            if(remainder == 0 || remainder > element_size){
+                attributeDescriptions[reverse_index].offset = offset;
+            }else{
+                offset += remainder;
+                attributeDescriptions[reverse_index].offset = offset;
+            }
+            offset += element_size;
+            array_index += 1;
+            return 0;
+        };
         std::apply(
-                [&array_index, &offset, &binding, &attributeDescriptions](const auto&&... tupleArgs){
-                    attributeDescriptions[array_index].location = array_index;
-                    attributeDescriptions[array_index].binding = binding;
-                    attributeDescriptions[array_index].format = vul::get(getAttributeFormat<decltype(tupleArgs)...>());
-                    auto element_size = sizeof...(tupleArgs);
-                    auto alignment = std::alignment_of<decltype(tupleArgs)...>();
-                    auto remainder = offset % alignment;
-                    if(remainder == 0 || remainder > element_size){
-                        attributeDescriptions[array_index].offset = offset;
-                    }else{
-                        offset += remainder;
-                        attributeDescriptions[array_index].offset = offset;
-                    }
-                    offset += element_size;
-                    array_index += 1;
-                }, attribute_tuple
+                [&foo](auto&&... tupleArgs){
+                    std::make_tuple(foo(tupleArgs)...);
+                }, attribute_tuple//attribute_tuple
         );
         return attributeDescriptions;
     }
+
+
 //    struct Vertex {
 //        glm::vec3 pos;
 //        glm::vec3 color;

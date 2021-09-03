@@ -48,35 +48,6 @@
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
 
-//X createInstance();
-//X setupDebugMessenger();
-//X createSurface();
-//X pickPhysicalDevice();
-//X createLogicalDevice();
-//X createSwapChain();
-
-//createImageViews();
-
-//X createRenderPass();
-//X createDescriptorSetLayout();
-//X createGraphicsPipeline();
-//X createCommandPool();
-
-//createDepthResources();
-
-//X createFramebuffers();
-
-//createTextureImage();
-//createTextureImageView();
-
-//X createTextureSampler();
-//X createVertexBuffer();
-//X createIndexBuffer();
-//X createUniformBuffers();
-//X createDescriptorPool();
-//X createDescriptorSets();
-//X createCommandBuffers();
-//X createSyncObjects();
 struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
@@ -196,6 +167,8 @@ int main() {
 
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;
+
+    features.physicalDeviceSynchronization2FeaturesKHR.synchronization2 = VK_TRUE;
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
@@ -217,7 +190,8 @@ int main() {
     vul::PhysicalDevice physicalDevice = physicalDeviceOpt.value();
 
     auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
-                                 vul::QueueFlagBits::ComputeBit;
+                                 vul::QueueFlagBits::ComputeBit |
+                                 vul::QueueFlagBits::TransferBit;
     auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
                                  vul::QueueFlagBits::TransferBit;
 
@@ -326,8 +300,8 @@ int main() {
                      vul::Format::D24UnormS8Uint)}, 1);
     subpassBuilder.subpassAt(0).setWrites({0, 1})
             .setPreDependExternal(
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit,
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit,
+                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit | vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
+                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit | vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
                     {},
                     vul::AccessFlagBits::ColorAttachmentWriteBit |
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
@@ -372,11 +346,12 @@ int main() {
 
 
         pipelineBuilder.setRenderPass(renderPass, 0);
+        pipelineBuilder.setPipelineLayout(pipelineLayout);
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
     auto commandPool = device.createCommandPool(
-            graphicsQueueIndex, vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+            presentQueueIndex, vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
@@ -385,7 +360,7 @@ int main() {
                     vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
     ).assertValue();
 
-    auto depthImageView = depthImage.createImageView().assertValue();
+    auto depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::DepthBit)).assertValue();
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
@@ -398,6 +373,7 @@ int main() {
         vul::FramebufferBuilder framebufferBuilder(device);
         framebufferBuilder.setAttachments(imageViews);
         framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
+        framebufferBuilder.setRenderPass(renderPass);
         swapchainFramebuffers.push_back(
                 framebufferBuilder.create().assertValue());
     }
@@ -416,7 +392,7 @@ int main() {
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
-    auto textureImageView = textureImage.createImageView().assertValue();
+    auto textureImageView = textureImage.createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::ColorBit)).assertValue();
 
     vul::SamplerBuilder samplerBuilder(device);
     samplerBuilder.setFilter(vul::Filter::Linear);
@@ -504,12 +480,12 @@ int main() {
             uniformBuffers[swapchainImageIndex].copyToMapped<UniformBufferObject>(ubo);
         }
 
+        auto& commandBuffer = commandBuffers[swapchainImageIndex];
         {
-            auto& commandBuffer = commandBuffers[swapchainImageIndex];
             commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
                 std::array<VkClearValue, 2> clearValues{};
-                clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
                 clearValues[1].depthStencil = {1.0f, 0};
                 auto renderPassBlock = commandBuffer.beginRenderPass(
                         renderPass,
@@ -525,7 +501,25 @@ int main() {
             commandBuffer.end();
         }
 
+        frameCounters[currentFrameIndex] += 1;
+        auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
+        std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
+        signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(frameCounters[currentFrameIndex], vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+        signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+        auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
+        VkSubmitInfo2KHR submitInfo = {};
+        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
+        submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
+        submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
+        submitInfo.waitSemaphoreInfoCount = 1;
+        submitInfo.pWaitSemaphoreInfos = &presentationWaitInfo;
+        submitInfo.commandBufferInfoCount = 1;
+        submitInfo.pCommandBufferInfos = &commandBufferInfo;
+        submitInfo.signalSemaphoreInfoCount = signalInfos.size();
+        submitInfo.pSignalSemaphoreInfos = signalInfos.data();
+
+        presentationQueue.submit(submitInfo);
         //TODO do actual render here
 
         auto presentResult = surface.getSwapchain()->present(presentationQueue,
@@ -543,7 +537,7 @@ int main() {
         currentFrameIndex = (currentFrameIndex + 1) % maxFramesInFlight;
         frame_counter += 1;
     }
-    surface.getSwapchain();
+    device.waitIdle();
     //TODO need to remove spec invalidation by removing overlapping feature stuff that exists in both VkPhysicalDeviceVulkan11/2Features and other features
     return 0;
 }

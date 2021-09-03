@@ -250,6 +250,6 @@ vul::Result vul::Swapchain::present(const vul::Queue &presentQueue,
     return static_cast<Result>(vkQueuePresentKHR(presentQueue.get(), &presentInfo));
 }
 
-const std::vector<vul::ImageView> vul::Swapchain::getImageViews() const {
+const std::vector<vul::ImageView>& vul::Swapchain::getImageViews() const {
     return m_imageViews;
 }

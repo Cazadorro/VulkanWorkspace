@@ -29,6 +29,7 @@ void *vul::VmaAllocation::mapMemory() {
     void *mappedData = getMappedMemory();
     if (mappedData == nullptr) {
         vmaMapMemory(m_pAllocator->get(), m_handle, &mappedData);
+        m_mapCounter += 1;
     }
     return mappedData;
 }
@@ -68,6 +69,12 @@ vul::VmaAllocation::operator=(vul::VmaAllocation &&rhs) noexcept {
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
     return *this;
+}
+
+void vul::VmaAllocation::unmapAllCounts() {
+    for(std::int64_t i = 0; i < m_mapCounter; ++i){
+        unmapMemory();
+    }
 }
 
 

@@ -93,7 +93,7 @@ vul::PipelineFragmentShaderStageCreateInfo::PipelineFragmentShaderStageCreateInf
         const VkSpecializationInfo *pSpecializationInfo, const char *pName,
         const void *pNext, vul::PipelineShaderStageCreateBitMask flags) :
         m_createInfo{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, pNext,
-                     flags.to_underlying(), VK_SHADER_STAGE_VERTEX_BIT,
+                     flags.to_underlying(), VK_SHADER_STAGE_FRAGMENT_BIT,
                      module.get(), pName, pSpecializationInfo} {
 
 
@@ -109,7 +109,7 @@ vul::PipelineComputeShaderStageCreateInfo::PipelineComputeShaderStageCreateInfo(
         const VkSpecializationInfo *pSpecializationInfo, const char *pName,
         const void *pNext, vul::PipelineShaderStageCreateBitMask flags)  :
         m_createInfo{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, pNext,
-                     flags.to_underlying(), VK_SHADER_STAGE_VERTEX_BIT,
+                     flags.to_underlying(), VK_SHADER_STAGE_COMPUTE_BIT,
                      module.get(), pName, pSpecializationInfo} {
 
 

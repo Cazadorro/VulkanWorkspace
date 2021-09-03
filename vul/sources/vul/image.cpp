@@ -15,7 +15,8 @@ vul::ImageSubresourceRange::ImageSubresourceRange(
         std::uint32_t layerCount_t) : aspectMask(aspectMask_t),
                                       baseMipLevel(baseMipLevel_t),
                                       levelCount(levelCount_t),
-                                      baseArrayLayer(baseArrayLayer_t) {
+                                      baseArrayLayer(baseArrayLayer_t),
+                                      layerCount(layerCount_t){
 
 }
 
@@ -28,7 +29,8 @@ vul::ImageSubresourceLayers::ImageSubresourceLayers(
         std::uint32_t baseArrayLayer_t, std::uint32_t layerCount_t)
         : aspectMask(aspectMask_t),
           mipLevel(mipLevel_t),
-          baseArrayLayer(baseArrayLayer_t) {
+          baseArrayLayer(baseArrayLayer_t),
+          layerCount(layerCount_t){
 
 }
 
@@ -39,7 +41,7 @@ const VkImageSubresourceLayers &vul::ImageSubresourceLayers::get() const {
 
 vul::Image::~Image() {
     if (m_allocation.get() != VK_NULL_HANDLE) {
-        m_allocation.unmapMemory();
+        m_allocation.unmapAllCounts();
         vmaDestroyImage(m_allocation.getAllocator().get(), m_handle,
                         m_allocation.get());
     }
@@ -214,7 +216,7 @@ vul::Image::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
     VkImageMemoryBarrier2KHR barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2_KHR;
     barrier.pNext = pNext;
-    barrier.srcStageMask = srcAccessMask.to_underlying();
+    barrier.srcStageMask = srcStageMask.to_underlying();
     barrier.srcAccessMask = srcAccessMask.to_underlying();
     barrier.dstStageMask = dstStageMask.to_underlying();
     barrier.dstAccessMask = dstAccessMask.to_underlying();

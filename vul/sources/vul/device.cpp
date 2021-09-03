@@ -36,13 +36,14 @@ VkDevice vul::Device::get() const {
 }
 
 vul::Queue vul::Device::getQueue(std::uint32_t index) const {
-    Queue queue;
+
+    VkQueue queue;
     vkGetDeviceQueue(m_handle,
                      m_queueFamilyIndexMappings[index].queueFamilyIndex,
                      m_queueFamilyIndexMappings[index].queueIndex,
-                     reinterpret_cast<VkQueue *>(&queue));
+                     &queue);
 
-    return queue;
+    return {*this, queue};
 }
 
 std::optional<vul::Queue> vul::Device::getQueueAt(std::uint32_t index) {
@@ -285,7 +286,7 @@ vul::Result vul::Device::wait(
     waitInfo.semaphoreCount = rawSemaphores.size();
     waitInfo.pSemaphores = rawSemaphores.data();
     waitInfo.pValues = values.data();
-    wait(waitInfo, timeout);
+    return wait(waitInfo, timeout);
 }
 
 vul::Result vul::Device::wait(
@@ -305,7 +306,7 @@ vul::Result vul::Device::wait(
     waitInfo.semaphoreCount = rawSemaphores.size();
     waitInfo.pSemaphores = rawSemaphores.data();
     waitInfo.pValues = values.data();
-    wait(waitInfo, timeout);
+    return wait(waitInfo, timeout);
 }
 
 vul::ExpectedResult<vul::ShaderModule> vul::Device::createShaderModule(
@@ -313,7 +314,8 @@ vul::ExpectedResult<vul::ShaderModule> vul::Device::createShaderModule(
         const void *pNext, const VkAllocationCallbacks *pAllocator) const {
     VkShaderModuleCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.codeSize = code.size();
+    createInfo.pNext = pNext;
+    createInfo.codeSize = code.size() * 4;
     createInfo.pCode = code.data();
 
     VkShaderModule shaderModule;

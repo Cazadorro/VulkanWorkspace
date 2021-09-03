@@ -75,9 +75,9 @@ namespace vul {
                               vul::VertexInputRate inputRate = vul::VertexInputRate::Vertex) {
             auto attributeDescriptions = createVertexAttributeDescriptions<T>(
                     binding);
-            m_bindingAttributeDescriptions[binding] = {
+            m_bindingAttributeDescriptions[binding] = InputBindingAttributes{
                     createVertexBindingDescription<T>(binding, inputRate),
-                    attributeDescriptions};
+                    std::vector(attributeDescriptions.begin(), attributeDescriptions.end())};
         }
 
         void setPrimitiveStateInfo(vul::PrimitiveTopology topology,

@@ -11,11 +11,5 @@ target_compile_options(vultest PRIVATE
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g -ggdb>)
 
 target_shader_postbuild(vultest
-        ${CMAKE_CURRENT_SOURCE_DIR}/../shaders/screen_shader.vert
-        ${CMAKE_CURRENT_SOURCE_DIR}/../shaders/screen_shader2.vert
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/boxcloud_render.frag
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/cloud_light.comp
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/blur_cloud_light.comp
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/cloud_point_light.comp
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/blur_x.frag
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/blur_y.frag)
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader_depth.vert
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/shader_depth.frag)

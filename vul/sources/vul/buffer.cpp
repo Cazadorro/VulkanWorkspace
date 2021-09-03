@@ -13,7 +13,7 @@ vul::Buffer::Buffer(vul::VmaAllocation && allocation, VkBuffer handle,
 }
 vul::Buffer::~Buffer() {
     if (m_allocation.get() != VK_NULL_HANDLE) {
-        m_allocation.unmapMemory();
+        m_allocation.unmapAllCounts();
         vmaDestroyBuffer(m_allocation.getAllocator().get(), m_handle, m_allocation.get());
     }
 }

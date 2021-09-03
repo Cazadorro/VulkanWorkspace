@@ -81,6 +81,12 @@ int main() {
     vul::FeatureStructInfo physical_device_feature_struct_info;
     std::unordered_map<std::string, ObjtypeEnumValue> objtypeenum_map;
 
+    std::vector<std::string> accepted_feature_types = {
+            "VkPhysicalDeviceVulkan11Features",
+            "VkPhysicalDeviceVulkan12Features",
+            "VkPhysicalDeviceShaderAtomicFloatFeaturesEXT",
+            "VkPhysicalDeviceSynchronization2FeaturesKHR"
+    };
     for (pugi::xml_node type_node: root.child("types").children("type")) {
         std::string objtypeenum = type_node.attribute(
                 "objtypeenum").as_string();
@@ -107,7 +113,9 @@ int main() {
         }
         if (vul::structextends(type_node, "VkPhysicalDeviceFeatures2")) {
             if (!vul::is_alias(type_node)) {
-                feature_struct_infos.emplace_back(type_node);
+                if(std::find(accepted_feature_types.begin(), accepted_feature_types.end(), vul::get_name(type_node)) != accepted_feature_types.end()){
+                    feature_struct_infos.emplace_back(type_node);
+                }
             }
         }
         if (vul::get_name(type_node) ==

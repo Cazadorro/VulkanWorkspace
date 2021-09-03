@@ -55,12 +55,14 @@ VkInstance vul::VmaAllocator::getVkInstance() const {
 vul::VmaAllocator::VmaAllocator(vul::VmaAllocator &&rhs) noexcept {
     using std::swap;
     swap(m_handle, rhs.m_handle);
+    swap(m_pDevice, rhs.m_pDevice);
 }
 
 vul::VmaAllocator &
 vul::VmaAllocator::operator=(vul::VmaAllocator &&rhs) noexcept {
     using std::swap;
     swap(m_handle, rhs.m_handle);
+    swap(m_pDevice, rhs.m_pDevice);
     return *this;
 }
 
@@ -171,6 +173,9 @@ vul::VmaAllocator::createImage(const VmaAllocationCreateInfo &allocInfo,
     ::VmaAllocation allocation;
     auto result = static_cast<Result>(vmaCreateImage(m_handle, &imageInfo, &allocInfo, &image,
                                                       &allocation, nullptr));
+    static int i = 0;
+    i += 1;
+    m_pDevice->setObjectName(image, "CREATED_IMAGE_" + std::to_string(i));
     return {result, Image(vul::VmaAllocation(*this, allocation), image,
                           imageInfo.imageType,
                           imageInfo.format,

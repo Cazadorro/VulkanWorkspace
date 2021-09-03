@@ -125,7 +125,7 @@ namespace vul {
                        std::uint32_t swapchainImageIndex) const;
 
         [[nodiscard]]
-        const std::vector<ImageView> getImageViews() const;
+        const std::vector<ImageView>& getImageViews() const;
 
     private:
         const Device *m_pDevice = nullptr;

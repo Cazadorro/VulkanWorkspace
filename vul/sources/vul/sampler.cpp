@@ -72,12 +72,12 @@ vul::SamplerBuilder::SamplerBuilder(const vul::Device &device,
 //    m_createInfo.addressModeW;
 //    m_createInfo.mipLodBias;
     m_createInfo.anisotropyEnable = VK_FALSE;
-    m_createInfo.maxAnisotropy;
+//    m_createInfo.maxAnisotropy;
     m_createInfo.compareEnable = VK_FALSE;
-    m_createInfo.compareOp;
-    m_createInfo.minLod;
-    m_createInfo.maxLod;
-    m_createInfo.borderColor;
+//    m_createInfo.compareOp;
+//    m_createInfo.minLod;
+//    m_createInfo.maxLod;
+    m_createInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     m_createInfo.unnormalizedCoordinates = VK_FALSE;
 }
 

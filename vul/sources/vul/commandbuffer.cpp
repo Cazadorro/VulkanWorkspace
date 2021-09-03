@@ -2,7 +2,8 @@
 // Created by Shae Bolt on 8/31/2021.
 //
 
-#include "commandbuffer.h"
+#include "vul/commandbuffer.h"
+#include "vul/pipelinelayout.h"
 #include "vul/graphicspipeline.h"
 #include "vul/computepipeline.h"
 #include "vul/image.h"
@@ -16,7 +17,7 @@
 #include "vul/temparrayproxy.h"
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
-
+#include "vul/extensionfunctions.h"
 
 VkMemoryBarrier2KHR
 vul::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
@@ -91,7 +92,8 @@ void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
 
 void
 vul::CommandBuffer::pipelineBarrier(const VkDependencyInfoKHR &dependencyInfo) {
-    vkCmdPipelineBarrier2KHR(m_handle, &dependencyInfo);
+    auto vkCmdPipelineBarrier2KHR_f = (PFN_vkCmdPipelineBarrier2KHR) vkGetDeviceProcAddr(m_pCommandPool->getDevice().get(), "vkCmdPipelineBarrier2KHR");
+    vkCmdPipelineBarrier2KHR_f(m_handle, &dependencyInfo);
 }
 
 void vul::CommandBuffer::copyBufferToImage(const vul::Buffer &srcBuffer,
@@ -143,7 +145,7 @@ void vul::CommandBuffer::bindVertexBuffers(
         const vul::TempArrayProxy<const VkDeviceSize> &offsets,
         std::uint32_t firstBinding) {
     auto rawBuffers = buffers | ranges::views::transform([](auto &buffer) { return buffer.get(); }) | ranges::to<std::vector>();
-    bindVertexBuffers(buffers,offsets,firstBinding);
+    bindVertexBuffers(rawBuffers,offsets,firstBinding);
 }
 
 void vul::CommandBuffer::bindVertexBuffers(
@@ -151,7 +153,7 @@ void vul::CommandBuffer::bindVertexBuffers(
         const vul::TempArrayProxy<const VkDeviceSize> &offsets,
         std::uint32_t firstBinding) {
     auto rawBuffers = buffers | ranges::views::transform([](auto &buffer) { return buffer->get(); }) | ranges::to<std::vector>();
-    bindVertexBuffers(buffers,offsets,firstBinding);
+    bindVertexBuffers(rawBuffers,offsets,firstBinding);
 }
 
 void vul::CommandBuffer::bindVertexBuffers(
@@ -159,7 +161,7 @@ void vul::CommandBuffer::bindVertexBuffers(
         const vul::TempArrayProxy<const VkDeviceSize> &offsets,
         std::uint32_t firstBinding) {
     auto rawBuffers = buffers | ranges::views::transform([](auto &buffer) { return buffer.get().get(); }) | ranges::to<std::vector>();
-    bindVertexBuffers(buffers,offsets,firstBinding);
+    bindVertexBuffers(rawBuffers,offsets,firstBinding);
 }
 
 void vul::CommandBuffer::bindVertexBuffers(
@@ -182,7 +184,7 @@ vul::CommandBuffer::bindDescriptorSets(vul::PipelineBindPoint pipelineBindPoint,
                                        const vul::TempArrayProxy<VkDescriptorSet const> &descriptorSets,
                                        const vul::TempArrayProxy<const uint32_t> &dynamicOffsets,
                                        std::uint32_t firstSet) {
-    vkCmdBindDescriptorSets(m_handle, vul::get(pipelineBindPoint), layout.get(), firstSet, descriptorSets.size(), descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
+    vkCmdBindDescriptorSets(m_handle, vul::get(pipelineBindPoint), pipelineLayout.get(), firstSet, descriptorSets.size(), descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
 }
 
 void

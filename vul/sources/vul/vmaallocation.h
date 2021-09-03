@@ -49,7 +49,8 @@ namespace vul {
 
         template<typename T>
         void copyToMapped(const TempArrayProxy<T>& array){
-            memcpy(mapMemory(), &array, array.size_bytes());
+            void * mappedPtr = mapMemory();
+            memcpy(mappedPtr, array.data(), array.size_bytes());
         }
 
         [[nodiscard]]
@@ -60,9 +61,12 @@ namespace vul {
         void
         invalidate(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
 
+        void unmapAllCounts();
     private:
+
         const vul::VmaAllocator *m_pAllocator = nullptr;
         ::VmaAllocation m_handle = VK_NULL_HANDLE;
+        std::int64_t m_mapCounter = 0;
 
     };
 }

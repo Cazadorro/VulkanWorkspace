@@ -232,9 +232,10 @@ namespace vul {
         std::uint32_t getSubpassCount() const;
     private:
         const Device *m_pDevice = nullptr;
-        const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkRenderPass m_handle = VK_NULL_HANDLE;
         std::uint32_t m_subpassCount = 0;
+        const VkAllocationCallbacks *m_pAllocator = nullptr;
+
     };
 
     class SubpassGraph;
@@ -278,20 +279,24 @@ namespace vul {
                                        vul::AccessBitMask dstAccessMask);
 
         void reset();
-    private:
-        friend class SubpassGraph;
-        friend class std::vector<SubpassNode>;
-
+        //TODO didn't want them to be public, looks like I have to have them be public...
         SubpassNode(const SubpassNode& subpass_node) = default;
         SubpassNode(SubpassNode&& subpass_node) = default;
         SubpassNode& operator=(const SubpassNode& subpass_node) = default;
         SubpassNode& operator=(SubpassNode&& subpass_node) = default;
-        std::uint32_t m_subpassIndex;
+    private:
+
+        friend class SubpassGraph;
+        friend class std::vector<SubpassNode>;
+
+
+
         [[nodiscard]]
         VkSubpassDescription createDescription(vul::SubpassDescriptionBitMask flags = {}) const;
         [[nodiscard]]
         std::vector<VkSubpassDependency> createSubpassDependencies() const;
-        SubpassGraph* m_parentGraph;
+        SubpassGraph* m_parentGraph = nullptr;
+        std::uint32_t m_subpassIndex  =0;
         std::vector<std::uint32_t> m_warDependencies;
         std::vector<std::uint32_t> m_rawDependencies;
         std::vector<std::uint32_t> m_wawDependencies;

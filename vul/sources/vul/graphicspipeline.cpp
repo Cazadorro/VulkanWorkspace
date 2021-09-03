@@ -3,6 +3,7 @@
 //
 
 #include "vul/graphicspipeline.h"
+#include "vul/renderpass.h"
 #include "vul/pipelinecache.h"
 #include "vul/pipelinelayout.h"
 #include "vul/shadermodule.h"
@@ -111,7 +112,8 @@ void vul::GraphicsPipelineBuilder::setDefaultRasterizationState() {
     m_rasterizationState.depthClampEnable = VK_FALSE;
     m_rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     m_rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-    m_rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+//    m_rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
+    m_rasterizationState.cullMode = VK_CULL_MODE_NONE;
     m_rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     m_rasterizationState.depthBiasEnable = VK_FALSE;
 //    m_rasterizationState.depthBiasConstantFactor;
@@ -249,24 +251,6 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
     viewportState.scissorCount = m_scissors.size();
     viewportState.pScissors = m_scissors.data();
 
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.stencilTestEnable = VK_FALSE;
-
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
     colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;

@@ -95,7 +95,7 @@ vul::CommandPool::createPrimaryCommandBuffer(const void *pNext) const {
     if(!expectedResult.hasValue()){
         return {expectedResult.result, {}};
     }
-    return {expectedResult.result, std::move(expectedResult.value[0])}
+    return {expectedResult.result, std::move(expectedResult.value[0])};
 }
 
 vul::ExpectedResult<vul::SecondaryCommandBuffer>
@@ -104,5 +104,5 @@ vul::CommandPool::createSecondaryCommandBuffer(const void *pNext) const {
     if(!expectedResult.hasValue()){
         return {expectedResult.result, {}};
     }
-    return {expectedResult.result, std::move(expectedResult.value[0])}
+    return {expectedResult.result, std::move(expectedResult.value[0])};
 }
