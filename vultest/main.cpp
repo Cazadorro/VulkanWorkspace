@@ -312,6 +312,7 @@ int main() {
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
             surface.getSwapchain()->getExtent());
+    pipelineBuilder.setDynamicState({vul::DynamicState::Viewport, vul::DynamicState::Scissor});
     pipelineBuilder.setDefaultRasterizationState();
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
@@ -335,39 +336,6 @@ int main() {
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
         graphicsPipeline = pipelineBuilder.create().assertValue();
-    }
-
-    {
-//        auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
-//        auto vertexShader = device.createShaderModule(
-//                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
-//        auto fragmentShader = device.createShaderModule(
-//                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
-//        pipelineBuilder.setShaderCreateInfo(
-//                vertexShader.createVertexStageInfo(),
-//                fragmentShader.createFragmentStageInfo());
-//        pipelineBuilder.setVertexBinding<Vertex>(0);
-//        pipelineBuilder.setPrimitiveStateInfo(
-//                vul::PrimitiveTopology::TriangleList);
-//        pipelineBuilder.setViewportStateFromExtent(
-//                surface.getSwapchain()->getExtent());
-//        pipelineBuilder.setDefaultRasterizationState();
-//        pipelineBuilder.setDefaultMultisampleState();
-//        pipelineBuilder.setDefaultDepthStencilStateEnable();
-//        VkPipelineColorBlendAttachmentState blendState = {};
-//        blendState.blendEnable = VK_FALSE;
-//        blendState.colorWriteMask =
-//                VK_COLOR_COMPONENT_R_BIT |
-//                VK_COLOR_COMPONENT_G_BIT |
-//                VK_COLOR_COMPONENT_B_BIT |
-//                VK_COLOR_COMPONENT_A_BIT;
-//
-//        pipelineBuilder.setBlendState({blendState});
-//
-//
-//        pipelineBuilder.setRenderPass(renderPass, 0);
-//        pipelineBuilder.setPipelineLayout(pipelineLayout);
-//        graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
     auto commandPool = device.createCommandPool(
@@ -417,16 +385,6 @@ int main() {
 //                                window.getFramebufferExtent());
         swapchainBuilder.imageExtent(window.getFramebufferExtent());
         surface.createSwapchain(swapchainBuilder);
-        auto vertexShader = device.createShaderModule(
-                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
-        auto fragmentShader = device.createShaderModule(
-                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
-        pipelineBuilder.setShaderCreateInfo(
-                vertexShader.createVertexStageInfo(),
-                fragmentShader.createFragmentStageInfo());
-        pipelineBuilder.setViewportStateFromExtent(
-                surface.getSwapchain()->getExtent());
-        graphicsPipeline = pipelineBuilder.create().assertValue();
 
         depthImage = allocator.createDeviceImage(
                 vul::createSimple2DImageInfo(
@@ -556,13 +514,29 @@ int main() {
         {
             commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
+                auto extent = surface.getSwapchain()->getExtent();
+                VkViewport viewport{};
+                viewport.x = 0.0f;
+                viewport.y = 0.0f;
+                viewport.width = (float) extent.width;
+                viewport.height = (float) extent.height;
+                viewport.minDepth = 0.0f;
+                viewport.maxDepth = 1.0f;
+
+                VkRect2D scissor{};
+                scissor.offset = {0, 0};
+                scissor.extent = extent;
+
+                commandBuffer.setViewport(viewport);
+                commandBuffer.setScissor(scissor);
+
                 std::array<VkClearValue, 2> clearValues{};
                 clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
                 clearValues[1].depthStencil = {1.0f, 0};
                 auto renderPassBlock = commandBuffer.beginRenderPass(
                         renderPass,
                         swapchainFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0,0},surface.getSwapchain()->getExtent()},
+                        VkRect2D{{0,0},extent},
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
                 commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);

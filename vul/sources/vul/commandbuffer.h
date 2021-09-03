@@ -168,7 +168,8 @@ namespace vul {
         void dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY = 1, std::uint32_t groupCountZ = 1);
         void dispatchIndirect(const Buffer &buffer, VkDeviceSize offset);
 
-
+        void setScissor(const TempArrayProxy<const VkRect2D> scissors, std::uint32_t firstScissor = 0);
+        void setViewport(const TempArrayProxy<const VkViewport> viewports, std::uint32_t firstViewport = 0);
     protected:
         const CommandPool *m_pCommandPool = nullptr;
         VkCommandBuffer m_handle = VK_NULL_HANDLE;

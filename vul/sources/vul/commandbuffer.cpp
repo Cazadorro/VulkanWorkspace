@@ -206,6 +206,18 @@ void vul::CommandBuffer::dispatchIndirect(const vul::Buffer &buffer,
     vkCmdDispatchIndirect(m_handle, buffer.get(), offset);
 }
 
+void vul::CommandBuffer::setScissor(
+        const vul::TempArrayProxy<const VkRect2D> scissors,
+        std::uint32_t firstScissor) {
+    vkCmdSetScissor(m_handle, firstScissor, scissors.size(), scissors.data());
+}
+
+void vul::CommandBuffer::setViewport(
+        const vul::TempArrayProxy<const VkViewport> viewports,
+        std::uint32_t firstViewport) {
+    vkCmdSetViewport(m_handle, firstViewport, viewports.size(), viewports.data());
+}
+
 
 vul::Result
 vul::PrimaryCommandBuffer::begin(vul::CommandBufferUsageBitMask flags,
