@@ -280,18 +280,6 @@ int main() {
     std::array validSwapchainResults = {vul::Result::SuboptimalKhr,
                                         vul::Result::ErrorOutOfDateKhr};
     std::uint64_t frame_counter = 0;
-    auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder]() {
-        auto size = window.getFramebufferSize();
-        while (size == glm::ivec2(0)) {
-            size = window.getFramebufferSize();
-            glfwWaitEvents();
-        }
-        //TODO will need to recreate associated assets (like framebuffers or images that match the size of the window).
-        //TODO need to add framebuffers to assets possibly managed by swapchain?
-        presentationQueue.waitIdle();
-        surface.resizeSwapchain(swapchainBuilder,
-                                window.getFramebufferExtent());
-    };
 
     auto subpassBuilder = vul::SubpassGraph(
             {vul::AttachmentDescription::PresentTemp(
@@ -317,8 +305,28 @@ int main() {
     vul::GraphicsPipeline graphicsPipeline;
     auto pipelineLayout = device.createPipelineLayout(
             descriptorLayout).assertValue();
+    auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
+
+    pipelineBuilder.setVertexBinding<Vertex>(0);
+    pipelineBuilder.setPrimitiveStateInfo(
+            vul::PrimitiveTopology::TriangleList);
+    pipelineBuilder.setViewportStateFromExtent(
+            surface.getSwapchain()->getExtent());
+    pipelineBuilder.setDefaultRasterizationState();
+    pipelineBuilder.setDefaultMultisampleState();
+    pipelineBuilder.setDefaultDepthStencilStateEnable();
+    VkPipelineColorBlendAttachmentState blendState = {};
+    blendState.blendEnable = VK_FALSE;
+    blendState.colorWriteMask =
+            VK_COLOR_COMPONENT_R_BIT |
+            VK_COLOR_COMPONENT_G_BIT |
+            VK_COLOR_COMPONENT_B_BIT |
+            VK_COLOR_COMPONENT_A_BIT;
+
+    pipelineBuilder.setBlendState({blendState});
+    pipelineBuilder.setRenderPass(renderPass, 0);
+    pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
-        auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
         auto vertexShader = device.createShaderModule(
                 vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
         auto fragmentShader = device.createShaderModule(
@@ -326,28 +334,40 @@ int main() {
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
-        pipelineBuilder.setVertexBinding<Vertex>(0);
-        pipelineBuilder.setPrimitiveStateInfo(
-                vul::PrimitiveTopology::TriangleList);
-        pipelineBuilder.setViewportStateFromExtent(
-                surface.getSwapchain()->getExtent());
-        pipelineBuilder.setDefaultRasterizationState();
-        pipelineBuilder.setDefaultMultisampleState();
-        pipelineBuilder.setDefaultDepthStencilStateEnable();
-        VkPipelineColorBlendAttachmentState blendState = {};
-        blendState.blendEnable = VK_FALSE;
-        blendState.colorWriteMask =
-                VK_COLOR_COMPONENT_R_BIT |
-                VK_COLOR_COMPONENT_G_BIT |
-                VK_COLOR_COMPONENT_B_BIT |
-                VK_COLOR_COMPONENT_A_BIT;
-
-        pipelineBuilder.setBlendState({blendState});
-
-
-        pipelineBuilder.setRenderPass(renderPass, 0);
-        pipelineBuilder.setPipelineLayout(pipelineLayout);
         graphicsPipeline = pipelineBuilder.create().assertValue();
+    }
+
+    {
+//        auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
+//        auto vertexShader = device.createShaderModule(
+//                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
+//        auto fragmentShader = device.createShaderModule(
+//                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
+//        pipelineBuilder.setShaderCreateInfo(
+//                vertexShader.createVertexStageInfo(),
+//                fragmentShader.createFragmentStageInfo());
+//        pipelineBuilder.setVertexBinding<Vertex>(0);
+//        pipelineBuilder.setPrimitiveStateInfo(
+//                vul::PrimitiveTopology::TriangleList);
+//        pipelineBuilder.setViewportStateFromExtent(
+//                surface.getSwapchain()->getExtent());
+//        pipelineBuilder.setDefaultRasterizationState();
+//        pipelineBuilder.setDefaultMultisampleState();
+//        pipelineBuilder.setDefaultDepthStencilStateEnable();
+//        VkPipelineColorBlendAttachmentState blendState = {};
+//        blendState.blendEnable = VK_FALSE;
+//        blendState.colorWriteMask =
+//                VK_COLOR_COMPONENT_R_BIT |
+//                VK_COLOR_COMPONENT_G_BIT |
+//                VK_COLOR_COMPONENT_B_BIT |
+//                VK_COLOR_COMPONENT_A_BIT;
+//
+//        pipelineBuilder.setBlendState({blendState});
+//
+//
+//        pipelineBuilder.setRenderPass(renderPass, 0);
+//        pipelineBuilder.setPipelineLayout(pipelineLayout);
+//        graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
     auto commandPool = device.createCommandPool(
@@ -377,6 +397,58 @@ int main() {
         swapchainFramebuffers.push_back(
                 framebufferBuilder.create().assertValue());
     }
+
+    auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder,
+                            &pipelineBuilder, &graphicsPipeline, &depthImage, &depthImageView,
+                            &allocator, &swapchainFramebuffers, &device, &renderPass]() {
+        auto size = window.getFramebufferSize();
+        while (size == glm::ivec2(0)) {
+            size = window.getFramebufferSize();
+            glfwWaitEvents();
+        }
+        //TODO will need to recreate associated assets (like framebuffers or images that match the size of the window).
+        //TODO need to add framebuffers to assets possibly managed by swapchain?
+        presentationQueue.waitIdle();
+
+
+        swapchainFramebuffers.clear();
+
+//        surface.resizeSwapchain(swapchainBuilder,
+//                                window.getFramebufferExtent());
+        swapchainBuilder.imageExtent(window.getFramebufferExtent());
+        surface.createSwapchain(swapchainBuilder);
+        auto vertexShader = device.createShaderModule(
+                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
+        auto fragmentShader = device.createShaderModule(
+                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
+        pipelineBuilder.setShaderCreateInfo(
+                vertexShader.createVertexStageInfo(),
+                fragmentShader.createFragmentStageInfo());
+        pipelineBuilder.setViewportStateFromExtent(
+                surface.getSwapchain()->getExtent());
+        graphicsPipeline = pipelineBuilder.create().assertValue();
+
+        depthImage = allocator.createDeviceImage(
+                vul::createSimple2DImageInfo(
+                        vul::Format::D24UnormS8Uint,
+                        surface.getSwapchain()->getExtent3D(),
+                        vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
+        ).assertValue();
+
+        depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::DepthBit)).assertValue();
+        const auto& swapchainImageViews = surface.getSwapchain()->getImageViews();
+        for (const auto &imageView : swapchainImageViews) {
+            std::array<const vul::ImageView *, 2> imageViews = {&imageView,
+                                                                &depthImageView};
+            vul::FramebufferBuilder framebufferBuilder(device);
+            framebufferBuilder.setAttachments(imageViews);
+            framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
+            framebufferBuilder.setRenderPass(renderPass);
+            swapchainFramebuffers.push_back(
+                    framebufferBuilder.create().assertValue());
+        }
+    };
+
 
     gul::StbImage pixels;
     gul::load("../../textures/texture.jpg", pixels,
@@ -538,6 +610,6 @@ int main() {
         frame_counter += 1;
     }
     device.waitIdle();
-    //TODO need to remove spec invalidation by removing overlapping feature stuff that exists in both VkPhysicalDeviceVulkan11/2Features and other features
+
     return 0;
 }

@@ -87,7 +87,8 @@ void vul::GraphicsPipelineBuilder::setViewportState(
 
 void vul::GraphicsPipelineBuilder::setViewportStateFromExtent(
         const VkExtent2D &extent) {
-
+    m_viewports.clear();
+    m_scissors.clear();
     VkViewport viewport{};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
