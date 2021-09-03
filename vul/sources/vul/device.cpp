@@ -131,7 +131,7 @@ const vul::PhysicalDevice &vul::Device::getPhysicalDevice() const {
 }
 
 vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
-        const gsl::span<const LayoutBuilderCount> &layoutBuilders,
+        const TempArrayProxy<const LayoutBuilderCount> &layoutBuilders,
         vul::DescriptorPoolCreateBitMask flags,
         const void *pNext,
         const VkAllocationCallbacks *pAllocator) const {
@@ -164,6 +164,15 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
         const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
         const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+
+
+    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
+        const vul::TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
     auto rawLayouts = setLayouts | ranges::views::transform(
             [](auto &layout) { return layout->get(); }) |
                       ranges::to<std::vector>();
@@ -184,13 +193,6 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
                                                              &pipelineLayout));
 
     return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
-}
-
-vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
-        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
-        const vul::TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
-        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
-    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
 }
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
@@ -400,6 +402,17 @@ vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                                           &framebuffer));
 
     return {result, Framebuffer(*this, framebuffer, pAllocator)};
+}
+
+void vul::Device::updateDescriptorSets(
+        const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites) const {
+    return updateDescriptorSets(descriptorWrites, {});
+}
+
+void vul::Device::updateDescriptorSets(
+        const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites,
+        const vul::TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const {
+    vkUpdateDescriptorSets(m_handle, descriptorWrites.size(), descriptorWrites.data(), descriptorCopies.size(), descriptorCopies.data());
 }
 
 

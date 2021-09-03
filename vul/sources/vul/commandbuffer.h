@@ -12,53 +12,14 @@
 
 namespace vul {
 
-//    for (size_t i = 0; i < commandBuffers.size(); i++) {
-//    VkCommandBufferBeginInfo beginInfo{};
-//    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-//
-//    if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
-//    throw std::runtime_error("failed to begin recording command buffer!");
-//}
-//
-//VkRenderPassBeginInfo renderPassInfo{};
-//renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-//renderPassInfo.renderPass = renderPass;
-//renderPassInfo.framebuffer = swapChainFramebuffers[i];
-//renderPassInfo.renderArea.offset = {0, 0};
-//renderPassInfo.renderArea.extent = swapChainExtent;
-//
-//std::array<VkClearValue, 2> clearValues{};
-//clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-//clearValues[1].depthStencil = {1.0f, 0};
-//
-//renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-//renderPassInfo.pClearValues = clearValues.data();
-//
-//vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-//
-//vkCmdBindPipeline(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
-//
-//VkBuffer vertexBuffers[] = {vertexBuffer};
-//VkDeviceSize offsets[] = {0};
-//vkCmdBindVertexBuffers(commandBuffers[i], 0, 1, vertexBuffers, offsets);
-//
-//vkCmdBindIndexBuffer(commandBuffers[i], indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-//
-//vkCmdBindDescriptorSets(commandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &descriptorSets[i], 0, nullptr);
-//
-//vkCmdDrawIndexed(commandBuffers[i], static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
-//
-//vkCmdEndRenderPass(commandBuffers[i]);
-//
-//if (vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-//throw std::runtime_error("failed to record command buffer!");
-//}
-//}
-
-//TODO Renderpass block
-// vertex, descriptor sets, index, drawindexed/etc.. only possible in renderpass block
 //TODO pipline/memory barriers with synchronization 2
 //TODO cmddispatch
+    class PipelineLayout;
+
+    class GraphicsPipeline;
+
+    class ComputePipeline;
+
     class RenderPass;
 
     class Framebuffer;
@@ -99,6 +60,27 @@ namespace vul {
 
         RenderPassBlock &operator=(RenderPassBlock &rhs) = delete;
 
+        void drawIndexed(std::uint32_t indexCount,
+                         std::uint32_t instanceCount = 1,
+                         std::uint32_t firstIndex = 0,
+                         std::int32_t vertexOffset = 0,
+                         std::uint32_t firstInstance = 0);
+
+        void draw(std::uint32_t vertexCount,
+                  std::uint32_t instanceCount = 1,
+                  std::uint32_t firstVertex = 0,
+                  std::uint32_t firstInstance = 0);
+
+        void drawIndirect(const Buffer &buffer,
+                          VkDeviceSize offset = 0,
+                          uint32_t drawCount = 1,
+                          uint32_t stride = 0);
+
+        void drawIndexedIndirect(const Buffer &buffer,
+                                 VkDeviceSize offset = 0,
+                                 uint32_t drawCount = 1,
+                                 uint32_t stride = 0);
+
     private:
         VkCommandBuffer m_handle = VK_NULL_HANDLE;
     };
@@ -138,6 +120,7 @@ namespace vul {
         void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
                                vul::ImageAspectBitMask flags,
                                std::uint32_t mipLevel_t = 0);
+
         void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
                                const TempArrayProxy<const VkBufferImageCopy> &copyRegions);
 
@@ -145,6 +128,45 @@ namespace vul {
 
         void blitImage(const Image &srcImage, Image &dstImage,
                        const TempArrayProxy<const VkImageBlit> &blitRegions);
+
+        void bindPipeline(const GraphicsPipeline &pipeline);
+
+        void bindPipeline(const ComputePipeline &pipeline);
+
+        void bindVertexBuffers(const TempArrayProxy<const VkBuffer> &buffers,
+                               const TempArrayProxy<const VkDeviceSize> &offsets,
+                               std::uint32_t firstBinding = 0);
+
+        void bindVertexBuffers(const TempArrayProxy<const Buffer> &buffers,
+                               const TempArrayProxy<const VkDeviceSize> &offsets,
+                               std::uint32_t firstBinding = 0);
+
+        void bindVertexBuffers(const TempArrayProxy<const Buffer *> &buffers,
+                               const TempArrayProxy<const VkDeviceSize> &offsets,
+                               std::uint32_t firstBinding = 0);
+
+        void bindVertexBuffers(
+                const TempArrayProxy<const std::reference_wrapper<Buffer>> &buffers,
+                const TempArrayProxy<const VkDeviceSize> &offsets,
+                std::uint32_t firstBinding = 0);
+
+        void bindIndexBuffer(const Buffer &buffer,
+                             vul::IndexType indexType,
+                             VkDeviceSize offset = 0);
+
+        void bindDescriptorSets(vul::PipelineBindPoint pipelineBindPoint,
+                                const PipelineLayout &pipelineLayout,
+                                const TempArrayProxy<const VkDescriptorSet> &descriptorSets,
+                                const TempArrayProxy<const uint32_t> &dynamicOffsets,
+                                std::uint32_t firstSet = 0);
+
+        void bindDescriptorSets(vul::PipelineBindPoint pipelineBindPoint,
+                                const PipelineLayout &pipelineLayout,
+                                const TempArrayProxy<const VkDescriptorSet> &descriptorSets,
+                                std::uint32_t firstSet = 0);
+
+        void dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY = 1, std::uint32_t groupCountZ = 1);
+        void dispatchIndirect(const Buffer &buffer, VkDeviceSize offset);
 
 
     protected:
@@ -161,13 +183,27 @@ namespace vul {
         Result begin(vul::CommandBufferUsageBitMask flags,
                      const VkCommandBufferInheritanceInfo *pInheritanceInfo,
                      const void *pNext = nullptr);
-        //apparently can only be primary
-//        [[nodiscard]]
-//        RenderPassBlock beginRenderPass(const RenderPass& renderPass,
-//                                        const Framebuffer& framebuffer,
-//                                        VkRect2D renderArea,
-//                                        const TempArrayProxy<VkClearValue>& clearValues,
-//                                        const void* pNext = nullptr);
+
+        void drawIndexed(std::uint32_t indexCount,
+                         std::uint32_t instanceCount = 1,
+                         std::uint32_t firstIndex = 0,
+                         std::int32_t vertexOffset = 0,
+                         std::uint32_t firstInstance = 0);
+
+        void draw(std::uint32_t vertexCount,
+                  std::uint32_t instanceCount = 1,
+                  std::uint32_t firstVertex = 0,
+                  std::uint32_t firstInstance = 0);
+
+        void drawIndirect(const Buffer &buffer,
+                          VkDeviceSize offset = 0,
+                          uint32_t drawCount = 1,
+                          uint32_t stride = 0);
+
+        void drawIndexedIndirect(const Buffer &buffer,
+                                 VkDeviceSize offset = 0,
+                                 uint32_t drawCount = 1,
+                                 uint32_t stride = 0);
 
     private:
     };

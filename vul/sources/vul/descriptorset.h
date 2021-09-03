@@ -15,6 +15,8 @@ namespace vul{
     class DescriptorSetUpdateBuilder;
     class WriteDescriptorSetInfo{
     public:
+        WriteDescriptorSetInfo() = default;
+
         [[nodiscard]]
         static WriteDescriptorSetInfo Sampler(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
         [[nodiscard]]
@@ -37,15 +39,40 @@ namespace vul{
         static WriteDescriptorSetInfo StorageBufferDynamic(const std::vector<VkDescriptorBufferInfo>& bufferInfos, const void *pNext = nullptr);
         [[nodiscard]]
         static WriteDescriptorSetInfo InputAttachment(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
-        
+
         [[nodiscard]]
         VkWriteDescriptorSet createWriteDescriptorSet(VkDescriptorSet dstSet, std::uint32_t dstBinding, std::uint32_t dstArrayElement) const;
         [[nodiscard]]
         WriteDescriptorSetInfo &operator=(WriteDescriptorSetInfo &&rhs) noexcept;
         [[nodiscard]]
         WriteDescriptorSetInfo &operator=(const WriteDescriptorSetInfo &rhs);
+
+
+        void setSampler(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
+
+        void setCombinedImageSampler(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
+
+        void setSampledImage(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
+
+        void setStorageImage(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
+
+        void setUniformTexelBuffer(const std::vector<VkBufferView>& texelBufferViews, const void *pNext = nullptr);
+
+        void setStorageTexelBuffer(const std::vector<VkBufferView>& texelBufferViews, const void *pNext = nullptr);
+
+        void setUniformBuffer(const std::vector<VkDescriptorBufferInfo>& bufferInfos, const void *pNext = nullptr);
+
+        void setStorageBuffer(const std::vector<VkDescriptorBufferInfo>& bufferInfos, const void *pNext = nullptr);
+
+        void setUniformBufferDynamic(const std::vector<VkDescriptorBufferInfo>& bufferInfos, const void *pNext = nullptr);
+
+        void setStorageBufferDynamic(const std::vector<VkDescriptorBufferInfo>& bufferInfos, const void *pNext = nullptr);
+
+        void setInputAttachment(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
     private:
         friend class DescriptorSetUpdateBuilder;
+        WriteDescriptorSetInfo(WriteDescriptorSetInfo &&rhs) noexcept = default;
+        WriteDescriptorSetInfo(const WriteDescriptorSetInfo &rhs) = default;
         vul::DescriptorType m_descriptorType;
         //TODO this could be done faster with custom variant on m_descriptorType
         std::variant<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorBufferInfo>, std::vector<VkBufferView>> m_infoVariant;

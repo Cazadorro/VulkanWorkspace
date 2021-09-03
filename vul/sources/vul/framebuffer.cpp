@@ -100,3 +100,8 @@ vul::ExpectedResult<vul::Framebuffer> vul::FramebufferBuilder::create() const {
     auto result = static_cast<Result>(vkCreateFramebuffer(m_pDevice->get(), &m_createInfo, m_pAllocator, &framebuffer));
     return {result, Framebuffer(*m_pDevice, framebuffer, m_pAllocator)};
 }
+
+void vul::FramebufferBuilder::setDimensions(VkExtent2D extent,
+                                            std::uint32_t layers) {
+    setDimensions(extent.width, extent.height, layers);
+}

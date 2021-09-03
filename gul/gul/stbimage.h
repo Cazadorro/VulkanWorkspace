@@ -31,7 +31,9 @@ namespace gul {
         VkExtent3D getExtent3D() const;
 
         [[nodiscard]]
-        const stbi_uc *getData() const;
+        const stbi_uc *data() const;
+        [[nodiscard]]
+        std::size_t size() const;
 
         [[nodiscard]]
         int getChannels() const;

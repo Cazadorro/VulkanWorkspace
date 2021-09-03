@@ -80,7 +80,7 @@ namespace vul {
 
         [[nodiscard]]
         ExpectedResult<DescriptorPool> createDescriptorPool(
-                const gsl::span<const LayoutBuilderCount> &layoutBuilders,
+                const TempArrayProxy<const LayoutBuilderCount> &layoutBuilders,
                 vul::DescriptorPoolCreateBitMask flags = {},
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
@@ -226,6 +226,8 @@ namespace vul {
              vul::SemaphoreWaitBitMask waitFlags = {},
              const void *pNext = nullptr) const;
 
+        void updateDescriptorSets(const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites) const;
+        void updateDescriptorSets(const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites, const TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const;
     private:
         PhysicalDevice m_physicalDevice;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

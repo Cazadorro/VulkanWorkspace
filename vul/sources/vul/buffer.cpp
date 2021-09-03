@@ -92,4 +92,28 @@ vul::Buffer::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
     return memoryBarrier;
 }
 
+void *vul::Buffer::mapMemory() {
+    return m_allocation.mapMemory();
+}
+
+void *vul::Buffer::getMappedMemory() const {
+    return m_allocation.getMappedMemory();
+}
+
+void vul::Buffer::unmapMemory() {
+    m_allocation.unmapMemory();
+}
+
+bool vul::Buffer::isMapped() const {
+    return m_allocation.isMapped();
+}
+
+void vul::Buffer::flush(VkDeviceSize offset, VkDeviceSize size) {
+    m_allocation.flush(offset, size);
+}
+
+void vul::Buffer::invalidate(VkDeviceSize offset, VkDeviceSize size) {
+    m_allocation.invalidate(offset, size);
+}
+
 

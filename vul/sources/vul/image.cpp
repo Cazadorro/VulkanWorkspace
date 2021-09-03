@@ -263,6 +263,30 @@ VkImageMemoryBarrier2KHR vul::Image::createFromnTransferBarrier(
                                pNext);
 }
 
+void *vul::Image::mapMemory() {
+    return m_allocation.mapMemory();
+}
+
+void *vul::Image::getMappedMemory() const {
+    return m_allocation.getMappedMemory();
+}
+
+void vul::Image::unmapMemory() {
+    m_allocation.unmapMemory();
+}
+
+bool vul::Image::isMapped() const {
+    return m_allocation.isMapped();
+}
+
+void vul::Image::flush(VkDeviceSize offset, VkDeviceSize size) {
+    m_allocation.flush(offset, size);
+}
+
+void vul::Image::invalidate(VkDeviceSize offset, VkDeviceSize size) {
+    m_allocation.invalidate(offset, size);
+}
+
 
 VkImageCreateInfo
 vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling) {

@@ -4,6 +4,7 @@
 
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
+#include <vul/sampler.h>
 #include <vul/framebuffer.h>
 #include <vul/imageview.h>
 #include <vul/image.h>
@@ -15,6 +16,8 @@
 #include <vul/shadermodule.h>
 #include <vul/ioutils.h>
 #include <vul/descriptorsetlayout.h>
+#include <vul/descriptorpool.h>
+#include <vul/descriptorset.h>
 #include <vul/renderpass.h>
 #include <vul/semaphore.h>
 #include <vul/vmaallocator.h>
@@ -30,13 +33,15 @@
 #include <vul/expectedresult.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <range/v3/view/iota.hpp>
 #include <range/v3/view/concat.hpp>
 #include <range/v3/range/conversion.hpp>
+#include <range/v3/view/enumerate.hpp>
 #include <gsl/span>
 #include <vul/temparrayproxy.h>
 #include <optional>
-
+#include <chrono>
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
@@ -76,10 +81,32 @@ struct Vertex {
     glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 texCoord;
-}
+};
 
-        std::optional<vul::PhysicalDevice>
+struct UniformBufferObject {
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
+};
 
+const std::vector<Vertex> vertices = {
+        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+
+        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+};
+
+const std::vector<uint16_t> indices = {
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4
+};
+
+std::optional<vul::PhysicalDevice>
 pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
                    const vul::Features &features,
                    const gsl::span<const char *const> &deviceExtensions,
@@ -260,7 +287,7 @@ int main() {
 
     surface.createSwapchain(swapchainBuilder);
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
-                                                  device).assertValue();
+                                               device).assertValue();
 
     const std::int32_t maxFramesInFlight = 2;
     std::uint64_t currentFrameIndex = 0;
@@ -314,6 +341,8 @@ int main() {
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
     vul::GraphicsPipeline graphicsPipeline;
+    auto pipelineLayout = device.createPipelineLayout(
+            descriptorLayout).assertValue();
     {
         auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
         auto vertexShader = device.createShaderModule(
@@ -341,51 +370,106 @@ int main() {
 
         pipelineBuilder.setBlendState({blendState});
 
-        auto pipelineLayout = device.createPipelineLayout(descriptorLayout).assertValue();
+
         pipelineBuilder.setRenderPass(renderPass, 0);
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
-    auto commandPool = device.createCommandPool(graphicsQueueIndex).assertValue();
+    auto commandPool = device.createCommandPool(
+            graphicsQueueIndex, vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
                     vul::Format::D24UnormS8Uint,
                     surface.getSwapchain()->getExtent3D(),
                     vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
-                    ).assertValue();
+    ).assertValue();
 
     auto depthImageView = depthImage.createImageView().assertValue();
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
-    const auto& swapchainImageViews = surface.getSwapchain()->getImageViews();
+    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
 
-    for (const auto& imageView : swapchainImageViews) {
-        std::array<const vul::ImageView*,2> imageViews = {&imageView, &depthImageView};
+    for (const auto &imageView : swapchainImageViews) {
+        std::array<const vul::ImageView *, 2> imageViews = {&imageView,
+                                                            &depthImageView};
+        vul::FramebufferBuilder framebufferBuilder(device);
+        framebufferBuilder.setAttachments(imageViews);
+        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
         swapchainFramebuffers.push_back(
-                device.createFramebuffer(renderPass,
-                                         imageViews,
-                                         surface.getSwapchain()->getExtent()).assertValue());
+                framebufferBuilder.create().assertValue());
     }
 
     gul::StbImage pixels;
-    gul::load("../../textures/texture.jpg",pixels,
+    gul::load("../../textures/texture.jpg", pixels,
               gul::StbImage::Channels::rgb_alpha);
-    auto textureImage = allocator.createDeviceTexture(commandPool, presentationQueue,
-            vul::TempArrayProxy(pixels.getDeviceSize(), pixels.getData()),
-            vul::createSimple2DImageInfo(
-                    vul::Format::R8g8b8a8Srgb, pixels.getExtent3D(),
-                    vul::ImageUsageFlagBits::TransferDstBit | vul::ImageUsageFlagBits::SampledBit)).assertValue();
+    auto textureImage = allocator.createDeviceTexture(commandPool,
+                                                      presentationQueue,
+                                                      vul::TempArrayProxy(
+                                                              pixels.size(),
+                                                              pixels.data()),
+                                                      vul::createSimple2DImageInfo(
+                                                              vul::Format::R8g8b8a8Srgb,
+                                                              pixels.getExtent3D(),
+                                                              vul::ImageUsageFlagBits::TransferDstBit |
+                                                              vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
-    auto textureImageView = textureImage.createImageView();
+    auto textureImageView = textureImage.createImageView().assertValue();
+
+    vul::SamplerBuilder samplerBuilder(device);
+    samplerBuilder.setFilter(vul::Filter::Linear);
+    samplerBuilder.setAddressMode(vul::SamplerAddressMode::Repeat);
+    samplerBuilder.enableAnisotropy();
+    samplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
+
+    auto sampler = samplerBuilder.create().assertValue();
+
+    //TODO enable non const vector/array to convert to TempArrayProxy automatically.
+    auto vertexBuffer = allocator.createDeviceBuffer(
+            commandPool, presentationQueue,
+            vul::TempArrayProxy(vertices.size(), vertices.data()),
+            vul::BufferUsageFlagBits::TransferDstBit |
+            vul::BufferUsageFlagBits::VertexBufferBit).assertValue();
+
+    auto indexBuffer = allocator.createDeviceBuffer(
+            commandPool, presentationQueue,
+            vul::TempArrayProxy(indices.size(), indices.data()),
+            vul::BufferUsageFlagBits::TransferDstBit |
+            vul::BufferUsageFlagBits::IndexBufferBit).assertValue();
+
+    std::vector<vul::Buffer> uniformBuffers;
+    for (std::size_t i = 0; i < swapchainSize; ++i) {
+        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+        uniformBuffers.push_back(
+                allocator.createMappedCoherentBuffer(bufferSize,
+                                                     vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
+    }
+    auto descriptorPool = device.createDescriptorPool(
+            {{descriptorSetLayoutBuilder,
+                     swapchainSize}}).assertValue();
+
+    auto descriptorSets = descriptorPool.createDescriptorSets({{descriptorLayout, swapchainSize}}).assertValue();
+
+    for(const auto& [i, descriptorSet] : descriptorSets | ranges::views::enumerate){
+        auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
+        updateBuilder.getDescriptorElementAt(0).setUniformBuffer({uniformBuffers[i].createDescriptorInfo()});
+        updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler({textureImageView.createDescriptorInfo(sampler,vul::ImageLayout::ShaderReadOnlyOptimal)});
+        auto updates = updateBuilder.create(descriptorSet);
+        device.updateDescriptorSets(updates);
+    }
+
+    auto commandBuffers = commandPool.createPrimaryCommandBuffers(swapchainSize).assertValue();
 
 
+
+    std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(), 0);
     while (!window.shouldClose()) {
 
         glfwPollEvents();
         //TODO do actual timeline semaphore update here. use framecounter, not sure how, will need to make sure value is <= actual signal value.
-        renderFinishedSemaphores[currentFrameIndex].wait(frame_counter);
+        renderFinishedSemaphores[currentFrameIndex].wait(frameCounters[currentFrameIndex]);
         auto &presentationFinishedSemaphore = presentationFinishedSemaphores[currentFrameIndex];
         auto &binaryRenderFinishedSemaphore = binaryRenderFinishedSemaphores[currentFrameIndex];
         auto swapchainImageIndexResult = surface.getSwapchain()->acquireNextImage(
@@ -398,6 +482,50 @@ int main() {
         }
         auto swapchainImageIndex = swapchainImageIndexResult.assertValue(
                 validSwapchainResults);
+
+        {
+            static auto startTime = std::chrono::high_resolution_clock::now();
+
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                    currentTime - startTime).count();
+
+            UniformBufferObject ubo = {};
+            ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
+                                    glm::vec3(0.0f, 1.0f, 0.0f));
+            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+                                   glm::vec3(0.0f, 0.0f, 0.0f),
+                                   glm::vec3(0.0f, 1.0f, 0.0f));
+            ubo.proj = glm::perspective(glm::radians(45.0f),
+                                        surface.getSwapchain()->getExtent().width /
+                                        (float) surface.getSwapchain()->getExtent().height, 0.1f,
+                                        10.0f);
+            ubo.proj[1][1] *= -1;
+            uniformBuffers[swapchainImageIndex].copyToMapped<UniformBufferObject>(ubo);
+        }
+
+        {
+            auto& commandBuffer = commandBuffers[swapchainImageIndex];
+            commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
+            {
+                std::array<VkClearValue, 2> clearValues{};
+                clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+                clearValues[1].depthStencil = {1.0f, 0};
+                auto renderPassBlock = commandBuffer.beginRenderPass(
+                        renderPass,
+                        swapchainFramebuffers[swapchainImageIndex],
+                        VkRect2D{{0,0},surface.getSwapchain()->getExtent()},
+                        clearValues);
+                commandBuffer.bindPipeline(graphicsPipeline);
+                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
+                commandBuffer.bindIndexBuffer(indexBuffer, vul::IndexType::Uint16);
+                commandBuffer.bindDescriptorSets(vul::PipelineBindPoint::Graphics, pipelineLayout, descriptorSets[swapchainImageIndex]);
+                renderPassBlock.drawIndexed(indices.size());
+            }
+            commandBuffer.end();
+        }
+
+
         //TODO do actual render here
 
         auto presentResult = surface.getSwapchain()->present(presentationQueue,

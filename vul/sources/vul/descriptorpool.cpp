@@ -3,8 +3,11 @@
 //
 
 #include "descriptorpool.h"
+#include "vul/descriptorsetlayout.h"
 #include "vul/device.h"
 #include "vul/enums.h"
+#include "vul/temparrayproxy.h"
+#include "vul/expectedresult.h"
 
 vul::DescriptorPool::DescriptorPool(const vul::Device &device,
                                     VkDescriptorPool handle,
@@ -41,4 +44,28 @@ vul::DescriptorPool::operator=(vul::DescriptorPool &&rhs) noexcept {
 
 vul::Result vul::DescriptorPool::setObjectName(const std::string &string) {
     return m_pDevice->setObjectName(m_handle, string);
+}
+
+vul::ExpectedResult<std::vector<VkDescriptorSet>>
+vul::DescriptorPool::createDescriptorSets(
+        const vul::TempArrayProxy<const vul::LayoutCount> &layouts,
+        const void *pNext) {
+
+
+    std::vector<VkDescriptorSetLayout> rawLayouts;
+    for(const auto& layout : layouts){
+        for(std::size_t i = 0; i < layout.count; ++i){
+            rawLayouts.push_back(layout.layout.get());
+        }
+    }
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.pNext = pNext;
+    allocInfo.descriptorPool = m_handle;
+    allocInfo.descriptorSetCount =rawLayouts.size();
+    allocInfo.pSetLayouts = rawLayouts.data();
+
+    std::vector<VkDescriptorSet> descriptorSets(rawLayouts.size());
+    auto result = static_cast<Result>(vkAllocateDescriptorSets(m_pDevice->get(), &allocInfo, descriptorSets.data()));
+    return {result, std::move(descriptorSets)};
 }

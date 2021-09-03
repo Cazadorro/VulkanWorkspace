@@ -68,6 +68,26 @@ namespace vul {
                                                        std::uint32_t dstQueueFamilyIndex = 0,
                                                        const void* pNext = nullptr) const;
 
+        [[nodiscard]]
+        void *mapMemory();
+
+        [[nodiscard]]
+        void * getMappedMemory() const;
+
+        void unmapMemory();
+
+        template<typename T>
+        void copyToMapped(const TempArrayProxy<T>& array){
+           m_allocation.copyToMapped(array);
+        }
+
+        [[nodiscard]]
+        bool isMapped() const;
+
+        void flush(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
+
+        void
+        invalidate(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
     private:
         vul::VmaAllocation m_allocation;
         VkBuffer m_handle = VK_NULL_HANDLE;

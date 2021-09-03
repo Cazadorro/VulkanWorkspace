@@ -7,10 +7,20 @@
 #include "vul/enumsfwd.h"
 #include <vulkan/vulkan.h>
 #include <string>
+#include <vector>
 
 namespace vul{
-    //TODO actually fill out
+    template<typename T>
+    class ExpectedResult;
+    template<typename T>
+    class TempArrayProxy;
     class Device;
+
+    class DescriptorSetLayout;
+    struct LayoutCount {
+        const DescriptorSetLayout &layout;
+        std::uint32_t count;
+    };
     class DescriptorPool{
     public:
         DescriptorPool() = default;
@@ -34,6 +44,9 @@ namespace vul{
         DescriptorPool &operator=(DescriptorPool &rhs) = delete;
 
         Result setObjectName(const std::string &string);
+
+        [[nodiscard]]
+        ExpectedResult<std::vector<VkDescriptorSet>> createDescriptorSets(const TempArrayProxy<const LayoutCount>& layouts, const void* pNext = nullptr);
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

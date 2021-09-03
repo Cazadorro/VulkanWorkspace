@@ -3,6 +3,8 @@
 //
 
 #include "commandbuffer.h"
+#include "vul/graphicspipeline.h"
+#include "vul/computepipeline.h"
 #include "vul/image.h"
 #include "vul/buffer.h"
 #include "vul/renderpass.h"
@@ -128,6 +130,80 @@ void vul::CommandBuffer::blitImage(const vul::Image &srcImage,
                    VK_FILTER_LINEAR);
 }
 
+void vul::CommandBuffer::bindPipeline(const vul::GraphicsPipeline &pipeline) {
+    vkCmdBindPipeline(m_handle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.get());
+}
+
+void vul::CommandBuffer::bindPipeline(const vul::ComputePipeline &pipeline) {
+    vkCmdBindPipeline(m_handle, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.get());
+}
+
+void vul::CommandBuffer::bindVertexBuffers(
+        const vul::TempArrayProxy<const vul::Buffer> &buffers,
+        const vul::TempArrayProxy<const VkDeviceSize> &offsets,
+        std::uint32_t firstBinding) {
+    auto rawBuffers = buffers | ranges::views::transform([](auto &buffer) { return buffer.get(); }) | ranges::to<std::vector>();
+    bindVertexBuffers(buffers,offsets,firstBinding);
+}
+
+void vul::CommandBuffer::bindVertexBuffers(
+        const vul::TempArrayProxy<const vul::Buffer *> &buffers,
+        const vul::TempArrayProxy<const VkDeviceSize> &offsets,
+        std::uint32_t firstBinding) {
+    auto rawBuffers = buffers | ranges::views::transform([](auto &buffer) { return buffer->get(); }) | ranges::to<std::vector>();
+    bindVertexBuffers(buffers,offsets,firstBinding);
+}
+
+void vul::CommandBuffer::bindVertexBuffers(
+        const vul::TempArrayProxy<const std::reference_wrapper<Buffer>> &buffers,
+        const vul::TempArrayProxy<const VkDeviceSize> &offsets,
+        std::uint32_t firstBinding) {
+    auto rawBuffers = buffers | ranges::views::transform([](auto &buffer) { return buffer.get().get(); }) | ranges::to<std::vector>();
+    bindVertexBuffers(buffers,offsets,firstBinding);
+}
+
+void vul::CommandBuffer::bindVertexBuffers(
+        const vul::TempArrayProxy<VkBuffer const> &buffers,
+        const vul::TempArrayProxy<const VkDeviceSize> &offsets,
+        std::uint32_t firstBinding) {
+    VUL_ASSERT(buffers.size() == offsets.size(), "Expected buffers count to be the same as offsets");
+    vkCmdBindVertexBuffers(m_handle, firstBinding, buffers.size(), buffers.data(), offsets.data());
+}
+
+void vul::CommandBuffer::bindIndexBuffer(const vul::Buffer &buffer,
+                                         vul::IndexType indexType,
+                                         VkDeviceSize offset) {
+    vkCmdBindIndexBuffer(m_handle, buffer.get(), offset, vul::get(indexType));
+}
+
+void
+vul::CommandBuffer::bindDescriptorSets(vul::PipelineBindPoint pipelineBindPoint,
+                                       const vul::PipelineLayout &pipelineLayout,
+                                       const vul::TempArrayProxy<VkDescriptorSet const> &descriptorSets,
+                                       const vul::TempArrayProxy<const uint32_t> &dynamicOffsets,
+                                       std::uint32_t firstSet) {
+    vkCmdBindDescriptorSets(m_handle, vul::get(pipelineBindPoint), layout.get(), firstSet, descriptorSets.size(), descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
+}
+
+void
+vul::CommandBuffer::bindDescriptorSets(vul::PipelineBindPoint pipelineBindPoint,
+                                       const vul::PipelineLayout &pipelineLayout,
+                                       const vul::TempArrayProxy<VkDescriptorSet const> &descriptorSets,
+                                       std::uint32_t firstSet) {
+    bindDescriptorSets(pipelineBindPoint, pipelineLayout, descriptorSets, {}, firstSet);
+}
+
+void vul::CommandBuffer::dispatch(std::uint32_t groupCountX,
+                                  std::uint32_t groupCountY,
+                                  std::uint32_t groupCountZ) {
+    vkCmdDispatch(m_handle, groupCountX, groupCountY, groupCountZ);
+}
+
+void vul::CommandBuffer::dispatchIndirect(const vul::Buffer &buffer,
+                                          VkDeviceSize offset) {
+    vkCmdDispatchIndirect(m_handle, buffer.get(), offset);
+}
+
 
 vul::Result
 vul::PrimaryCommandBuffer::begin(vul::CommandBufferUsageBitMask flags,
@@ -204,6 +280,33 @@ vul::SecondaryCommandBuffer::begin(vul::CommandBufferUsageBitMask flags,
     return static_cast<Result>(vkBeginCommandBuffer(m_handle, &beginInfo));
 }
 
+void vul::SecondaryCommandBuffer::drawIndexed(std::uint32_t indexCount,
+                                       std::uint32_t instanceCount,
+                                       std::uint32_t firstIndex,
+                                       std::int32_t vertexOffset,
+                                       std::uint32_t firstInstance) {
+    vkCmdDrawIndexed(m_handle, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+void vul::SecondaryCommandBuffer::draw(std::uint32_t vertexCount,
+                                std::uint32_t instanceCount,
+                                std::uint32_t firstVertex,
+                                std::uint32_t firstInstance) {
+    vkCmdDraw(m_handle, vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void vul::SecondaryCommandBuffer::drawIndirect(const vul::Buffer &buffer,
+                                        VkDeviceSize offset, uint32_t drawCount,
+                                        uint32_t stride) {
+    vkCmdDrawIndirect(m_handle, buffer.get(), offset, drawCount, stride);
+}
+
+void vul::SecondaryCommandBuffer::drawIndexedIndirect(const vul::Buffer &buffer,
+                                               VkDeviceSize offset,
+                                               uint32_t drawCount,
+                                               uint32_t stride) {
+    vkCmdDrawIndexedIndirect(m_handle, buffer.get(), offset, drawCount, stride);
+}
 //vul::RenderPassBlock
 //vul::SecondaryCommandBuffer::beginRenderPass(const vul::RenderPass &renderPass,
 //                                             const vul::Framebuffer &framebuffer,
@@ -252,4 +355,32 @@ vul::RenderPassBlock::operator=(vul::RenderPassBlock &&rhs) noexcept {
     using std::swap;
     swap(m_handle, rhs.m_handle);
     return *this;
+}
+
+void vul::RenderPassBlock::drawIndexed(std::uint32_t indexCount,
+                                       std::uint32_t instanceCount,
+                                       std::uint32_t firstIndex,
+                                       std::int32_t vertexOffset,
+                                       std::uint32_t firstInstance) {
+    vkCmdDrawIndexed(m_handle, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+}
+
+void vul::RenderPassBlock::draw(std::uint32_t vertexCount,
+                                std::uint32_t instanceCount,
+                                std::uint32_t firstVertex,
+                                std::uint32_t firstInstance) {
+    vkCmdDraw(m_handle, vertexCount, instanceCount, firstVertex, firstInstance);
+}
+
+void vul::RenderPassBlock::drawIndirect(const vul::Buffer &buffer,
+                                        VkDeviceSize offset, uint32_t drawCount,
+                                        uint32_t stride) {
+    vkCmdDrawIndirect(m_handle, buffer.get(), offset, drawCount, stride);
+}
+
+void vul::RenderPassBlock::drawIndexedIndirect(const vul::Buffer &buffer,
+                                               VkDeviceSize offset,
+                                               uint32_t drawCount,
+                                               uint32_t stride) {
+    vkCmdDrawIndexedIndirect(m_handle, buffer.get(), offset, drawCount, stride);
 }

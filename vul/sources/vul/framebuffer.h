@@ -74,6 +74,7 @@ namespace vul {
 
         void setDimensions(std::uint32_t width, std::uint32_t height,
                            std::uint32_t layers = 1);
+        void setDimensions(VkExtent2D extent, std::uint32_t layers = 1);
 
         void setNext(const void* pNext);
 

@@ -22,7 +22,7 @@ VkExtent3D gul::StbImage::getExtent3D() const {
             static_cast<std::uint32_t>(m_frames)};
 }
 
-const stbi_uc *gul::StbImage::getData() const {
+const stbi_uc *gul::StbImage::data() const {
     return m_pixels;
 }
 
@@ -110,7 +110,9 @@ gul::StbImage &gul::StbImage::operator=(gul::StbImage &&rhs) noexcept {
     return *this;
 }
 
-
+std::size_t gul::StbImage::size() const {
+    return getDeviceSize();
+}
 
 
 void gul::load(const std::string &file_path, gul::StbImage &image,
