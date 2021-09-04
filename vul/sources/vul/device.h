@@ -86,6 +86,14 @@ namespace vul {
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
         [[nodiscard]]
+        ExpectedResult<DescriptorPool> createDescriptorPool(
+                const TempArrayProxy<const VkDescriptorPoolSize> &poolSizes,
+                std::uint32_t maxSets,
+                vul::DescriptorPoolCreateBitMask flags = {},
+                const void *pNext = nullptr,
+                const VkAllocationCallbacks *pAllocator = nullptr) const;
+
+        [[nodiscard]]
         ExpectedResult<PipelineLayout> createPipelineLayout(
                 const TempArrayProxy<const DescriptorSetLayout *> &setLayouts,
                 const void *pNext = nullptr,

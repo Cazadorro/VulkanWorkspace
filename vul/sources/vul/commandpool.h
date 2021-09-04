@@ -8,6 +8,7 @@
 #include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
+#include <functional>
 namespace vul{
     //TODO actually fill out
     template<typename T>
@@ -16,6 +17,7 @@ namespace vul{
     class CommandBuffer;
     class PrimaryCommandBuffer;
     class SecondaryCommandBuffer;
+    class Queue;
     class CommandPool{
     public:
         CommandPool() = default;
@@ -51,6 +53,8 @@ namespace vul{
         vul::ExpectedResult<PrimaryCommandBuffer> createPrimaryCommandBuffer(const void* pNext = nullptr) const;
         [[nodiscard]]
         vul::ExpectedResult<SecondaryCommandBuffer> createSecondaryCommandBuffer(const void* pNext = nullptr) const;
+
+       Result singleTimeSubmit(const Queue& queue, const std::function<void(CommandBuffer&)>& commandBufferFunction) const;
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

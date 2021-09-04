@@ -92,6 +92,12 @@ namespace vul {
         VkPhysicalDeviceLimits getLimits() const;
 
         [[nodiscard]]
+        vul::PhysicalDeviceType getType() const;
+
+        [[nodiscard]]
+        VkPhysicalDeviceProperties getProperties() const;
+
+        [[nodiscard]]
         vul::Features getFeatures() const;
         [[nodiscard]]
         bool supportsPresentationTo(uint32_t queueFamilyIndex, VkSurfaceKHR surface) const;

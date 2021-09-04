@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(gul STATIC gul/stbimage.cpp gul/stbimage.h)
+add_library(gul STATIC gul/stbimage.cpp gul/stbimage.h gul/firstpersoncamera.cpp gul/firstpersoncamera.h)
 target_sources(gul
         PRIVATE
         ./gul/glfwwindow.cpp

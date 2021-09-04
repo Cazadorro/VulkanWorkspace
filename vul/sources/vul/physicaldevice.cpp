@@ -402,9 +402,17 @@ vul::ExpectedResult<vul::Device> vul::PhysicalDevice::createDevice(
 }
 
 VkPhysicalDeviceLimits vul::PhysicalDevice::getLimits() const {
+    return getProperties().limits;
+}
+
+vul::PhysicalDeviceType vul::PhysicalDevice::getType() const {
+    return static_cast<vul::PhysicalDeviceType>(getProperties().deviceType);
+}
+
+VkPhysicalDeviceProperties vul::PhysicalDevice::getProperties() const {
     VkPhysicalDeviceProperties properties{};
     vkGetPhysicalDeviceProperties(m_handle, &properties);
-    return properties.limits;
+    return properties;
 }
 
 

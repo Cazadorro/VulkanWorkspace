@@ -5,8 +5,11 @@
 #include "commandpool.h"
 #include "vul/device.h"
 #include "vul/enums.h"
+#include "vul/queue.h"
 #include "vul/commandbuffer.h"
 #include "vul/expectedresult.h"
+#include "vul/semaphore.h"
+#include "vul/temparrayproxy.h"
 
 vul::CommandPool::CommandPool(const vul::Device &device, VkCommandPool handle,
                               const VkAllocationCallbacks *pAllocator) :
@@ -106,3 +109,41 @@ vul::CommandPool::createSecondaryCommandBuffer(const void *pNext) const {
     }
     return {expectedResult.result, std::move(expectedResult.value[0])};
 }
+
+vul::Result vul::CommandPool::singleTimeSubmit(const vul::Queue &queue,
+                                               const std::function<void(
+                                                       CommandBuffer &)>& commandBufferFunction) const {
+    auto commandBuffer = createPrimaryCommandBuffer().assertValue();
+    commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
+    commandBufferFunction(commandBuffer);
+    commandBuffer.end();
+    const auto &device = getDevice();
+    auto expectedSemaphore = device.createTimelineSemaphore(0);
+    if (!expectedSemaphore.hasValue()) {
+        return expectedSemaphore.result;
+    }
+    auto timelineSemaphore = std::move(expectedSemaphore.value);
+    std::uint64_t waitValue = 1;
+    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue,
+                                                         vul::PipelineStageFlagBits2KHR::AllTransferBit);
+    auto commandBufferInfo = commandBuffer.createSubmitInfo();
+
+    VkSubmitInfo2KHR submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
+    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
+    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
+    submitInfo.waitSemaphoreInfoCount = 0;
+    submitInfo.pWaitSemaphoreInfos = nullptr;
+    submitInfo.commandBufferInfoCount = 1;
+    submitInfo.pCommandBufferInfos = &commandBufferInfo;
+    submitInfo.signalSemaphoreInfoCount = 1;
+    submitInfo.pSignalSemaphoreInfos = &signalInfo;
+
+    auto result = queue.submit(submitInfo);
+    if (result != vul::Result::Success) {
+        return result;
+    }
+    return device.wait({timelineSemaphore}, waitValue);
+}
+
+

@@ -146,13 +146,36 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
                          newPoolSizes.end());
     }
 
+    return createDescriptorPool(poolSizes, setCount, flags, pNext, pAllocator);
+//    VkDescriptorPoolCreateInfo poolInfo = {};
+//    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+//    poolInfo.pNext = pNext;
+//    poolInfo.flags = flags.to_underlying();
+//    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+//    poolInfo.pPoolSizes = poolSizes.data();
+//    poolInfo.maxSets = setCount;
+//
+//    VkDescriptorPool descriptorPool;
+//    auto result = static_cast<Result>(vkCreateDescriptorPool(m_handle,
+//                                                             &poolInfo,
+//                                                             pAllocator,
+//                                                             &descriptorPool));
+//    return {result, DescriptorPool(*this, descriptorPool, pAllocator)};
+}
+
+vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
+        const vul::TempArrayProxy<const VkDescriptorPoolSize> &poolSizes,
+        std::uint32_t maxSets, vul::DescriptorPoolCreateBitMask flags,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+
+
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.pNext = pNext;
     poolInfo.flags = flags.to_underlying();
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
     poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = setCount;
+    poolInfo.maxSets = maxSets;
 
     VkDescriptorPool descriptorPool;
     auto result = static_cast<Result>(vkCreateDescriptorPool(m_handle,
@@ -161,6 +184,7 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
                                                              &descriptorPool));
     return {result, DescriptorPool(*this, descriptorPool, pAllocator)};
 }
+
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
         const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
@@ -416,5 +440,6 @@ void vul::Device::updateDescriptorSets(
         const vul::TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const {
     vkUpdateDescriptorSets(m_handle, descriptorWrites.size(), descriptorWrites.data(), descriptorCopies.size(), descriptorCopies.data());
 }
+
 
 

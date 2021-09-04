@@ -2,8 +2,10 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
+#include <vul/vkstructutils.h>
 #include <vul/sampler.h>
 #include <vul/framebuffer.h>
 #include <vul/imageview.h>
@@ -43,10 +45,58 @@
 #include <optional>
 #include <chrono>
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_vulkan.h>
+
+
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
+
+
+vul::ExpectedResult<vul::RenderPass>
+createImGuiRenderPass(const vul::Device &device, vul::Format surfaceFormat,
+                      bool clearEnable) {
+    VkAttachmentDescription attachment = {};
+    attachment.format = vul::get(surfaceFormat);
+    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    attachment.loadOp = clearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR
+                                    : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    VkAttachmentReference color_attachment = {};
+    color_attachment.attachment = 0;
+    color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &color_attachment;
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    VkRenderPassCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    info.attachmentCount = 1;
+    info.pAttachments = &attachment;
+    info.subpassCount = 1;
+    info.pSubpasses = &subpass;
+    info.dependencyCount = 1;
+    info.pDependencies = &dependency;
+    VkRenderPass renderPass;
+    auto result = static_cast<vul::Result>(vkCreateRenderPass(device.get(),
+                                                              &info, nullptr,
+                                                              &renderPass));
+    return {result, vul::RenderPass(device, renderPass, 1, nullptr)};
+}
 
 struct Vertex {
     glm::vec3 pos;
@@ -83,7 +133,11 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
                    const gsl::span<const char *const> &deviceExtensions,
                    const vul::SurfaceFormat &surfaceFormat,
                    vul::PresentModeKHR presentationMode) {
-    for (const auto &physicalDevice : instance.enumeratePhysicalDevices()) {
+    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
+        //TODO handle more than just discrete
+        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
+            continue;
+        }
         auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
         auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
                                      vul::QueueFlagBits::ComputeBit;
@@ -113,6 +167,11 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
 
 int main() {
     gul::GlfwWindow window(800, 600, "ExampleWindow");
+    gul::FirstPersonCamera camera;
+    camera.setPosition(glm::vec3(0.0, 0.0, -1.0));
+    //camera.lookAt(glm::vec3(0.0,0.0,0.0));
+    camera.setRotation(glm::vec3(0, 0, 0.0));
+
     bool framebufferResized = false;
     auto framebuffer_callback = [&framebufferResized](
             gul::GlfwWindow &/*window*/,
@@ -268,7 +327,7 @@ int main() {
     std::vector<vul::BinarySemaphore> binaryRenderFinishedSemaphores;
     std::vector<vul::BinarySemaphore> presentationFinishedSemaphores;
     std::vector<vul::TimelineSemaphore> renderFinishedSemaphores;
-    for (auto i : ranges::views::ints(0, maxFramesInFlight)) {
+    for (auto i: ranges::views::ints(0, maxFramesInFlight)) {
         binaryRenderFinishedSemaphores.push_back(
                 device.createBinarySemaphore().assertValue());
         presentationFinishedSemaphores.push_back(
@@ -288,8 +347,10 @@ int main() {
                      vul::Format::D24UnormS8Uint)}, 1);
     subpassBuilder.subpassAt(0).setWrites({0, 1})
             .setPreDependExternal(
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit | vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit | vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
+                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
+                    vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
+                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
+                    vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
                     {},
                     vul::AccessFlagBits::ColorAttachmentWriteBit |
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
@@ -312,7 +373,8 @@ int main() {
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
             surface.getSwapchain()->getExtent());
-    pipelineBuilder.setDynamicState({vul::DynamicState::Viewport, vul::DynamicState::Scissor});
+    pipelineBuilder.setDynamicState(
+            {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
     pipelineBuilder.setDefaultRasterizationState();
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
@@ -339,7 +401,8 @@ int main() {
     }
 
     auto commandPool = device.createCommandPool(
-            presentQueueIndex, vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+            presentQueueIndex,
+            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
@@ -348,14 +411,15 @@ int main() {
                     vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
     ).assertValue();
 
-    auto depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::DepthBit)).assertValue();
+    auto depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
+            vul::ImageAspectFlagBits::DepthBit)).assertValue();
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
     const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
     auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
 
-    for (const auto &imageView : swapchainImageViews) {
+    for (const auto &imageView: swapchainImageViews) {
         std::array<const vul::ImageView *, 2> imageViews = {&imageView,
                                                             &depthImageView};
         vul::FramebufferBuilder framebufferBuilder(device);
@@ -367,8 +431,8 @@ int main() {
     }
 
     auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder,
-                            &pipelineBuilder, &graphicsPipeline, &depthImage, &depthImageView,
-                            &allocator, &swapchainFramebuffers, &device, &renderPass]() {
+            &pipelineBuilder, &graphicsPipeline, &depthImage, &depthImageView,
+            &allocator, &swapchainFramebuffers, &device, &renderPass]() {
         auto size = window.getFramebufferSize();
         while (size == glm::ivec2(0)) {
             size = window.getFramebufferSize();
@@ -393,14 +457,16 @@ int main() {
                         vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
         ).assertValue();
 
-        depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::DepthBit)).assertValue();
-        const auto& swapchainImageViews = surface.getSwapchain()->getImageViews();
-        for (const auto &imageView : swapchainImageViews) {
+        depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
+                vul::ImageAspectFlagBits::DepthBit)).assertValue();
+        const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+        for (const auto &imageView: swapchainImageViews) {
             std::array<const vul::ImageView *, 2> imageViews = {&imageView,
                                                                 &depthImageView};
             vul::FramebufferBuilder framebufferBuilder(device);
             framebufferBuilder.setAttachments(imageViews);
-            framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
+            framebufferBuilder.setDimensions(
+                    surface.getSwapchain()->getExtent());
             framebufferBuilder.setRenderPass(renderPass);
             swapchainFramebuffers.push_back(
                     framebufferBuilder.create().assertValue());
@@ -422,7 +488,9 @@ int main() {
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
-    auto textureImageView = textureImage.createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::ColorBit)).assertValue();
+    auto textureImageView = textureImage.createImageView(
+            vul::ImageSubresourceRange(
+                    vul::ImageAspectFlagBits::ColorBit)).assertValue();
 
     vul::SamplerBuilder samplerBuilder(device);
     samplerBuilder.setFilter(vul::Filter::Linear);
@@ -454,28 +522,159 @@ int main() {
     }
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,
-                     swapchainSize}}).assertValue();
+              swapchainSize}}).assertValue();
 
-    auto descriptorSets = descriptorPool.createDescriptorSets({{descriptorLayout, swapchainSize}}).assertValue();
+    auto descriptorSets = descriptorPool.createDescriptorSets(
+            {{descriptorLayout, swapchainSize}}).assertValue();
 
-    for(const auto& [i, descriptorSet] : descriptorSets | ranges::views::enumerate){
+    for (const auto&[i, descriptorSet]: descriptorSets |
+                                        ranges::views::enumerate) {
         auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer({uniformBuffers[i].createDescriptorInfo()});
-        updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler({textureImageView.createDescriptorInfo(sampler,vul::ImageLayout::ShaderReadOnlyOptimal)});
+        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
+                {uniformBuffers[i].createDescriptorInfo()});
+        updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
+                {textureImageView.createDescriptorInfo(sampler,
+                                                       vul::ImageLayout::ShaderReadOnlyOptimal)});
         auto updates = updateBuilder.create(descriptorSet);
         device.updateDescriptorSets(updates);
     }
 
-    auto commandBuffers = commandPool.createPrimaryCommandBuffers(swapchainSize).assertValue();
+    auto commandBuffers = commandPool.createPrimaryCommandBuffers(
+            swapchainSize).assertValue();
 
 
+    std::vector<VkDescriptorPoolSize> pool_sizes =
+            {
+                    {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
+                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
+                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
+                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
+                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
+            };
 
-    std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(), 0);
+    auto imguiPool = device.createDescriptorPool(
+            pool_sizes, 1000,
+            vul::DescriptorPoolCreateFlagBits::FreeDescriptorSetBit).assertValue();
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    (void) io;
+//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForVulkan(window.getWindowPtr(), true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance.get();
+    init_info.PhysicalDevice = physicalDevice.get();
+    init_info.Device = device.get();
+    init_info.QueueFamily = presentQueueIndex;
+    init_info.Queue = presentationQueue.get();
+//    init_info.PipelineCache = g_PipelineCache;
+    init_info.DescriptorPool = imguiPool.get();
+//    init_info.Allocator = g_Allocator;
+    init_info.MinImageCount = 3;
+    init_info.ImageCount = 3;
+//    init_info.CheckVkResultFn = check_vk_result;
+
+    ImGui_ImplVulkan_Init(&init_info, renderPass.get());
+#if 0
+    auto imguiRenderPass = createImGuiRenderPass(device, surface.getSwapchain()->getFormat(), false).assertValue();
+    ImGui_ImplVulkan_Init(&init_info, imguiRenderPass.get());
+
+    std::vector<vul::Framebuffer> imguiFramebuffers;
+//    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+//    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
+
+    for (const auto &imageView: swapchainImageViews) {
+        std::array<const vul::ImageView *, 1> imageViews = {&imageView};
+        vul::FramebufferBuilder framebufferBuilder(device);
+        framebufferBuilder.setAttachments(imageViews);
+        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
+        framebufferBuilder.setRenderPass(renderPass);
+        swapchainFramebuffers.push_back(
+                framebufferBuilder.create().assertValue());
+    }
+#endif
+
+    renderPass.setObjectName("MyActualRenderPass");
+
+    commandPool.singleTimeSubmit(presentationQueue,
+                                 [](vul::CommandBuffer &commandBuffer) {
+                                     ImGui_ImplVulkan_CreateFontsTexture(
+                                             commandBuffer.get());
+                                 });
+    ImGui_ImplVulkan_DestroyFontUploadObjects();
+
+    bool show_demo_window = true;
+    bool show_another_window = false;
+    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+    std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(),
+                                             0);
     while (!window.shouldClose()) {
 
         glfwPollEvents();
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
+        if (show_demo_window)
+            ImGui::ShowDemoWindow(&show_demo_window);
+
+        // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
+        {
+            static float f = 0.0f;
+            static int counter = 0;
+
+            ImGui::Begin(
+                    "Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+
+            ImGui::Text(
+                    "This is some useful text.");               // Display some text (you can use a format strings too)
+            ImGui::Checkbox("Demo Window",
+                            &show_demo_window);      // Edit bools storing our window open/close state
+            ImGui::Checkbox("Another Window", &show_another_window);
+
+            ImGui::SliderFloat("float", &f, 0.0f,
+                               1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
+            ImGui::ColorEdit3("clear color",
+                              (float *) &clear_color); // Edit 3 floats representing a color
+
+            if (ImGui::Button(
+                    "Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+                counter++;
+            ImGui::SameLine();
+            ImGui::Text("counter = %d", counter);
+
+            ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+                        1000.0f / ImGui::GetIO().Framerate,
+                        ImGui::GetIO().Framerate);
+            ImGui::End();
+        }
+
+        // 3. Show another simple window.
+        if (show_another_window) {
+            ImGui::Begin("Another Window",
+                         &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            ImGui::Text("Hello from another window!");
+            if (ImGui::Button("Close Me"))
+                show_another_window = false;
+            ImGui::End();
+        }
+
+
         //TODO do actual timeline semaphore update here. use framecounter, not sure how, will need to make sure value is <= actual signal value.
-        renderFinishedSemaphores[currentFrameIndex].wait(frameCounters[currentFrameIndex]);
+        renderFinishedSemaphores[currentFrameIndex].wait(
+                frameCounters[currentFrameIndex]);
         auto &presentationFinishedSemaphore = presentationFinishedSemaphores[currentFrameIndex];
         auto &binaryRenderFinishedSemaphore = binaryRenderFinishedSemaphores[currentFrameIndex];
         auto swapchainImageIndexResult = surface.getSwapchain()->acquireNextImage(
@@ -491,67 +690,154 @@ int main() {
 
         {
             static auto startTime = std::chrono::high_resolution_clock::now();
-
+            static auto lastTime = std::chrono::high_resolution_clock::now();
             auto currentTime = std::chrono::high_resolution_clock::now();
             float time = std::chrono::duration<float, std::chrono::seconds::period>(
                     currentTime - startTime).count();
+            float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(
+                    currentTime - lastTime).count();
+            lastTime = currentTime;
+
+            bool toggle_spread = false;
+            bool toggle_density = false;
+            ImGuiIO &io = ImGui::GetIO();
+            if (!io.WantCaptureKeyboard) {
+                float rotate_speed = 1.5;
+                float move_speed = 3;
+
+                bool forward = false;
+                bool back = false;
+                bool left = false;
+                bool right = false;
+                bool up = false;
+                bool down = false;
+                if (window.keyPressed(GLFW_KEY_W)) {
+                    forward = true;
+                }
+                if (window.keyPressed(GLFW_KEY_S)) {
+                    back = true;
+                }
+                if (window.keyPressed(GLFW_KEY_A)) {
+                    left = true;
+                }
+                if (window.keyPressed(GLFW_KEY_D)) {
+                    right = true;
+                }
+                if (window.keyPressed(GLFW_KEY_SPACE)) {
+                    up = true;
+                }
+                if (window.keyPressed(GLFW_KEY_LEFT_CONTROL)) {
+                    down = true;
+                }
+                if (window.keyPressed(GLFW_KEY_1)) {
+                    toggle_spread = !toggle_spread;
+                }
+                if (window.keyPressed(GLFW_KEY_2)) {
+                    toggle_density = !toggle_density;
+                }
+                camera.move(forward, back, left, right, up, down, deltaTime,
+                            move_speed);
+
+                bool rotate_up = false;
+                bool rotate_down = false;
+                bool rotate_left = false;
+                bool rotate_right = false;
+                if (window.keyPressed(GLFW_KEY_UP)) {
+                    rotate_up = true;
+                }
+                if (window.keyPressed(GLFW_KEY_DOWN)) {
+                    rotate_down = true;
+                }
+                if (window.keyPressed(GLFW_KEY_LEFT)) {
+                    rotate_left = true;
+                }
+                if (window.keyPressed(GLFW_KEY_RIGHT)) {
+                    rotate_right = true;
+                }
+                camera.rotate(rotate_up, rotate_down, rotate_left, rotate_right,
+                              deltaTime, rotate_speed);
+            }
+
 
             UniformBufferObject ubo = {};
             ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
                                     glm::vec3(0.0f, 1.0f, 0.0f));
-            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
-                                   glm::vec3(0.0f, 0.0f, 0.0f),
-                                   glm::vec3(0.0f, 1.0f, 0.0f));
+//            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
+//                                   glm::vec3(0.0f, 0.0f, 0.0f),
+//                                   glm::vec3(0.0f, 1.0f, 0.0f));
+            ubo.view = camera.calcViewMatrix();
             ubo.proj = glm::perspective(glm::radians(45.0f),
                                         surface.getSwapchain()->getExtent().width /
-                                        (float) surface.getSwapchain()->getExtent().height, 0.1f,
+                                        (float) surface.getSwapchain()->getExtent().height,
+                                        0.1f,
                                         10.0f);
             ubo.proj[1][1] *= -1;
-            uniformBuffers[swapchainImageIndex].copyToMapped<UniformBufferObject>(ubo);
+            uniformBuffers[swapchainImageIndex].copyToMapped<UniformBufferObject>(
+                    ubo);
         }
 
-        auto& commandBuffer = commandBuffers[swapchainImageIndex];
+        ImGui::Render();
+
+        auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {
-            commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
+            commandBuffer.begin(
+                    vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
                 auto extent = surface.getSwapchain()->getExtent();
-                VkViewport viewport{};
-                viewport.x = 0.0f;
-                viewport.y = 0.0f;
-                viewport.width = (float) extent.width;
-                viewport.height = (float) extent.height;
-                viewport.minDepth = 0.0f;
-                viewport.maxDepth = 1.0f;
-
-                VkRect2D scissor{};
-                scissor.offset = {0, 0};
-                scissor.extent = extent;
-
-                commandBuffer.setViewport(viewport);
-                commandBuffer.setScissor(scissor);
+                commandBuffer.setViewport(vul::Viewport(extent).get());
+                commandBuffer.setScissor(vul::Rect2D(extent).get());
 
                 std::array<VkClearValue, 2> clearValues{};
                 clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
+                clearValues[0].color = {
+                        {clear_color.x, clear_color.y, clear_color.z,
+                         clear_color.w}};
                 clearValues[1].depthStencil = {1.0f, 0};
                 auto renderPassBlock = commandBuffer.beginRenderPass(
                         renderPass,
                         swapchainFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0,0},extent},
+                        VkRect2D{{0, 0}, extent},
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
                 commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
-                commandBuffer.bindIndexBuffer(indexBuffer, vul::IndexType::Uint16);
-                commandBuffer.bindDescriptorSets(vul::PipelineBindPoint::Graphics, pipelineLayout, descriptorSets[swapchainImageIndex]);
+                commandBuffer.bindIndexBuffer(indexBuffer,
+                                              vul::IndexType::Uint16);
+                commandBuffer.bindDescriptorSets(
+                        vul::PipelineBindPoint::Graphics, pipelineLayout,
+                        descriptorSets[swapchainImageIndex]);
                 renderPassBlock.drawIndexed(indices.size());
+                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
+                                                commandBuffer.get());
             }
+#if 0
+            {
+                std::array<VkClearValue, 1> clearValues{};
+//                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
+                clearValues[0].color = {
+                        {clear_color.x, clear_color.y, clear_color.z,
+                         clear_color.w}};
+                auto extent = surface.getSwapchain()->getExtent();
+                auto renderPassBlock = commandBuffer.beginRenderPass(
+                        imguiRenderPass,
+                        imguiFramebuffers[swapchainImageIndex],
+                        VkRect2D{{0, 0}, extent},
+                        clearValues);
+                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
+                                                commandBuffer.get());
+            }
+#endif
             commandBuffer.end();
         }
 
         frameCounters[currentFrameIndex] += 1;
-        auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
+        auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
+                vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
         std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
-        signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(frameCounters[currentFrameIndex], vul::PipelineStageFlagBits2KHR::AllCommandsBit);
-        signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+        signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
+                frameCounters[currentFrameIndex],
+                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+        signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
+                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
         auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
         VkSubmitInfo2KHR submitInfo = {};
@@ -568,6 +854,11 @@ int main() {
         presentationQueue.submit(submitInfo);
         //TODO do actual render here
 
+        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+
         auto presentResult = surface.getSwapchain()->present(presentationQueue,
                                                              binaryRenderFinishedSemaphore,
                                                              swapchainImageIndex);
@@ -582,8 +873,12 @@ int main() {
 
         currentFrameIndex = (currentFrameIndex + 1) % maxFramesInFlight;
         frame_counter += 1;
+
     }
     device.waitIdle();
 
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
     return 0;
 }
