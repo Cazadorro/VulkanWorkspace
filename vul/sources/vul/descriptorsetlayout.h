@@ -191,7 +191,7 @@ namespace vul {
                 const VkAllocationCallbacks *pAllocator = nullptr);
 
         [[nodiscard]]
-        VkDescriptorSetLayout get() const;
+        const VkDescriptorSetLayout& get() const;
 
         ~DescriptorSetLayout();
 

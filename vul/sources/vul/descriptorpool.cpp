@@ -69,3 +69,18 @@ vul::DescriptorPool::createDescriptorSets(
     auto result = static_cast<Result>(vkAllocateDescriptorSets(m_pDevice->get(), &allocInfo, descriptorSets.data()));
     return {result, std::move(descriptorSets)};
 }
+
+vul::ExpectedResult<VkDescriptorSet>
+vul::DescriptorPool::createDescriptorSet(const vul::DescriptorSetLayout &layout,
+                                         const void *pNext) {
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.pNext = pNext;
+    allocInfo.descriptorPool = m_handle;
+    allocInfo.descriptorSetCount =1;
+    allocInfo.pSetLayouts = &(layout.get());
+
+    VkDescriptorSet descriptorSet;
+    auto result = static_cast<Result>(vkAllocateDescriptorSets(m_pDevice->get(), &allocInfo, &descriptorSet));
+    return {result, std::move(descriptorSet)};
+}

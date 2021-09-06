@@ -70,10 +70,15 @@ namespace vul{
         void setBasePipeline(const ComputePipeline &basePipeline,
                              std::int32_t basePipelineIndex);
 
-
+        [[nodiscard]]
+        ExpectedResult<ComputePipeline>
+        create(VkPipelineCache pipelineCache) const;
         [[nodiscard]]
         ExpectedResult<ComputePipeline>
         create(const PipelineCache &pipelineCache) const;
+        [[nodiscard]]
+        ExpectedResult<ComputePipeline>
+        create() const;
 
     private:
         const Device *m_pDevice = nullptr;

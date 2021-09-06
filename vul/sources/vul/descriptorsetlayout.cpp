@@ -196,7 +196,7 @@ vul::DescriptorSetLayout::DescriptorSetLayout(const vul::Device &device,
         : m_pDevice(&device), m_pAllocator(pAllocator), m_handle(handle) {
 }
 
-VkDescriptorSetLayout vul::DescriptorSetLayout::get() const {
+const VkDescriptorSetLayout& vul::DescriptorSetLayout::get() const {
     return m_handle;
 }
 

@@ -51,13 +51,18 @@ namespace vul {
         Result setObjectName(const std::string &string);
 
         [[nodiscard]]
+        VkDescriptorImageInfo createDescriptorInfo(VkSampler sampler, vul::ImageLayout layout) const;
+        [[nodiscard]]
         VkDescriptorImageInfo createDescriptorInfo(const Sampler& sampler, vul::ImageLayout layout) const;
+        [[nodiscard]]
+        VkDescriptorImageInfo createStorageWriteInfo() const;
     private:
         const Device* m_pDevice = nullptr;
         VkImageView m_handle = VK_NULL_HANDLE;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
 
     };
+
 
 
 

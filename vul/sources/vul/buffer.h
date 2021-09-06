@@ -88,6 +88,11 @@ namespace vul {
 
         void
         invalidate(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
+
+        // TODO perminantly set vma allocator state to usable with bufferDeviceAddress
+        // and make sure all buffers are device addressable period?
+        [[nodiscard]]
+        VkDeviceAddress getDeviceAddress(const void* pNext = nullptr) const;
     private:
         vul::VmaAllocation m_allocation;
         VkBuffer m_handle = VK_NULL_HANDLE;

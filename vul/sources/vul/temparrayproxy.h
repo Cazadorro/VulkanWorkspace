@@ -26,11 +26,11 @@ namespace vul {
         TempArrayProxy(typename std::remove_const<T>::type &value) noexcept
                 : m_size(1), m_ptr(&value) {}
 
-        TempArrayProxy(uint32_t count, T *ptr) noexcept
+        TempArrayProxy(std::size_t count, T *ptr) noexcept
                 : m_size(count), m_ptr(ptr) {}
 
         template<typename B = T, typename std::enable_if<std::is_const<B>::value, int>::type = 0>
-        TempArrayProxy(uint32_t count,
+        TempArrayProxy(std::size_t count,
                        typename std::remove_const<T>::type *ptr) noexcept
                 : m_size(count), m_ptr(ptr) {}
 
@@ -40,23 +40,23 @@ namespace vul {
 #  endif
 
         TempArrayProxy(std::initializer_list<T> const &list) noexcept
-                : m_size(static_cast<uint32_t>( list.size())),
+                : m_size(static_cast<std::size_t>( list.size())),
                   m_ptr(list.begin()) {}
 
         template<typename B = T, typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
                 std::initializer_list<typename std::remove_const<T>::type> const &list) noexcept
-                : m_size(static_cast<uint32_t>( list.size())),
+                : m_size(static_cast<std::size_t>( list.size())),
                   m_ptr(list.begin()) {}
 
         TempArrayProxy(std::initializer_list<T> &list) noexcept
-                : m_size(static_cast<uint32_t>( list.size())),
+                : m_size(static_cast<std::size_t>( list.size())),
                   m_ptr(list.begin()) {}
 
         template<typename B = T, typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
                 std::initializer_list<typename std::remove_const<T>::type> &list) noexcept
-                : m_size(static_cast<uint32_t>( list.size())),
+                : m_size(static_cast<std::size_t>( list.size())),
                   m_ptr(list.begin()) {}
 
 #  if __GNUC__ >= 9
@@ -83,7 +83,7 @@ namespace vul {
 
         template<class Allocator = std::allocator<typename std::remove_const<T>::type>>
         TempArrayProxy(std::vector<T, Allocator> const &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
         template<class Allocator = std::allocator<typename std::remove_const<T>::type>,
@@ -91,12 +91,12 @@ namespace vul {
                 typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
                 std::vector<typename std::remove_const<T>::type, Allocator> const &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
         template<class Allocator = std::allocator<typename std::remove_const<T>::type>>
         TempArrayProxy(std::vector<T, Allocator> &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
         template<class Allocator = std::allocator<typename std::remove_const<T>::type>,
@@ -104,13 +104,13 @@ namespace vul {
                 typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
                 std::vector<typename std::remove_const<T>::type, Allocator> &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
 
         template<size_t N = gsl::dynamic_extent>
         TempArrayProxy(gsl::span<T, N> const &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
         template<size_t N = gsl::dynamic_extent,
@@ -118,12 +118,12 @@ namespace vul {
                 typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
                 gsl::span<typename std::remove_const<T>::type, N> const &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
         template<size_t N = gsl::dynamic_extent>
         TempArrayProxy(gsl::span<T, N> &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
         template<size_t N = gsl::dynamic_extent,
@@ -131,7 +131,7 @@ namespace vul {
                 typename std::enable_if<std::is_const<B>::value, int>::type = 0>
         TempArrayProxy(
                 gsl::span<typename std::remove_const<T>::type, N> &data) noexcept
-                : m_size(static_cast<uint32_t>( data.size())),
+                : m_size(static_cast<std::size_t>( data.size())),
                   m_ptr(data.data()) {}
 
 

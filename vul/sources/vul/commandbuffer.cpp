@@ -26,7 +26,7 @@ vul::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
                          vul::AccessFlagBitMask dstAccessMask,
                          const void *pNext) {
     VkMemoryBarrier2KHR barrier = {};
-    barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2_KHR;
+    barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR;
     barrier.pNext = pNext;
     barrier.srcStageMask = srcStageMask.to_underlying();
     barrier.srcAccessMask = srcAccessMask.to_underlying();
@@ -34,6 +34,25 @@ vul::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
     barrier.dstAccessMask = dstAccessMask.to_underlying();
     return barrier;
 }
+
+VkDependencyInfoKHR vul::createDependencyInfo(
+        const TempArrayProxy<VkMemoryBarrier2KHR> &memoryBarriers,
+        const TempArrayProxy<VkBufferMemoryBarrier2KHR> &bufferMemoryBarriers,
+        const TempArrayProxy<VkImageMemoryBarrier2KHR> &imageMemoryBarriers,
+        vul::DependencyBitMask dependencyFlags, const void *pNext) {
+    VkDependencyInfoKHR dependencyInfo = {};
+    dependencyInfo.sType= VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+    dependencyInfo.pNext = pNext;
+    dependencyInfo.dependencyFlags = dependencyFlags.to_underlying();
+    dependencyInfo.memoryBarrierCount = memoryBarriers.size();
+    dependencyInfo.pMemoryBarriers = memoryBarriers.data();
+    dependencyInfo.bufferMemoryBarrierCount = bufferMemoryBarriers.size();
+    dependencyInfo.pBufferMemoryBarriers = bufferMemoryBarriers.data();
+    dependencyInfo.imageMemoryBarrierCount = imageMemoryBarriers.size();
+    dependencyInfo.pImageMemoryBarriers = imageMemoryBarriers.data();
+    return dependencyInfo;
+}
+
 
 vul::CommandBuffer::CommandBuffer(const vul::CommandPool &commandPool,
                                   VkCommandBuffer handle)
@@ -207,15 +226,23 @@ void vul::CommandBuffer::dispatchIndirect(const vul::Buffer &buffer,
 }
 
 void vul::CommandBuffer::setScissor(
-        const vul::TempArrayProxy<const VkRect2D> scissors,
+        const vul::TempArrayProxy<const VkRect2D>& scissors,
         std::uint32_t firstScissor) {
     vkCmdSetScissor(m_handle, firstScissor, scissors.size(), scissors.data());
 }
 
 void vul::CommandBuffer::setViewport(
-        const vul::TempArrayProxy<const VkViewport> viewports,
+        const vul::TempArrayProxy<const VkViewport>& viewports,
         std::uint32_t firstViewport) {
     vkCmdSetViewport(m_handle, firstViewport, viewports.size(), viewports.data());
+}
+
+void
+vul::CommandBuffer::pushConstants(const vul::PipelineLayout &pipelineLayout,
+                                  vul::ShaderStageBitMask stageFlags,
+                                  std::uint32_t offset, std::uint32_t size,
+                                  const void *pValues) {
+    vkCmdPushConstants(m_handle, pipelineLayout.get(),stageFlags.to_underlying(), offset, size, pValues);
 }
 
 

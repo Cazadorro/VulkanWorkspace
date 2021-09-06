@@ -80,6 +80,16 @@ void vul::ComputePipelineBuilder::setBasePipeline(
 
 vul::ExpectedResult<vul::ComputePipeline> vul::ComputePipelineBuilder::create(
         const vul::PipelineCache &pipelineCache) const {
+    return create(pipelineCache.get());
+}
+
+vul::ExpectedResult<vul::ComputePipeline>
+vul::ComputePipelineBuilder::create() const {
+    return create(VK_NULL_HANDLE);
+}
+
+vul::ExpectedResult<vul::ComputePipeline>
+vul::ComputePipelineBuilder::create(VkPipelineCache pipelineCache) const {
     VkComputePipelineCreateInfo computePipelineCreateInfo = {};
     computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     computePipelineCreateInfo.pNext = nullptr;
@@ -90,6 +100,6 @@ vul::ExpectedResult<vul::ComputePipeline> vul::ComputePipelineBuilder::create(
     computePipelineCreateInfo.basePipelineIndex = m_basePipelineIndex;
 
     VkPipeline pipeline;
-    auto result = static_cast<Result>(vkCreateComputePipelines(m_pDevice->get(), pipelineCache.get(), 1, &computePipelineCreateInfo, m_pAllocator, &pipeline));
+    auto result = static_cast<Result>(vkCreateComputePipelines(m_pDevice->get(), pipelineCache, 1, &computePipelineCreateInfo, m_pAllocator, &pipeline));
     return {result, ComputePipeline(*m_pDevice, pipeline, m_pAllocator)};
 }

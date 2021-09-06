@@ -109,7 +109,16 @@ vul::Result vul::ImageView::setObjectName(const std::string &string) {
 VkDescriptorImageInfo
 vul::ImageView::createDescriptorInfo(const vul::Sampler &sampler,
                                      vul::ImageLayout layout) const {
-    return {sampler.get(), m_handle, vul::get(layout)};
+    return createDescriptorInfo(sampler.get(), layout);
+}
+
+VkDescriptorImageInfo vul::ImageView::createStorageWriteInfo() const {
+    return createDescriptorInfo(VK_NULL_HANDLE, vul::ImageLayout::General);
+}
+
+VkDescriptorImageInfo vul::ImageView::createDescriptorInfo(VkSampler sampler,
+                                                           vul::ImageLayout layout) const {
+    return {sampler, m_handle, vul::get(layout)};
 }
 
 vul::SubresourceRange::operator VkImageSubresourceRange() const {

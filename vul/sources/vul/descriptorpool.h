@@ -47,6 +47,9 @@ namespace vul{
 
         [[nodiscard]]
         ExpectedResult<std::vector<VkDescriptorSet>> createDescriptorSets(const TempArrayProxy<const LayoutCount>& layouts, const void* pNext = nullptr);
+        [[nodiscard]]
+        ExpectedResult<VkDescriptorSet> createDescriptorSet(const DescriptorSetLayout &layout, const void* pNext = nullptr);
+
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

@@ -10,9 +10,11 @@
 vul::ExpectedResult<vul::VmaAllocator>
 vul::VmaAllocator::create(const vul::Instance &instance,
                           const vul::PhysicalDevice &physicalDevice,
-                          const vul::Device &device){
+                          const vul::Device &device,
+                          VmaAllocatorCreateFlags flags){
     vul::VmaAllocator allocator;
     VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.flags = flags;
     allocatorInfo.physicalDevice = physicalDevice.get();
     allocatorInfo.device = device.get();
     allocatorInfo.instance = instance.get();

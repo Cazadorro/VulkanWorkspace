@@ -68,7 +68,7 @@ vec2(-1.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 1.0)
 );
 
 uint toLinear(ivec2 pos, uint width){
-    return y * width + x;
+    return pos.y * width + pos.x;
 }
 
 bool inBounds(uvec2 pos, uvec2 dims){
@@ -85,57 +85,52 @@ layout(buffer_reference, buffer_reference_align=4, scalar) buffer float32_array{
 };
 
 //should be 8 + 8 + 8 aligned?
-layout(set = 0, binding = 0, std430) buffer LbmParameters{
+layout(set = 0, binding = 0, std430) uniform LbmParameters{
     uint u_width;
     uint u_height;
     float u_tau;
     float u_padding;
-    float32_array u_input;
-    float32_array u_ouput;
-//    float32_array u_input_nw;
-//    float32_array u_input_nm;
-//    float32_array u_input_ne;
-//    float32_array u_input_ww;
-//    float32_array u_input_mm;
-//    float32_array u_input_ee;
-//    float32_array u_input_sw;
-//    float32_array u_input_sm;
-//    float32_array u_input_se;
-//
-//    float32_array u_output_nw;
-//    float32_array u_output_nm;
-//    float32_array u_output_ne;
-//    float32_array u_output_ww;
-//    float32_array u_output_mm;
-//    float32_array u_output_ee;
-//    float32_array u_output_sw;
-//    float32_array u_output_sm;
-//    float32_array u_output_se;
+    float32_array u_lbm_arrays[2];
 };
 
-layout(RGBA32F, binding=1) uniform image3D output_velocity_density;
+layout(set = 0, binding=1, RGBA32F) uniform image2D output_visualization[];
+
+
+layout(push_constant) uniform PushConstantBlock{
+    uint u_iteration_idx;
+    uint u_imageoutput_idx;
+};
+
+float32_array getInput(){
+    return u_lbm_arrays[u_iteration_idx % 2];
+}
+
+float32_array getOutput(){
+    return u_lbm_arrays[(u_iteration_idx+1) % 2];
+}
 
 float getInputFor(uint frame, ivec2 pos){
     uint frame_offset = (u_width * u_height) * frame;
-    return u_input[frame_offset + toLinear(pos + opposite_offsets[frame], u_width)];
+
+    return getInput().data[frame_offset + toLinear(pos + -stream_offsets[frame], u_width)];
 }
 float getBounceInputFor(uint frame, ivec2 pos){
     uint opposite_frame = opposite_idxs[frame];
     uint frame_offset = (u_width * u_height) * opposite_frame;
-    return u_input[frame_offset + toLinear(pos, u_width)];
+    return getInput().data[frame_offset + toLinear(pos, u_width)];
 }
 
 float getCheckedInputFor(uint frame, ivec2 pos, ivec2 dims){
-    if (inBounds(pos + opposite_offsets[LBM_IDX_NW], dims)){
-        return getInputFor(LBM_IDX_NW, pos);
+    if (inBounds(pos + -stream_offsets[frame], dims)){
+        return getInputFor(frame, pos);
     } else {
-        return getBounceInputFor(LBM_IDX_NW, pos);
+        return getBounceInputFor(frame, pos);
     }
 }
 
-float setInput(uint frame, uint linear_idx, float value){
+void setInput(uint frame, uint linear_idx, float value){
     uint frame_offset = (u_width * u_height) * frame;
-    return u_output[frame_offset + linear_idx] = value;
+    getOutput().data[frame_offset + linear_idx] = value;
 }
 
 float pow2(float value){
@@ -148,291 +143,60 @@ void main(){
     uint x = x_idx % u_width;
     uint y = x_idx / u_width;
 
-    if (x_idx > u_width || y > u_height){
+    if (x > u_width || y > u_height){
         return;
     }
 
     float streamed[LBM_DIR_COUNT] = {
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f,
-        0.0f, 0.0f, 0.0f
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f
     };
     ivec2 pos = ivec2(x, y);
     ivec2 dims = ivec2(u_width, u_height);
-    for(uint i = 0; i < LBM_DIR_COUNT; ++i){
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
         streamed[i] = getCheckedInputFor(i, pos, dims);
     }
 
     //assumes speed of sound is 1/sqrt(3)
     float density = 0;
-    vec2 momentum = vec2(0.0,0.0);
-    for(uint i = 0; i < LBM_DIR_COUNT; ++i){
+    vec2 momentum = vec2(0.0, 0.0);
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
         vec2 c_i = velocities[i];
         float value = streamed[i];
         momentum += c_i * value;
         density += value;
     }
 
-    vec2 velocity = momentum / density;
-    for(uint i = 0; i < LBM_DIR_COUNT; ++i){
+    vec2 velocity;
+    if(density != 0.0){
+        velocity = momentum / density;
+    }else{
+        velocity = vec2(0.0);
+    }
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
         float w_i = weights[i];
         vec2 c_i = velocities[i];
-        float cu_i = dot(c_i,velocity);
-        float uu = dot(velocity,velocity);
-        float feq = w_i * density ( 1 + 3 *cu_i + (9.0/2.0) * pow2(cu_i) + (3.0/2.0) * pow2(uu));
-        streamed[i] = streamed[i] * (1.0 - (1/u_tau)) + f_eq*(1/u_tau);
+        float cu_i = dot(c_i, velocity);
+        float uu = dot(velocity, velocity);
+        float f_eq = w_i * density * (1 + 3 *cu_i + (9.0/2.0) * pow2(cu_i) + (3.0/2.0) * pow2(uu));
+        streamed[i] = max(streamed[i] * (1.0 - (1/u_tau)) + f_eq*(1/u_tau), 0.0);
     }
-    for(uint i = 0; i < LBM_DIR_COUNT; ++i){
-        setInput(LBM_DIR_COUNT, x_idx, streamed[i]);
-    }
-
-
-//    streamed[LBM_IDX_NW] = getCheckedInputFor(LBM_IDX_NW, pos, dims);
-//    streamed[LBM_IDX_NM] = getCheckedInputFor(LBM_IDX_NM, pos, dims);
-//    streamed[LBM_IDX_NE] = getCheckedInputFor(LBM_IDX_NE, pos, dims);
-//    streamed[LBM_IDX_WW] = getCheckedInputFor(LBM_IDX_WW, pos, dims);
-//    streamed[LBM_IDX_MM] = getCheckedInputFor(LBM_IDX_MM, pos, dims);
-//    streamed[LBM_IDX_EE] = getCheckedInputFor(LBM_IDX_EE, pos, dims);
-//    streamed[LBM_IDX_SW] = getCheckedInputFor(LBM_IDX_SW, pos, dims);
-//    streamed[LBM_IDX_SM] = getCheckedInputFor(LBM_IDX_SM, pos, dims);
-//    streamed[LBM_IDX_SE] = getCheckedInputFor(LBM_IDX_SE, pos, dims);
-
-    //    LatticeSize lattice_size = LatticeSize(lattice_dimensions.frame_count, lattice_dimensions.row_count, lattice_dimensions.col_count, dir_count);
-    //    MaskSize mask_size = createMaskSize(lattice_size);
-    //    streamAndCollide(lattice_size, mask_size, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, gl_GlobalInvocationID.z);
-}
-
-const uint dir_count = 19;
-const float lattice_speed = 1.0;
-const float tau = 4.0;
-const float bounce_friction = 1.0;
-
-
-layout(std430, binding = 0) buffer LbmLattice0
-{
-    float input_array[];
-};
-
-layout(std430, binding = 1) buffer LbmLattice1
-{
-    float output_array[];
-};
-
-layout(std430, binding = 2) buffer LbmLattice2
-{
-    bool mask_array[];
-};
-
-layout(RGBA32F, binding=3) uniform image3D output_velocity_density;
-
-layout(push_constant) uniform InputBlockps{
-    uint frame_count;
-    uint row_count;
-    uint col_count;
-    uint iteration_count;
-}lattice_dimensionsps;
-
-layout(binding = 4) uniform InputBlock{
-    uint frame_count;
-    uint row_count;
-    uint col_count;
-    uint iteration_count;
-}lattice_dimensions;
-
-struct LatticeSize{
-    uint frame_count;
-    uint row_count;
-    uint col_count;
-    uint dir_count;
-};
-
-struct MaskSize{
-    uint frame_count;
-    uint row_count;
-    uint col_count;
-};
-
-MaskSize createMaskSize(const in LatticeSize lattice_size){
-    return MaskSize(lattice_size.frame_count, lattice_size.row_count, lattice_size.col_count);
-}
-
-float getLatticeInput(LatticeSize size, uint frame, uint row, uint col, uint dir){
-    uint index = frame * (size.row_count * size.col_count * size.dir_count) + row * (size.col_count * size.dir_count) + (col * size.dir_count) + dir;
-    return input_array[index];
-}
-
-float getLatticeOutput(LatticeSize size, uint frame, uint row, uint col, uint dir){
-    uint index = frame * (size.row_count * size.col_count * size.dir_count) + row * (size.col_count * size.dir_count) + (col * size.dir_count) + dir;
-    return output_array[index];
-}
-
-void setLatticeOutput(LatticeSize size, uint frame, uint row, uint col, uint dir, float value){
-    output_array[frame * (size.row_count * size.col_count * size.dir_count) + row * (size.col_count * size.dir_count) + (col * size.dir_count) + dir] = value;
-}
-
-bool getMask(MaskSize size, uint frame, uint row, uint col){
-    return mask_array[frame * (size.row_count * size.col_count) + row * (size.col_count) + col];
-}
-
-void setVelocityDensityOutput(LatticeSize size, uint frame, uint row, uint col, vec3 velocity, float density){
-    imageStore(output_velocity_density, ivec3(col, row, frame), vec4(velocity, density));
-    //imageStore(output_velocity_density, ivec3(col, row, frame), vec4(1.0));
-}
-
-
-uint opposite_dir(uint dir, uint max_dir){
-    int half_max_dir = int(max_dir) / 2;
-    return ((int(dir) - (half_max_dir)) * -1) + half_max_dir;
-}
-
-float[dir_count] streamValue(LatticeSize size, MaskSize mask_size, uint frame, uint row, uint col) {
-    uint dir = 0;
-    float[dir_count] dir_output;
-    for (int k = -1; k <= 1; ++k) {
-        for (int i = -1; i <= 1; ++i) {
-            for (int j = -1; j <= 1; ++j) {
-                //if we are on a 3d corner
-                if (k != 0 && i != 0 && j != 0) {
-                    continue;
-                }
-                int in_frame = int(frame) - k;
-                int in_row = int(row) - i;
-                int in_col = int(col) - j;
-
-                if (in_frame >= 0 &&
-                (frame - k) < size.frame_count &&
-                in_row >= 0 &&
-                (row - i) < size.row_count
-                && in_col >= 0 &&
-                (col - j) < size.col_count) {
-                    if (getMask(mask_size, in_frame, in_row, in_col)) {
-                        float streamed_value = getLatticeInput(size, in_frame, in_row, in_col, dir);
-                        //setLatticeOutput(frame, row, col, dir, streamed_value);
-                        dir_output[dir] = streamed_value;
-                    } else {
-                        float streamed_value =  bounce_friction * getLatticeInput(size, frame, row, col, opposite_dir(dir, dir_count));
-                        //                        setLatticeOutput(frame, row, col, dir, streamed_value);
-                        dir_output[dir] = streamed_value;
-                    }
-                } else {
-                    float streamed_value =  bounce_friction * getLatticeInput(size, frame, row, col, opposite_dir(dir, dir_count));
-                    //                    setLatticeOutput(frame, row, col, dir,streamed_value);
-                    dir_output[dir] = streamed_value;
-                }
-                dir += 1;
-            }
-        }
-    }
-    return dir_output;
-}
-
-//source for equations and weights https://pdfs.semanticscholar.org/e626/ca323a9a8a4ad82fb16ccbbbd93ba5aa98e0.pdf
-void altBGKEquilibrium(
-LatticeSize size, uint frame, uint row, uint col, float density,
-const in vec3 velocity, const in float[dir_count] dir_output) {
-    uint dir = 0;
-    for (int k = -1; k <= 1; ++k) {
-        for (int i = -1; i <= 1; ++i) {
-            for (int j = -1; j <= 1; ++j) {
-                if (k != 0 && i != 0 && j != 0) {
-                    continue;
-                }
-                float weight;
-                if (k == 0 && i == 0 && j == 0) {
-                    weight = 1.0 / 3.0;
-                } else if (abs(k + i + j) == 1) {
-                    weight = 1.0 / 18.0;
-                } else {
-                    weight = 1.0 / 36.0;
-                }
-
-                vec3 current_velocity = vec3(j, i, k);
-                float ei_dot_u = dot(current_velocity,
-                velocity);
-
-                float u_dot_u = dot(velocity, velocity);
-
-                float equilibrium = weight * density * (1.0f -
-                ((3.0f / 2.0f) *
-                u_dot_u *
-                u_dot_u) +
-                (3.0f *
-                ei_dot_u) +
-                ((9.0f / 2.0f) *
-                (ei_dot_u *
-                ei_dot_u)));
-
-                float value = dir_output[dir];
-                float collisioned_value = value - ((value - equilibrium) *(lattice_speed / tau));
-                uint dir_index = uint(dir_count * ((sin(lattice_dimensions.iteration_count) + 1.0)/2.0));
-                dir_index = 10u;
-                if (dir == dir_index && (lattice_dimensions.iteration_count % 231 < 10) && (frame+row+col) == 0){
-                    collisioned_value += 1000.0;
-                }
-                //collisioned_value += 0.0;
-                //                uint dir_index = uint(dir_count * ((sin(lattice_dimensions.iteration_count) + 1.0)/2.0));
-                //                dir_index = 10u;
-                //                if((lattice_dimensions.iteration_count != 0)){
-                //                    collisioned_value = 0.0;
-                //                }
-                //                collisioned_value = 10000.0;
-                setLatticeOutput(size, frame, row, col, dir, collisioned_value);
-                dir += 1;
-            }
-        }
-    }
-}
-
-
-
-void streamAndCollide(LatticeSize size, MaskSize mask_size, uint frame, uint row, uint col) {
-    //    for (uint frame = 0; frame < size.frame_count; ++frame) {
-    //        for (uint row = 0; row < size.row_count; ++row) {
-    //            for (uint col = 0; col < size.col_count; ++col) {
-
-    if (getMask(mask_size, frame, row, col)) {
-        float[dir_count] dir_output = streamValue(size, mask_size, frame, row, col);
-
-        float density = 0;
-        vec3 velocity = vec3(0.0f, 0.0f, 0.0f);
-        uint dir = 0;
-        for (int k = -1; k <= 1; ++k) {
-            for (int i = -1; i <= 1; ++i) {
-                for (int j = -1; j <= 1; ++j) {
-                    if (k != 0 && i != 0 && j != 0) {
-                        continue;
-                    }
-                    float value = dir_output[dir];
-                    density += value;
-                    velocity += vec3(
-                    value *
-                    float(j),
-                    value *
-                    float(i),
-                    value *
-                    float(k));
-                    dir += 1;
-                }
-            }
-        }
-        if (density > 0) {
-            velocity *= lattice_speed / density;
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+        if (pos.x == u_width/2 && pos.y == u_width/2){
+            setInput(i, x_idx, streamed[i] + 0.1);
         } else {
-            density = 0.0;
-            velocity = vec3(0.0f, 0.0f, 0.0f);
+            setInput(i, x_idx, streamed[i]);
         }
-        setVelocityDensityOutput(size, frame, row, col, velocity, density);
-        altBGKEquilibrium(size, frame, row, col, density, velocity, dir_output);
     }
-}
-
-void main() {
-    // terminate incase our thread size is larger than the size of grid.
-    if (gl_GlobalInvocationID.z >= lattice_dimensions.frame_count
-    || gl_GlobalInvocationID.y >= lattice_dimensions.row_count || gl_GlobalInvocationID.y >= lattice_dimensions.col_count){
-        return;
+    if (isinf(velocity.x) || isinf(velocity.y)){
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0, 1.0, 0.0, 1.0));
     }
-    LatticeSize lattice_size = LatticeSize(lattice_dimensions.frame_count, lattice_dimensions.row_count, lattice_dimensions.col_count, dir_count);
-    MaskSize mask_size = createMaskSize(lattice_size);
-    streamAndCollide(lattice_size, mask_size, gl_GlobalInvocationID.x, gl_GlobalInvocationID.y, gl_GlobalInvocationID.z);
+    else if (isnan(velocity.x) || isnan(velocity.y)){
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0, 0.0, 0.0, 1.0));
+    }
+    else {
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.0*density/20.0, abs(velocity.x*(10.0/u_tau)), abs(velocity.y*(10.0/u_tau)), 1.0));
+    }
+    //imageStore(output_visualization[u_imageoutput_idx], ivec2(128,128), vec4(1.0,0.0,1.0,1.0));
 }

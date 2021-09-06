@@ -387,6 +387,30 @@ void vul::WriteDescriptorSetInfo::setInputAttachment(
     m_pNext = pNext;
 }
 
+std::size_t vul::WriteDescriptorSetInfo::infoCount() const {
+    switch (m_infoVariant.index()) {
+        case 0: {
+                auto &infoArray = std::get<std::vector<VkDescriptorImageInfo>>(
+                        m_infoVariant);
+                return infoArray.size();
+        }
+        case 1: {
+            auto &infoArray = std::get<std::vector<VkDescriptorBufferInfo>>(
+                    m_infoVariant);
+            return infoArray.size();
+        }
+        case 2: {
+            auto &infoArray = std::get<std::vector<VkBufferView>>(
+                    m_infoVariant);
+            return infoArray.size();
+        }
+    }
+}
+
+bool vul::WriteDescriptorSetInfo::empty() const {
+    return infoCount() == 0;
+}
+
 vul::DescriptorSetUpdateBuilder::DescriptorSetUpdateBuilder(
         const gsl::span<const VkDescriptorSetLayoutBinding> &bindings,
         const std::unordered_map<std::string, std::uint32_t> &nameBindingMap)
@@ -463,9 +487,13 @@ std::vector<VkWriteDescriptorSet> vul::DescriptorSetUpdateBuilder::create(
          dstBinding < m_writeDescriptorInfos.size(); ++dstBinding) {
         for (std::uint32_t dstArrayElement = 0; dstArrayElement <
                                                 m_writeDescriptorInfos[dstBinding].size(); ++dstArrayElement) {
-            descriptorSetWrites.push_back(
-                    m_writeDescriptorInfos[dstBinding][dstArrayElement].createWriteDescriptorSet(
-                            dstSet, dstBinding, dstArrayElement));
+            //TODO need to fix this in the future some how deal with per element, or multi element set.
+            //create on command?
+            if(!m_writeDescriptorInfos[dstBinding][dstArrayElement].empty()){
+                descriptorSetWrites.push_back(
+                        m_writeDescriptorInfos[dstBinding][dstArrayElement].createWriteDescriptorSet(
+                                dstSet, dstBinding, dstArrayElement));
+            }
         }
     }
     return descriptorSetWrites;

@@ -6,7 +6,7 @@
 #define VULKANWORKSPACE_COMMANDBUFFER_H
 
 #include "vul/enumsfwd.h"
-#include "vul/bitmasksfwd.h"
+#include "vul/bitmasks.h"
 #include <vulkan/vulkan.h>
 #include <string>
 
@@ -37,7 +37,13 @@ namespace vul {
                         vul::AccessFlagBitMask srcAccessMask,
                         vul::PipelineStageFlagBitMask dstStageMask,
                         vul::AccessFlagBitMask dstAccessMask,
-                        const void *pNext);
+                        const void *pNext = nullptr);
+
+    VkDependencyInfoKHR createDependencyInfo(const TempArrayProxy<VkMemoryBarrier2KHR>& memoryBarriers,
+                                             const TempArrayProxy<VkBufferMemoryBarrier2KHR>& bufferMemoryBarriers,
+                                             const TempArrayProxy<VkImageMemoryBarrier2KHR>& imageMemoryBarriers,
+                                             vul::DependencyBitMask dependencyFlags = {},
+                                             const void* pNext = nullptr);
 
     class RenderPassBlock {
     public:
@@ -168,8 +174,14 @@ namespace vul {
         void dispatch(std::uint32_t groupCountX, std::uint32_t groupCountY = 1, std::uint32_t groupCountZ = 1);
         void dispatchIndirect(const Buffer &buffer, VkDeviceSize offset);
 
-        void setScissor(const TempArrayProxy<const VkRect2D> scissors, std::uint32_t firstScissor = 0);
-        void setViewport(const TempArrayProxy<const VkViewport> viewports, std::uint32_t firstViewport = 0);
+        void setScissor(const TempArrayProxy<const VkRect2D>& scissors, std::uint32_t firstScissor = 0);
+        void setViewport(const TempArrayProxy<const VkViewport>& viewports, std::uint32_t firstViewport = 0);
+
+        void pushConstants(const PipelineLayout& pipelineLayout, vul::ShaderStageBitMask stageFlags, std::uint32_t offset, std::uint32_t size, const void* pValues);
+        template<typename T>
+        void pushConstants(const PipelineLayout& pipelineLayout, vul::ShaderStageBitMask stageFlags, const T& values, std::uint32_t offset = 0){
+            pushConstants(pipelineLayout, stageFlags, offset, static_cast<std::uint32_t>(sizeof(values)), reinterpret_cast<const void*>(&values));
+        }
     protected:
         const CommandPool *m_pCommandPool = nullptr;
         VkCommandBuffer m_handle = VK_NULL_HANDLE;

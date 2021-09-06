@@ -9,6 +9,8 @@
 #include "vul/enums.h"
 #include "vul/bitmasks.h"
 #include "commandutils.h"
+#include "commandbuffer.h"
+
 
 #include <gsl/span>
 #include <vulkan/vulkan.h>
@@ -112,7 +114,7 @@ namespace vul {
                                       ImageAspectFlagBits imageAspectDst,
                                       std::uint32_t mipLevel = 0) const;
 
-
+        [[nodiscard]]
         VkImageMemoryBarrier2KHR
         createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
                             vul::AccessFlagBitMask srcAccessMask,
@@ -124,7 +126,7 @@ namespace vul {
                             std::uint32_t srcQueueFamilyIndex = 0,
                             std::uint32_t dstQueueFamilyIndex = 0,
                             const void *pNext = nullptr) const;
-
+        [[nodiscard]]
         VkImageMemoryBarrier2KHR
         createToTransferBarrier(vul::PipelineStageFlagBitMask srcStageMask,
                                 vul::AccessFlagBitMask srcAccessMask,
@@ -133,7 +135,7 @@ namespace vul {
                                 std::uint32_t srcQueueFamilyIndex = 0,
                                 std::uint32_t dstQueueFamilyIndex = 0,
                                 const void *pNext = nullptr) const;
-
+        [[nodiscard]]
         VkImageMemoryBarrier2KHR
         createFromnTransferBarrier(vul::PipelineStageFlagBitMask dstStageMask,
                                    vul::AccessFlagBitMask dstAccessMask,
@@ -142,6 +144,16 @@ namespace vul {
                                    std::uint32_t srcQueueFamilyIndex = 0,
                                    std::uint32_t dstQueueFamilyIndex = 0,
                                    const void *pNext = nullptr) const;
+
+        [[nodiscard]]
+        VkImageMemoryBarrier2KHR
+        createTransitionBarrier( vul::PipelineStageFlagBitMask dstStageMask,
+                                 vul::AccessFlagBitMask dstAccessMask,
+                                 vul::ImageLayout newLayout,
+                                 const ImageSubresourceRange &subresourceRange,
+                                 std::uint32_t srcQueueFamilyIndex = 0,
+                                 std::uint32_t dstQueueFamilyIndex = 0,
+                                 const void *pNext = nullptr);
 
         [[nodiscard]]
         vul::ImageType getImageType() const;
@@ -216,8 +228,12 @@ namespace vul {
         VkSampleCountFlagBits m_samples;
         VkImageTiling m_tiling;
     };
+
+
     [[nodiscard]]
     VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    [[nodiscard]]
+    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
 }
 #endif //VULKANWORKSPACE_IMAGE_H

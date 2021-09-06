@@ -23,6 +23,11 @@ namespace vul{
                 vul::AccessFlagBits2KHR dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0);
+    Result transition(Image& image, CommandPool& commandPool, Queue& queue,
+                      vul::ImageAspectBitMask aspectMask,
+                      vul::PipelineStageFlagBitMask dstStageMask,
+                      vul::AccessFlagBitMask dstAccessMask,
+                      vul::ImageLayout dstLayout);
     Result transition(const VkImageMemoryBarrier2KHR& barrier, CommandPool& commandPool, Queue& queue);
 }
 #endif //VULKANWORKSPACE_COMMANDUTILS_H

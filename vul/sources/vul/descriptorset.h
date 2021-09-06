@@ -69,6 +69,11 @@ namespace vul{
         void setStorageBufferDynamic(const std::vector<VkDescriptorBufferInfo>& bufferInfos, const void *pNext = nullptr);
 
         void setInputAttachment(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
+
+        [[nodiscard]]
+        std::size_t infoCount() const;
+        [[nodiscard]]
+        bool empty() const;
     private:
         friend class DescriptorSetUpdateBuilder;
         WriteDescriptorSetInfo(WriteDescriptorSetInfo &&rhs) noexcept = default;

@@ -5,6 +5,8 @@
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
+#include <vul/commandutils.h>
+#include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
 #include <vul/sampler.h>
 #include <vul/framebuffer.h>
@@ -40,10 +42,12 @@
 #include <range/v3/view/concat.hpp>
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/enumerate.hpp>
+#include <range/v3/view/transform.hpp>
 #include <gsl/span>
 #include <vul/temparrayproxy.h>
 #include <optional>
 #include <chrono>
+#include <thread>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -219,7 +223,16 @@ int main() {
     features.physicalDeviceVulkan12Features.shaderSharedInt64Atomics = VK_TRUE;
     //features.physicalDeviceVulkan12Features.shaderFloat16 = VK_TRUE;
     features.physicalDeviceVulkan12Features.shaderInt8 = VK_TRUE;
+    //all the descriptor indexing stuff we need
     features.physicalDeviceVulkan12Features.descriptorIndexing = VK_TRUE;
+    features.physicalDeviceVulkan12Features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
+    features.physicalDeviceVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+    features.physicalDeviceVulkan12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
+    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing  = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    features.physicalDeviceVulkan12Features.runtimeDescriptorArray = VK_TRUE;
+
     features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
     features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
     features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
@@ -320,7 +333,8 @@ int main() {
 
     surface.createSwapchain(swapchainBuilder);
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
-                                               device).assertValue();
+                                               device,
+                                               VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT).assertValue();
 
     const std::int32_t maxFramesInFlight = 2;
     std::uint64_t currentFrameIndex = 0;
@@ -360,6 +374,7 @@ int main() {
     descriptorSetLayoutBuilder.setBindings({vul::UniformBufferBinding(0,
                                                                       vul::ShaderStageFlagBits::VertexBit).get(),
                                             vul::CombinedSamplerBinding(1,
+
                                                                         vul::ShaderStageFlagBits::FragmentBit).get()});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
@@ -391,9 +406,9 @@ int main() {
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
         auto vertexShader = device.createShaderModule(
-                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
+                vul::readSPIRV("spirv/lbm2d_test.vert.spv")).assertValue();
         auto fragmentShader = device.createShaderModule(
-                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
+                vul::readSPIRV("spirv/lbm2d_test.frag.spv")).assertValue();
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
@@ -472,6 +487,23 @@ int main() {
                     framebufferBuilder.create().assertValue());
         }
     };
+    std::uint32_t lbm_width = 256/4;
+    VkExtent2D lbmExtent = {lbm_width, lbm_width};
+    std::uint32_t lbm_dir_count = 9;
+
+    std::vector<vul::Image> lbmImages;
+    std::vector<vul::ImageView> lbmImageViews;
+    for (std::size_t i = 0; i < swapchainSize; ++i) {
+        lbmImages.push_back(allocator.createDeviceImage(
+                vul::createSimple2DImageInfo(
+                        vul::Format::R32g32b32a32Sfloat, lbmExtent,
+                        vul::ImageUsageFlagBits::SampledBit |
+                        vul::ImageUsageFlagBits::StorageBit)).assertValue());
+        vul::transition(lbmImages.back(), commandPool, presentationQueue, vul::ImageAspectFlagBits::ColorBit,
+                        vul::PipelineStageFlagBits2KHR::AllCommandsBit, vul::AccessFlagBits2KHR::ShaderWriteBit, vul::ImageLayout::General);
+                        lbmImageViews.push_back(
+                lbmImages.back().createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::ColorBit)).assertValue());
+    }
 
 
     gul::StbImage pixels;
@@ -532,9 +564,10 @@ int main() {
         auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
         updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
                 {uniformBuffers[i].createDescriptorInfo()});
+        //TODO potentially could keep as layout general?
         updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
-                {textureImageView.createDescriptorInfo(sampler,
-                                                       vul::ImageLayout::ShaderReadOnlyOptimal)});
+                {lbmImageViews[i].createDescriptorInfo(sampler,
+                                                       vul::ImageLayout::General)});
         auto updates = updateBuilder.create(descriptorSet);
         device.updateDescriptorSets(updates);
     }
@@ -619,6 +652,99 @@ int main() {
 
     std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(),
                                              0);
+
+    auto lbmDsetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
+    lbmDsetLayoutBuilder.setBindings(
+            {vul::UniformBufferBinding(0,
+                                       vul::ShaderStageFlagBits::ComputeBit).get(),
+             vul::StorageImageBinding(1,
+                                      vul::ShaderStageFlagBits::ComputeBit, 3).get()});
+
+    struct LbmPushConstant{
+        std::uint32_t u_iteration_idx;
+        std::uint32_t u_imageoutput_idx;
+    };
+    LbmPushConstant lbmPushConstant = {0,0};
+    auto lbmDsetLayout = lbmDsetLayoutBuilder.create().assertValue();
+    auto lbmPipelineLayout = device.createPipelineLayout(
+            lbmDsetLayout,
+            VkPushConstantRange{
+                vul::get(vul::ShaderStageFlagBits::ComputeBit),
+                0,
+                sizeof(LbmPushConstant)
+            }).assertValue();
+    auto computeBuilder = vul::ComputePipelineBuilder(device);
+    vul::ComputePipeline lbmComputePipeline;
+    {
+        auto computeShader = device.createShaderModule(
+                vul::readSPIRV("spirv/lbm2d.comp.spv")).assertValue();
+        computeBuilder.setShaderCreateInfo(
+                computeShader.createComputeStageInfo());
+        computeBuilder.setPipelineLayout(lbmPipelineLayout);
+        lbmComputePipeline = computeBuilder.create().assertValue();
+    }
+
+
+    std::vector<float> lbm_init_data(lbm_dir_count * lbm_width * lbm_width, 0.0);
+    for (std::size_t i = 0; i < lbm_width * lbm_width; i += 1) {
+        auto offset = 4 * lbm_width * lbm_width;
+        lbm_init_data[i + offset] = 10.0f;
+    }
+//    lbm_init_data[0 + 1 * lbm_width * lbm_width] = 1.0;
+    auto lbm_buffer_0 = allocator.createDeviceBuffer(commandPool,
+                                                     presentationQueue,
+                                                     vul::TempArrayProxy(
+                                                             lbm_init_data.size(),
+                                                             lbm_init_data.data()),
+                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto lbm_buffer_1 = allocator.createDeviceBuffer(commandPool,
+                                                     presentationQueue,
+                                                     vul::TempArrayProxy(
+                                                             lbm_init_data.size(),
+                                                             lbm_init_data.data()),
+                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    struct alignas(8) LbmInfo{
+        std::uint32_t width;
+        std::uint32_t height;
+        float tau;
+        float padding;
+        std::uint64_t lbm_array_ptrs[2];
+    };
+
+    LbmInfo lbmInfo = {
+            lbm_width,
+            lbm_width,
+            0.8,
+            0.0,
+            {lbm_buffer_0.getDeviceAddress(), lbm_buffer_1.getDeviceAddress()}
+    };
+
+
+    auto lbm_info_buffer = allocator.createDeviceBuffer<LbmInfo>(
+            commandPool, presentationQueue, lbmInfo,
+            vul::BufferUsageFlagBits::UniformBufferBit).assertValue();
+
+
+    auto lbmDescriptorPool = device.createDescriptorPool(
+            {{lbmDsetLayoutBuilder, 1}}).assertValue();
+
+    auto lbmDescriptorSet = lbmDescriptorPool.createDescriptorSet(lbmDsetLayout).assertValue();
+
+    {
+        using namespace ranges;
+        auto updateBuilder = lbmDsetLayoutBuilder.createUpdateBuilder();
+
+        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
+                {lbm_info_buffer.createDescriptorInfo()});
+        updateBuilder.getDescriptorElementAt(1).setStorageImage(
+                lbmImageViews | views::transform([](auto &value) { return value.createStorageWriteInfo(); }) | ranges::to<std::vector>());
+        auto updates = updateBuilder.create(lbmDescriptorSet);
+        device.updateDescriptorSets(updates);
+    }
+
+
+//    computeBuilder.set
+
     while (!window.shouldClose()) {
 
         glfwPollEvents();
@@ -776,12 +902,49 @@ int main() {
                     ubo);
         }
 
+
         ImGui::Render();
+        using namespace std::chrono_literals;
+//        std::this_thread::sleep_for(100ms);
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
+            {
+                commandBuffer.bindPipeline(lbmComputePipeline);
+                commandBuffer.bindDescriptorSets(vul::PipelineBindPoint::Compute, lbmPipelineLayout, lbmDescriptorSet);
+                auto computeComputeBarrier = vul::createMemoryBarrier(vul::PipelineStageFlagBits2KHR::ComputeShaderBit | vul::PipelineStageFlagBits2KHR::FragmentShaderBit
+                                                                                                                         | vul::PipelineStageFlagBits2KHR::BottomOfPipeBit,
+                                                                      vul::AccessFlagBits2KHR::ShaderWriteBit | vul::AccessFlagBits2KHR::ShaderReadBit,
+                                                                      vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
+                                                                      vul::AccessFlagBits2KHR::ShaderWriteBit | vul::AccessFlagBits2KHR::ShaderReadBit);
+                auto computeComputeDepInfo = vul::createDependencyInfo(computeComputeBarrier, {}, {});
+                std::uint32_t iterations = 2;
+                {
+
+
+                    for(std::size_t i = 0; i < iterations; i++){
+                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
+                        lbmPushConstant.u_imageoutput_idx = swapchainImageIndex;
+                        lbmPushConstant.u_iteration_idx = i;
+                        commandBuffer.pushConstants(lbmPipelineLayout,
+                                                    vul::ShaderStageFlagBits::ComputeBit,
+                                                    lbmPushConstant);
+                        commandBuffer.dispatch(
+                                static_cast<std::uint32_t>(std::ceil((lbm_width * lbm_width) /
+                                                           1024.0)));
+
+                    }
+
+                }
+                auto computeGraphicsBarrier = vul::createMemoryBarrier(vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
+                                                                       vul::AccessFlagBits2KHR::ShaderWriteBit,
+                                                                       vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
+                                                                       vul::AccessFlagBits2KHR::ShaderReadBit);
+                auto dependencyInfo = vul::createDependencyInfo(computeGraphicsBarrier, {}, {});
+                commandBuffer.pipelineBarrier(dependencyInfo);
+            }
             {
                 auto extent = surface.getSwapchain()->getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());

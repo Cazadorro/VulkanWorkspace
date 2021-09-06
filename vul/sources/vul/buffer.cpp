@@ -116,4 +116,13 @@ void vul::Buffer::invalidate(VkDeviceSize offset, VkDeviceSize size) {
     m_allocation.invalidate(offset, size);
 }
 
+VkDeviceAddress vul::Buffer::getDeviceAddress(const void* pNext) const {
+    VkBufferDeviceAddressInfo addressInfo = {};
+    addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    addressInfo.pNext = pNext;
+    addressInfo.buffer = m_handle;
+
+    return vkGetBufferDeviceAddress(getDevice().get(), &addressInfo);
+}
+
 

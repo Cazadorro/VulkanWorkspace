@@ -32,7 +32,7 @@ namespace vul {
         [[nodiscard]]
         static ExpectedResult<VmaAllocator>
         create(const Instance &instance, const PhysicalDevice &physicalDevice,
-               const Device &device);
+               const Device &device, VmaAllocatorCreateFlags flags = {});
 
         ~VmaAllocator();
 
@@ -83,7 +83,7 @@ namespace vul {
         template<typename T>
         [[nodiscard]]
         ExpectedResult<Buffer>
-        createMappedCoherentBuffer(const TempArrayProxy<const T> &array,
+        createMappedCoherentBuffer(const TempArrayProxy<T> &array,
                                   vul::BufferUsageBitMask otherUsages = {}) const {
             auto expectedResult = createMappedCoherentBuffer(array.size_bytes(),
                                                              otherUsages);
@@ -97,7 +97,7 @@ namespace vul {
         template<typename T>
         [[nodiscard]]
         ExpectedResult<Buffer>
-        createStagingBuffer(const TempArrayProxy<const T> &array,
+        createStagingBuffer(const TempArrayProxy<T> &array,
                             vul::BufferUsageBitMask otherUsages = {}) const {
             auto expectedResult = createStagingBuffer(array.size_bytes(),
                                                       otherUsages);
@@ -112,7 +112,7 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(
                 CommandPool& commandPool, Queue& queue,
-                const TempArrayProxy<const T> &array,
+                const TempArrayProxy<T> &array,
                 vul::BufferUsageBitMask usages) const {
             auto expectedStageBuffer = createStagingBuffer(array);
             if(!expectedStageBuffer.hasValue()){
@@ -141,7 +141,7 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<Image> createDeviceImage(
                 CommandPool& commandPool, Queue& queue,
-                const TempArrayProxy<const T> &array,
+                const TempArrayProxy<T> &array,
                 const VkImageCreateInfo &imageInfo,
                 vul::ImageAspectBitMask aspectMask,
                 vul::PipelineStageFlagBits2KHR dstStageMask,
@@ -166,7 +166,7 @@ namespace vul {
         template<typename T>
         [[nodiscard]]
         ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
-                                                 const TempArrayProxy<const T> &array,
+                                                 const TempArrayProxy<T> &array,
                                                  const VkImageCreateInfo &imageInfo,
                                                  std::uint32_t mipLevel = 0){
             return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
@@ -175,6 +175,19 @@ namespace vul {
                                      vul::ImageLayout::ShaderReadOnlyOptimal,
                                      mipLevel);
         }
+        template<typename T>
+        [[nodiscard]]
+        ExpectedResult<Image> createStorageImage( CommandPool& commandPool, Queue& queue,
+                                                   const TempArrayProxy<T> &array,
+                                                   const VkImageCreateInfo &imageInfo,
+                                                   std::uint32_t mipLevel = 0){
+            return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
+                                     vul::PipelineStageFlagBits2KHR::AllCommandsBit,
+                                     vul::AccessFlagBits2KHR::ShaderReadBit | vul::AccessFlagBits2KHR::ShaderWriteBit,
+                                     vul::ImageLayout::General,
+                                     mipLevel);
+        }
+
         //TODO MOVE ONLY!
     private:
         const Device *m_pDevice = nullptr;

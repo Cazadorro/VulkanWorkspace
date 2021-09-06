@@ -132,15 +132,16 @@ namespace vul {
 
         [[nodiscard]]
         ExpectedResult<GraphicsPipeline>
+        create(VkPipelineCache pipelineCache) const;
+        [[nodiscard]]
+        ExpectedResult<GraphicsPipeline>
         create(const PipelineCache &pipelineCache) const;
         [[nodiscard]]
         ExpectedResult<GraphicsPipeline>
         create() const;
 
     private:
-        [[nodiscard]]
-        ExpectedResult<GraphicsPipeline>
-        create(VkPipelineCache pipelineCache) const;
+
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkPipelineCreateFlags m_flags = {};

@@ -289,6 +289,18 @@ void vul::Image::invalidate(VkDeviceSize offset, VkDeviceSize size) {
     m_allocation.invalidate(offset, size);
 }
 
+VkImageMemoryBarrier2KHR
+vul::Image::createTransitionBarrier(vul::PipelineStageFlagBitMask dstStageMask,
+        vul::AccessFlagBitMask dstAccessMask,
+                                    vul::ImageLayout newLayout,
+                                    const vul::ImageSubresourceRange &subresourceRange,
+                                    std::uint32_t srcQueueFamilyIndex,
+                                    std::uint32_t dstQueueFamilyIndex,
+                                    const void *pNext) {
+    return createMemoryBarrier(PipelineStageFlagBits2KHR::TopOfPipeBit,
+                        {}, dstStageMask, dstAccessMask, ImageLayout::Undefined, newLayout, subresourceRange, srcQueueFamilyIndex, dstQueueFamilyIndex, pNext);
+}
+
 
 VkImageCreateInfo
 vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling) {
@@ -312,3 +324,9 @@ vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUs
 }
 
 
+VkImageCreateInfo
+vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
+                             vul::ImageUsageBitMask usage,
+                             vul::ImageTiling tiling) {
+    return createSimple2DImageInfo(format, {extent.width, extent.height,1}, usage, tiling);
+}
