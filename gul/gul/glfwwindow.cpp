@@ -165,3 +165,15 @@ gul::GlfwWindow::createSurface(const vul::Instance &instance,
     return vul::Surface(instance, surface, pAllocator);
 }
 
+bool gul::GlfwWindow::mousePressed(int button) const {
+    return glfwGetMouseButton(m_window, button) == GLFW_PRESS;
+}
+
+bool gul::GlfwWindow::mouseReleased(int button) const {
+    return glfwGetMouseButton(m_window, button) == GLFW_RELEASE;
+}
+
+bool gul::GlfwWindow::mouseRepeat(int button) const {
+    return glfwGetMouseButton(m_window, button) == GLFW_REPEAT;
+}
+

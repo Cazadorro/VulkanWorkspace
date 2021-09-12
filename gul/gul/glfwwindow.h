@@ -24,26 +24,32 @@ namespace gul {
         static void pollEvents();
 
         static void waitEvents();
-
+        [[nodiscard]]
         static std::vector<const char *> getRequiredInstanceExtensions();
-
+        [[nodiscard]]
         bool shouldClose() const;
-
+        [[nodiscard]]
         glm::ivec2 getFramebufferSize() const;
-
+        [[nodiscard]]
         VkExtent2D getFramebufferExtent() const;
-
+        [[nodiscard]]
         glm::ivec2 getWindowSize() const;
-
+        [[nodiscard]]
         glm::dvec2 getCursorPosition() const;
 
         void setCursorPosition(const glm::dvec2 &position);
-
+        [[nodiscard]]
         bool keyPressed(int key) const;
-
+        [[nodiscard]]
         bool keyReleased(int key) const;
-
+        [[nodiscard]]
         bool keyRepeat(int key) const;
+        [[nodiscard]]
+        bool mousePressed(int button) const;
+        [[nodiscard]]
+        bool mouseReleased(int button) const;
+        [[nodiscard]]
+        bool mouseRepeat(int button) const;
 
         GlfwWindow(int width, int height, const std::string &title,
                    GLFWmonitor *monitor = nullptr, GLFWwindow *share = nullptr);

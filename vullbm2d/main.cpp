@@ -171,9 +171,10 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
 }
 
 int main() {
+
     gul::GlfwWindow window(800, 600, "ExampleWindow");
     gul::FirstPersonCamera camera;
-    camera.setPosition(glm::vec3(0.0, 0.0, -1.0));
+    camera.setPosition(glm::vec3(0.0, 0.0, -2.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
     camera.setRotation(glm::vec3(0, 0, 0.0));
 
@@ -402,6 +403,7 @@ int main() {
             VK_COLOR_COMPONENT_B_BIT |
             VK_COLOR_COMPONENT_A_BIT;
 
+
     pipelineBuilder.setBlendState({blendState});
     pipelineBuilder.setRenderPass(renderPass, 0);
     pipelineBuilder.setPipelineLayout(pipelineLayout);
@@ -488,9 +490,17 @@ int main() {
                     framebufferBuilder.create().assertValue());
         }
     };
-    std::uint32_t lbm_width = 256 * 4;
-    VkExtent2D lbmExtent = {lbm_width, lbm_width};
+
+
+    std::uint32_t lbm_width = 256 * 4 * 1 / 32;
+    lbm_width = 32;
+
+    std::uint32_t lbm_height = lbm_width;
+    std::uint32_t lbm_size = lbm_width * lbm_height;
+    VkExtent2D lbmExtent = {lbm_width, lbm_height};
+    glm::uvec2 lbm_dim(lbm_width, lbm_height);
     std::uint32_t lbm_dir_count = 9;
+
 
     std::vector<vul::Image> lbmImages;
     std::vector<vul::ImageView> lbmImageViews;
@@ -505,6 +515,7 @@ int main() {
                         lbmImageViews.push_back(
                 lbmImages.back().createImageView(vul::ImageSubresourceRange(vul::ImageAspectFlagBits::ColorBit)).assertValue());
     }
+
 
 
     gul::StbImage pixels;
@@ -662,11 +673,24 @@ int main() {
              vul::StorageImageBinding(1,
                                       vul::ShaderStageFlagBits::ComputeBit, 3).get()});
 
+
+    enum class LBMClickEvent : std::uint32_t{
+        UnClicked =0,
+        Velocity =1,
+        AddBitmask =2,
+        RemoveBitmask =3,
+    };
     struct LbmPushConstant{
         std::uint32_t u_iteration_idx;
         std::uint32_t u_imageoutput_idx;
+        LBMClickEvent u_click_event;
+        float u_click_radius;
+        float u_click_magnitude;
+        float u_padding;
+        glm::vec2 u_click_coordinate;
+        glm::vec2 u_click_direction;
     };
-    LbmPushConstant lbmPushConstant = {0,0};
+    LbmPushConstant lbmPushConstant = {0,0, LBMClickEvent::UnClicked, 10.0, 0.1, 0,{0.0f,0.0f}, { glm::vec2(glm::cos(0.0f), -glm::sin(0.0f))}};
     auto lbmDsetLayout = lbmDsetLayoutBuilder.create().assertValue();
     auto lbmPipelineLayout = device.createPipelineLayout(
             lbmDsetLayout,
@@ -687,44 +711,56 @@ int main() {
     }
 
 
-    vul::bitmask lbm_bitmask(lbm_width * lbm_width);
-    std::vector<glm::uvec2> obstacles = {glm::uvec2{lbm_width/2u, lbm_width/4u}, glm::uvec2{lbm_width/2u + lbm_width/6u, lbm_width/4u + lbm_width/6u}};
+
+    vul::bitmask lbm_bitmask(lbm_size);
+    std::vector<glm::uvec2> obstacles = {glm::uvec2{lbm_width/2u, lbm_height/4u}, glm::uvec2{lbm_width/2u + lbm_width/6u, lbm_height/4u + lbm_height/6u}};
 //    glm::uvec2 obstacle_pos(lbm_width/2u, lbm_width/4u);
-    for(std::size_t i = 0; i < lbm_width; ++i){
+    for(std::size_t i = 0; i < lbm_height; ++i){
         for(std::size_t j = 0; j < lbm_width; ++j){
             auto pos = glm::uvec2{i,j};
             for(const auto& obstacle_pos : obstacles ){
                 if(glm::distance(glm::vec2(pos), glm::vec2(obstacle_pos)) < lbm_width/16u){
-                    lbm_bitmask.set(pos, glm::uvec2{lbm_width, lbm_width});
+                    //lbm_bitmask.set(pos, glm::uvec2{lbm_width, lbm_width});
                 }
             }
-
         }
     }
-    std::vector<float> lbm_init_data(lbm_dir_count * lbm_width * lbm_width, 0.0);
-    for (std::size_t i = 0; i < lbm_width * lbm_width; i += 1) {
+
+
+    std::vector<float> lbm_init_data(lbm_dir_count * lbm_size, 0.0);
+    float initial_density = 1.0;
+    float weights[9] = {1.0 / 36.0, 1.0 / 9.0, 1.0 / 36.0,
+                        1.0 / 9.0, 4.0 / 9.0, 1.0 / 9.0,
+                        1.0/36.0, 1.0/9.0,1.0/36.0,
+    };
+    float density = 1.0;
+    for(std::size_t frame_idx = 0; frame_idx < 9; ++frame_idx){
+        for (std::size_t i = 0; i < lbm_size; i += 1) {
+            if(!lbm_bitmask.get(static_cast<std::uint32_t>(i))){
+                auto offset = frame_idx * lbm_size;
+                lbm_init_data[i + offset] = density * weights[frame_idx];
+            }
+        }
+    }
+
+
+    for (std::size_t i = 0; i < lbm_size; i += 1) {
         if(!lbm_bitmask.get(static_cast<std::uint32_t>(i))){
-            auto offset = 4 * lbm_width * lbm_width;
-            lbm_init_data[i + offset] = 1000.0f;
+            auto offset = 1 * lbm_size;
+            lbm_init_data[i + offset] += 0.01f;
         }
     }
-//    for (std::size_t i = 0; i < lbm_width * lbm_width; i += 1) {
-//        if(!lbm_bitmask.get(static_cast<std::uint32_t>(i))){
-//            auto offset = 1 * lbm_width * lbm_width;
-//            lbm_init_data[i + offset] = 10.0f;
-//        }
-//    }
 
 
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 0 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 1 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 2 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 3 * lbm_width * lbm_width] = 1.0;
-//    lbm_init_data[0 + 4 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 5 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 6 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 7 * lbm_width * lbm_width] = 1.0;
-    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 8 * lbm_width * lbm_width] = 1.0;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 0 * lbm_size] = 0.01;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 1 * lbm_size] = 0.01;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 2 * lbm_size] = 0.01;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 3 *lbm_size] = 0.01;
+////    lbm_init_data[0 + 4 * lbm_width * lbm_width] = 1.0;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 5 * lbm_size] = 0.01;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 6 * lbm_size] = 0.01;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 7 * lbm_size] = 0.01;
+//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 8 * lbm_size] = 0.01;
     auto lbm_buffer_0 = allocator.createDeviceBuffer(commandPool,
                                                      presentationQueue,
                                                      vul::TempArrayProxy(
@@ -743,6 +779,7 @@ int main() {
                                                                    lbm_bitmask.size(),
                                                                    lbm_bitmask.data()),
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
     struct alignas(8) LbmInfo{
         std::uint32_t width;
         std::uint32_t height;
@@ -752,10 +789,11 @@ int main() {
         std::uint64_t bitmask_array;
     };
 
+
     LbmInfo lbmInfo = {
             lbm_width,
-            lbm_width,
-            0.8,
+            lbm_height,
+            0.6,
             0.0,
             {lbm_buffer_0.getDeviceAddress(), lbm_buffer_1.getDeviceAddress()},
             lbm_bitmask_buffer.getDeviceAddress()
@@ -788,7 +826,10 @@ int main() {
 //    computeBuilder.set
 
     while (!window.shouldClose()) {
-
+        using namespace std::chrono_literals;
+//        std::this_thread::sleep_for(1000us);
+        std::this_thread::sleep_for(32ms);
+        presentationQueue.waitIdle();
         glfwPollEvents();
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -797,7 +838,9 @@ int main() {
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
-
+        auto cursor_pos =  window.getCursorPosition();
+        cursor_pos /= window.getWindowSize();
+        cursor_pos *= lbm_dim;
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
         {
             static float f = 0.0f;
@@ -826,8 +869,17 @@ int main() {
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                         1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
+            static float angle = 0;
+            if(ImGui::SliderAngle("Angle", &angle)){
+                lbmPushConstant.u_click_direction = glm::vec2(glm::cos(glm::radians(angle)), -glm::sin(glm::radians(angle)));
+            }
+            ImGui::InputFloat("Magnitude", &lbmPushConstant.u_click_magnitude);
+            ImGui::InputFloat("Radius", &lbmPushConstant.u_click_radius);
+            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x, cursor_pos.y).c_str());
             ImGui::End();
         }
+
+
 
         // 3. Show another simple window.
         if (show_another_window) {
@@ -836,6 +888,7 @@ int main() {
             ImGui::Text("Hello from another window!");
             if (ImGui::Button("Close Me"))
                 show_another_window = false;
+
             ImGui::End();
         }
 
@@ -867,9 +920,27 @@ int main() {
                     currentTime - lastTime).count();
             lastTime = currentTime;
 
+
             bool toggle_spread = false;
             bool toggle_density = false;
             ImGuiIO &io = ImGui::GetIO();
+            lbmPushConstant.u_click_event = LBMClickEvent::UnClicked;
+            if(!io.WantCaptureMouse){
+
+                lbmPushConstant.u_click_coordinate = cursor_pos;
+                if(window.mousePressed(GLFW_MOUSE_BUTTON_LEFT)){
+                    if (!io.WantCaptureKeyboard) {
+                        if (window.keyPressed(GLFW_KEY_C)){
+                            lbmPushConstant.u_click_event = LBMClickEvent::Velocity;
+                        }else{
+                            lbmPushConstant.u_click_event = LBMClickEvent::AddBitmask;
+                        }
+                    }
+                }
+                if(window.mousePressed(GLFW_MOUSE_BUTTON_RIGHT)){
+                    lbmPushConstant.u_click_event = LBMClickEvent::RemoveBitmask;
+                }
+            }
             if (!io.WantCaptureKeyboard) {
                 float rotate_speed = 1.5;
                 float move_speed = 3;
@@ -949,10 +1020,13 @@ int main() {
         }
 
 
+
+
         ImGui::Render();
-        using namespace std::chrono_literals;
-//        std::this_thread::sleep_for(1000us);
-//        std::this_thread::sleep_for(16ms);
+
+
+
+
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {
@@ -962,12 +1036,13 @@ int main() {
                 commandBuffer.bindPipeline(lbmComputePipeline);
                 commandBuffer.bindDescriptorSets(vul::PipelineBindPoint::Compute, lbmPipelineLayout, lbmDescriptorSet);
                 auto computeComputeBarrier = vul::createMemoryBarrier(vul::PipelineStageFlagBits2KHR::ComputeShaderBit | vul::PipelineStageFlagBits2KHR::FragmentShaderBit
-                                                                                                                         | vul::PipelineStageFlagBits2KHR::BottomOfPipeBit,
+                                                                                                                         | vul::PipelineStageFlagBits2KHR::AllCommandsBit,
                                                                       vul::AccessFlagBits2KHR::ShaderWriteBit | vul::AccessFlagBits2KHR::ShaderReadBit,
-                                                                      vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
+                                                                      vul::PipelineStageFlagBits2KHR::ComputeShaderBit | vul::PipelineStageFlagBits2KHR::AllCommandsBit,
                                                                       vul::AccessFlagBits2KHR::ShaderWriteBit | vul::AccessFlagBits2KHR::ShaderReadBit);
                 auto computeComputeDepInfo = vul::createDependencyInfo(computeComputeBarrier, {}, {});
                 std::uint32_t iterations = 2;
+                static std::uint32_t step = 0;
                 {
 
 
@@ -978,12 +1053,28 @@ int main() {
                         commandBuffer.pushConstants(lbmPipelineLayout,
                                                     vul::ShaderStageFlagBits::ComputeBit,
                                                     lbmPushConstant);
+                        lbmPushConstant.u_click_event = LBMClickEvent::UnClicked;
+
                         commandBuffer.dispatch(
-                                static_cast<std::uint32_t>(std::ceil((lbm_width * lbm_width) /
+                                static_cast<std::uint32_t>(std::ceil((lbm_size) /
                                                            1024.0)));
 
                     }
-
+//                    {
+//                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
+//                        lbmPushConstant.u_imageoutput_idx = swapchainImageIndex;
+//                        lbmPushConstant.u_iteration_idx = step;
+//                        commandBuffer.pushConstants(lbmPipelineLayout,
+//                                                    vul::ShaderStageFlagBits::ComputeBit,
+//                                                    lbmPushConstant);
+//                        lbmPushConstant.u_click_event = LBMClickEvent::UnClicked;
+//
+//                        commandBuffer.dispatch(
+//                                static_cast<std::uint32_t>(std::ceil((lbm_size) /
+//                                                           1024.0)));
+//
+//                    }
+//                    step += 1;
                 }
                 auto computeGraphicsBarrier = vul::createMemoryBarrier(vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
                                                                        vul::AccessFlagBits2KHR::ShaderWriteBit,
@@ -996,7 +1087,6 @@ int main() {
                 auto extent = surface.getSwapchain()->getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
                 commandBuffer.setScissor(vul::Rect2D(extent).get());
-
 
                 std::array<VkClearValue, 2> clearValues{};
                 clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
