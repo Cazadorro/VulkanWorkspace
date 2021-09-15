@@ -4,6 +4,10 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
+    float u_time;
+    float u_1;
+    float u_2;
+    float u_3;
 } ubo;
 
 layout(location = 0) in vec3 inPosition;

@@ -7,6 +7,16 @@ layout(location = 1) in vec2 fragTexCoord;
 
 layout(location = 0) out vec4 outColor;
 
+layout(binding = 0) uniform UniformBufferObject {
+    mat4 model;
+    mat4 view;
+    mat4 proj;
+    float u_time;
+    float u_1;
+    float u_2;
+    float u_3;
+} ubo;
+
 
 vec4 jet(float normal_value)
 {
@@ -74,14 +84,26 @@ vec4 jet(float normal_value)
 
 void main() {
     vec4 color = texture(texSampler, fragTexCoord);
-    float denom = 32;
-    vec2 vel_ee = texture(texSampler, fragTexCoord + vec2((1.0/denom), 0.0)).yz;
-    vec2 vel_ww = texture(texSampler, fragTexCoord + vec2(-(1.0/denom), 0.0)).yz;
-    vec2 vel_sm = texture(texSampler, fragTexCoord + vec2(0.0, (1.0/denom))).yz;
-    vec2 vel_nm = texture(texSampler, fragTexCoord + vec2(0.0, -(1.0/denom))).yz;
-    float forward_diff = (vel_ee.y - vel_ww.y) - (vel_sm.x - vel_nm.x);
-    float vorticity = forward_diff * 100.0;
+    float denom = 246 * 4;
+    float offset = (1.0/denom) * (0.5);
+    vec2 vel_nw = texture(texSampler, fragTexCoord + vec2(-offset, -offset)).yz;
+    vec2 vel_nm = texture(texSampler, fragTexCoord + vec2(0.0, -offset)).yz;
+    vec2 vel_ne = texture(texSampler, fragTexCoord + vec2(offset, -offset)).yz;
+
+    vec2 vel_ee = texture(texSampler, fragTexCoord + vec2(offset, 0.0)).yz;
+    vec2 vel_mm = color.yz;
+    vec2 vel_ww = texture(texSampler, fragTexCoord + vec2(-offset, 0.0)).yz;
+
+    vec2 vel_sw = texture(texSampler, fragTexCoord + vec2(-offset, offset)).yz;
+    vec2 vel_sm = texture(texSampler, fragTexCoord + vec2(0.0, offset)).yz;
+    vec2 vel_se = texture(texSampler, fragTexCoord + vec2(offset, offset)).yz;
+
+    float forward_diff = (((vel_sm.x - vel_mm.x) + (vel_se.x - vel_ee.x)) / 2.0f) -
+    (((vel_ee.y - vel_mm.y) + (vel_se.y - vel_sm.y)) / 2.0f);
+//    float forward_diff = (vel_sm.x - vel_nm.x) - (vel_ee.y - vel_ww.y);
+    float vorticity = forward_diff * 100.0 * 100.0 * 100.0;
     float abs_vorticity = abs(vorticity);
+
 
     if(color == vec4(1.0)){
         outColor = vec4(1.0);
@@ -103,9 +125,25 @@ void main() {
     }
 
 
-    outColor = vec4(abs(color.y), abs(color.z), 0.0, 1.0);
+    if(uint(ubo.u_time) % 1000u < 500u || true){
+//        if(vorticity < 0.0){
+//            outColor = vec4(1.0,1.0,1.0,0.0) - jet(abs(vorticity) *10.0);
+//        }else{
+//            outColor = jet(abs(vorticity) *10.0);
+//        }
+        vec4 temp_color= jet(abs(vorticity) *10.0);
+        if (vorticity < 0.0){
+            temp_color.xyz *= 0.5;
+        }
+        outColor = temp_color;
 
-      outColor = jet(abs(vorticity) *10.0);
-//    outColor = vec4(color.r/10.0, 0.0,0.0,1.0);
+
+    }else{
+        outColor = vec4(abs(color.y) *10.0, abs(color.z)*10.0, 0.0, 1.0);
+    }
+
+
+//
+//    outColor = vec4(max(color.r - 1000.0, 0.0)/10.0, 0.0,0.0,1.0);
 //    outColor = vec4(color.r, abs(color.g), abs(color.b), 1.0);
 }
