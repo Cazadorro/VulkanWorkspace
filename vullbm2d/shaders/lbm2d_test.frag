@@ -142,7 +142,6 @@ void main() {
         outColor = vec4(abs(color.y) *10.0, abs(color.z)*10.0, 0.0, 1.0);
     }
 
-
 //
 //    outColor = vec4(max(color.r - 1000.0, 0.0)/10.0, 0.0,0.0,1.0);
 //    outColor = vec4(color.r, abs(color.g), abs(color.b), 1.0);

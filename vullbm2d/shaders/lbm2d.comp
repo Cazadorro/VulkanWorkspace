@@ -281,6 +281,7 @@ void main(){
 ////            streamed[i] *= density / mass_conservation_sum;
 //        }
 //    }
+
 //
     if(u_click_event == LBM_CLICK_EVENT_TYPE_VELOCITY){
         if(distance(vec2(pos), u_click_coordinate) < u_click_radius){

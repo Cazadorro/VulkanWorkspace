@@ -6,7 +6,7 @@
 #define VULKANWORKSPACE_GRAPHICSPIPELINE_H
 
 #include "vul/vertexinputstate.h"
-#include "vul/bitmasksfwd.h"
+#include "vul/bitmasks.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <array>
@@ -92,7 +92,7 @@ namespace vul {
         void setRasterizationState(
                 const VkPipelineRasterizationStateCreateInfo &rasterizer);
 
-        void setDefaultRasterizationState();
+        void setDefaultRasterizationState(vul::CullModeBitMask cullMode = vul::CullModeFlagBits::BackBit);
 
         void setMultisampleState(
                 const VkPipelineMultisampleStateCreateInfo &multisampling);

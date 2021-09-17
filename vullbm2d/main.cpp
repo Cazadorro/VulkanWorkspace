@@ -7,6 +7,7 @@
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
 #include "bitmask.h"
+#include <gul/bitmask.h>
 #include <vul/commandutils.h>
 #include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
@@ -398,6 +399,7 @@ int main() {
             surface.getSwapchain()->getExtent());
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
+//    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
     pipelineBuilder.setDefaultRasterizationState();
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
@@ -1065,8 +1067,8 @@ int main() {
 
             UniformBufferObject ubo = {};
             ubo.model = glm::identity<glm::mat4x4>();
-            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f),
-                        glm::vec3(1.0f, 0.0f, 0.0f));
+            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+//            ubo.model = glm::rotate(ubo.model, glm::radians(180.0f), glm::vec3(0.0f,1.0f,0.0f));
 //            ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
 //                                    glm::vec3(0.0f, 1.0f, 0.0f));
 //            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),

@@ -2,10 +2,10 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
-#include "bitmask.h"
 #include <vul/commandutils.h>
 #include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
@@ -44,6 +44,7 @@
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/transform.hpp>
+#include <range/v3/view/zip.hpp>
 #include <gsl/span>
 #include <vul/temparrayproxy.h>
 #include <optional>
@@ -113,52 +114,12 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
+    glm::vec3 camera_pos;
+    float u_time;
 };
+static_assert(sizeof(UniformBufferObject) == 16*4*3+16);
 
 const std::vector<Vertex> vertices = {
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        //not needed below
-        ,
-
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        ,
-
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        ,
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        ,
         {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
@@ -215,9 +176,10 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
 }
 
 int main() {
+
     gul::GlfwWindow window(800, 600, "ExampleWindow");
     gul::FirstPersonCamera camera;
-    camera.setPosition(glm::vec3(0.0, 0.0, -1.0));
+    camera.setPosition(glm::vec3(0.0, 0.0, -48.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
     camera.setRotation(glm::vec3(0, 0, 0.0));
 
@@ -301,6 +263,7 @@ int main() {
                                                 deviceExtensions,
                                                 defaultSurfaceFormat,
                                                 defaultPresentMode);
+
     if (!physicalDeviceOpt.has_value()) {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
@@ -415,17 +378,211 @@ int main() {
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
     auto renderPass = subpassBuilder.createRenderPass(device).assertValue();
 
+    auto commandPool = device.createCommandPool(
+            presentQueueIndex,
+            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
     descriptorSetLayoutBuilder.setBindings({vul::UniformBufferBinding(0,
-                                                                      vul::ShaderStageFlagBits::VertexBit).get(),
+                                                                      vul::ShaderStageFlagBits::VertexBit | vul::ShaderStageFlagBits::FragmentBit).get(),
                                             vul::CombinedSamplerBinding(1,
 
                                                                         vul::ShaderStageFlagBits::FragmentBit).get()});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
+    std::vector<std::uint32_t> chunk_data(32*32*32, 1);
+
+
+    std::vector<std::uint32_t> set_offsets = {1,5,2,24,32*32-32, 32, 32*32 - 32, 32*32, 32*3 + 4, 28+17, 32*8,32*32};
+    std::vector<std::uint32_t> set_values = {4,5,7,6,2,3,2,0,2,4,1,0};
+
+    std::size_t total_offset =0;
+    for(auto [offset, value] : ranges::views::zip(set_offsets, set_values)){
+        for(std::size_t i =total_offset; i < total_offset + offset; ++i){
+            chunk_data[i] = value;
+        }
+        total_offset += offset;
+    }
+
+    gul::bitmask bitmask(32*32*32);
+    for(auto [idx, value] : ranges::views::enumerate(chunk_data)){
+        if(value != 0){
+            bitmask.set(idx);
+        }
+    }
+
+    auto bitmask_intersect = [&u_bitmask = bitmask](glm::vec3 orig, glm::vec3 dir, glm::vec3 block_offset, std::uint32_t& voxel_index){
+        orig = orig.xzy();
+        dir = dir.xzy();
+        orig.z *= -1.0;
+        dir.z *= -1.0;
+        glm::vec3 invDir = 1.0f / dir;
+//    bvec3 sign = bvec3(dir.x < 0, dir.y < 0, dir.z < 0);
+        glm::vec3 cellDimension = glm::vec3(1,1,1);
+        glm::uvec3 resolution = glm::uvec3(32u,32u,32u);
+        float tHitBox = 0.0f;
+        // initialization step
+        glm::ivec3 exit, step, cell;
+        glm::vec3 deltaT, nextCrossingT;
+        for (uint8_t i_8 = uint8_t(0); i_8 < uint8_t(3); ++i_8) {
+            std::uint32_t i = std::uint32_t(i_8);
+            // convert ray starting point to cell coordinates
+            //bbox origin should be 0,0,0 now?
+
+            float rayOrigCell = ((orig[i] + dir[i] * tHitBox) - block_offset[i]);
+            cell[i] = int(glm::clamp(int(floor(rayOrigCell / cellDimension[i])), 0, int(resolution[i] - 1))); //should I even clamp?
+            cell[i] = int(floor(rayOrigCell / cellDimension[i]));
+            if (dir[i] < 0) {
+                deltaT[i] = -cellDimension[i] * invDir[i];
+                nextCrossingT[i] = tHitBox + (float(cell[i]) * cellDimension[i] - rayOrigCell) * invDir[i];
+                if(i == 234){
+                    exit[i] = int(resolution[i]);
+                    step[i] = 1;
+                }else{
+                    exit[i] = -1;
+                    step[i] = -1;
+                }
+
+            }
+            else {
+                deltaT[i] = cellDimension[i] * invDir[i];
+                nextCrossingT[i] = tHitBox + ((float(cell[i]) + 1)  * cellDimension[i] - rayOrigCell) * invDir[i];
+//            exit[i] = int(resolution[i]);
+//            step[i] = 1;
+                if(i == 234){
+                    exit[i] = -1;
+                    step[i] = -1;
+                }else{
+                    exit[i] = int(resolution[i]);
+                    step[i] = 1;
+                }
+
+            }
+        }
+
+        // Walk through each cell of the grid and test for an intersection if
+        // current cell contains geometry
+        while (true) {
+            if(cell.x >= 32 || cell.y >= 32 || cell.z >= 32 || cell.x < 0 || cell.y < 0 || cell.z < 0){
+                return false;
+            }
+
+            uint32_t o = cell.z * resolution.x * resolution.y + cell.y * resolution.x + cell.x;
+            if (u_bitmask.get(o)) {
+                voxel_index = o;
+                return true;
+            }
+            uint8_t k =
+                    (uint8_t(nextCrossingT[0] < nextCrossingT[1]) << uint8_t(2)) + //y > x
+                    (uint8_t(nextCrossingT[0] < nextCrossingT[2]) << uint8_t(1)) + //z > x
+                    (uint8_t(nextCrossingT[1] < nextCrossingT[2])); //z > y
+            const uint8_t map[8] = {uint8_t(2),
+                                    uint8_t(1),
+                                    uint8_t(2),
+                                    uint8_t(1),
+                                    uint8_t(2),
+                                    uint8_t(2),
+                                    uint8_t(0),
+                                    uint8_t(0)};
+//        const uint8_t map[8] = {uint8_t(0),
+//                                uint8_t(0),
+//                                uint8_t(2),
+//                                uint8_t(2),
+//                                uint8_t(1),
+//                                uint8_t(2),
+//                                uint8_t(1),
+//                                uint8_t(2)};
+            uint8_t axis = map[std::uint32_t(k)];
+
+            //not needed because if we "get" a value at the position, we gaurantee a hit.
+//        if (tHit < nextCrossingT[axis]) break;
+            cell[std::uint32_t(axis)] += step[std::uint32_t(axis)];
+            if (cell[std::uint32_t(axis)] == exit[std::uint32_t(axis)]){
+                break;
+            }
+            nextCrossingT[std::uint32_t(axis)] += deltaT[std::uint32_t(axis)];
+        }
+        return false;
+    };
+    auto org = glm::vec3(3.25f,0.0f,3.25f);
+    auto dir = normalize(glm::vec3(0.0f,2,-1));
+    auto org_offset = glm::vec3(0.0f,1.0f,0.0f) * 0.001f;
+    auto block_offset = glm::vec3(0.0f);
+    std::uint32_t voxel_index;
+    auto intersected = bitmask_intersect(org + org_offset, dir, block_offset,voxel_index);
+    fmt::print("intersectred {}\n", intersected);
+    auto calc_rle = [](const std::vector<std::uint32_t> & chunk){
+        std::vector<std::uint16_t> offsets;
+        std::vector<std::uint32_t> materials;
+        std::uint16_t running_size = 0;
+        std::uint32_t running_material = chunk.empty() ? 0 : chunk[0];
+        for(const auto& voxel : chunk){
+            if(running_material != voxel){
+                offsets.push_back(running_size);
+                materials.push_back(running_material);
+                running_material = voxel;
+            }
+            running_size += 1;
+        }
+        VUL_ASSERT(materials.empty() || materials.back() != running_material , "Last value shouldn't have actually been set...");
+        if(!chunk.empty()){
+            VUL_ASSERT(running_size == chunk.size());
+            offsets.push_back(running_size);
+            materials.push_back(running_material);
+        }
+        return std::tuple{materials, offsets};
+    };
+
+    auto[chunk_rle_materials, chunk_rle_offsets] = calc_rle(chunk_data);
+
+    auto rle_material_buffer = allocator.createDeviceBuffer(commandPool,
+                                                     presentationQueue,
+                                                     vul::TempArrayProxy(
+                                                             chunk_rle_materials.size(),
+                                                             chunk_rle_materials.data()),
+                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto rle_offset_buffer = allocator.createDeviceBuffer(commandPool,
+                                                           presentationQueue,
+                                                           vul::TempArrayProxy(
+                                                                   chunk_rle_offsets.size(),
+                                                                   chunk_rle_offsets.data()),
+                                                           vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
+                                                           presentationQueue,
+                                                           vul::TempArrayProxy(
+                                                                   bitmask.size(),
+                                                                   bitmask.data()),
+                                                           vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+
+
     vul::GraphicsPipeline graphicsPipeline;
+    struct alignas(8) RunLengthEncodingPushConstant{
+        std::uint32_t size;
+        std::uint32_t padding;
+        std::uint64_t materials;
+        std::uint64_t offsets;
+        std::uint64_t bitmask;
+    };
+    static_assert(sizeof(RunLengthEncodingPushConstant) == 32);
+    RunLengthEncodingPushConstant rlePushConstant = {
+            static_cast<std::uint32_t>(chunk_rle_offsets.size()),
+            0u,
+            rle_material_buffer.getDeviceAddress(),
+            rle_offset_buffer.getDeviceAddress(),
+            rle_bitmask_buffer.getDeviceAddress()
+    };
+
+
     auto pipelineLayout = device.createPipelineLayout(
-            descriptorLayout).assertValue();
+            descriptorLayout,
+            VkPushConstantRange{
+                (vul::ShaderStageFlagBits::VertexBit | vul::ShaderStageFlagBits::FragmentBit).to_underlying(),
+                0,
+                sizeof(RunLengthEncodingPushConstant)
+        }).assertValue();
+//    auto pipelineLayout = device.createPipelineLayout(
+//            descriptorLayout).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
 
 
@@ -437,6 +594,8 @@ int main() {
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
     pipelineBuilder.setDefaultRasterizationState();
+//    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
+
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
     VkPipelineColorBlendAttachmentState blendState = {};
@@ -453,18 +612,16 @@ int main() {
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
         auto vertexShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d_test.vert.spv")).assertValue();
+                vul::readSPIRV("spirv/rle_render.vert.spv")).assertValue();
         auto fragmentShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d_test.frag.spv")).assertValue();
+                vul::readSPIRV("spirv/rle_render.frag.spv")).assertValue();
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
-    auto commandPool = device.createCommandPool(
-            presentQueueIndex,
-            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+
 
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
@@ -556,11 +713,12 @@ int main() {
 
     vul::SamplerBuilder samplerBuilder(device);
     samplerBuilder.setFilter(vul::Filter::Linear);
-    samplerBuilder.setAddressMode(vul::SamplerAddressMode::Repeat);
+    samplerBuilder.setAddressMode(vul::SamplerAddressMode::MirroredRepeat);
     samplerBuilder.enableAnisotropy();
     samplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
     auto sampler = samplerBuilder.create().assertValue();
+
 
     //TODO enable non const vector/array to convert to TempArrayProxy automatically.
     auto vertexBuffer = allocator.createDeviceBuffer(
@@ -649,24 +807,6 @@ int main() {
 //    init_info.CheckVkResultFn = check_vk_result;
 
     ImGui_ImplVulkan_Init(&init_info, renderPass.get());
-#if 0
-    auto imguiRenderPass = createImGuiRenderPass(device, surface.getSwapchain()->getFormat(), false).assertValue();
-    ImGui_ImplVulkan_Init(&init_info, imguiRenderPass.get());
-
-    std::vector<vul::Framebuffer> imguiFramebuffers;
-//    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-//    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
-
-    for (const auto &imageView: swapchainImageViews) {
-        std::array<const vul::ImageView *, 1> imageViews = {&imageView};
-        vul::FramebufferBuilder framebufferBuilder(device);
-        framebufferBuilder.setAttachments(imageViews);
-        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-        framebufferBuilder.setRenderPass(renderPass);
-        swapchainFramebuffers.push_back(
-                framebufferBuilder.create().assertValue());
-    }
-#endif
 
     renderPass.setObjectName("MyActualRenderPass");
 
@@ -685,10 +825,12 @@ int main() {
                                              0);
 
 
-//    computeBuilder.set
 
     while (!window.shouldClose()) {
-
+        using namespace std::chrono_literals;
+//        std::this_thread::sleep_for(1000us);
+//        std::this_thread::sleep_for(32ms) ;
+//        presentationQueue.waitIdle();
         glfwPollEvents();
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -697,7 +839,7 @@ int main() {
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
-
+        auto cursor_pos =  window.getCursorPosition();
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
         {
             static float f = 0.0f;
@@ -726,8 +868,12 @@ int main() {
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                         1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
+
+            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x, cursor_pos.y).c_str());
             ImGui::End();
         }
+
+
 
         // 3. Show another simple window.
         if (show_another_window) {
@@ -736,10 +882,14 @@ int main() {
             ImGui::Text("Hello from another window!");
             if (ImGui::Button("Close Me"))
                 show_another_window = false;
+
             ImGui::End();
         }
 
 
+        {
+            fmt::print("Value {},{},{}\n", camera.getPosition().x,camera.getPosition().y,camera.getPosition().z);
+        }
 
         //TODO do actual timeline semaphore update here. use framecounter, not sure how, will need to make sure value is <= actual signal value.
         renderFinishedSemaphores[currentFrameIndex].wait(
@@ -767,12 +917,14 @@ int main() {
                     currentTime - lastTime).count();
             lastTime = currentTime;
 
+
             bool toggle_spread = false;
             bool toggle_density = false;
             ImGuiIO &io = ImGui::GetIO();
+
             if (!io.WantCaptureKeyboard) {
                 float rotate_speed = 1.5;
-                float move_speed = 3;
+                float move_speed = 15;
 
                 bool forward = false;
                 bool back = false;
@@ -830,7 +982,7 @@ int main() {
 
             UniformBufferObject ubo = {};
             ubo.model = glm::identity<glm::mat4x4>();
-            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f),
+            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f),
                         glm::vec3(1.0f, 0.0f, 0.0f));
 //            ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
 //                                    glm::vec3(0.0f, 1.0f, 0.0f));
@@ -842,17 +994,24 @@ int main() {
                                         surface.getSwapchain()->getExtent().width /
                                         (float) surface.getSwapchain()->getExtent().height,
                                         0.1f,
-                                        10.0f);
+                                        1000.0f);
+
             ubo.proj[1][1] *= -1;
+            static float u_time = 0;
+            ubo.u_time = time;
+            ubo.camera_pos = camera.getPosition();
+            u_time += 1.0f;
             uniformBuffers[swapchainImageIndex].copyToMapped<UniformBufferObject>(
                     ubo);
+
         }
 
 
+
         ImGui::Render();
-        using namespace std::chrono_literals;
-//        std::this_thread::sleep_for(1000us);
-//        std::this_thread::sleep_for(16ms);
+
+
+
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {
@@ -862,7 +1021,6 @@ int main() {
                 auto extent = surface.getSwapchain()->getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
                 commandBuffer.setScissor(vul::Rect2D(extent).get());
-
 
                 std::array<VkClearValue, 2> clearValues{};
                 clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
@@ -882,28 +1040,16 @@ int main() {
                 commandBuffer.bindDescriptorSets(
                         vul::PipelineBindPoint::Graphics, pipelineLayout,
                         descriptorSets[swapchainImageIndex]);
-//                renderPassBlock.drawIndexed(indices.size());
-                renderPassBlock.draw(36);
+                std::uint32_t box_vertex_count = 36;
+                std::uint32_t vertex_split_pass_count = 5;
+                commandBuffer.pushConstants(pipelineLayout,
+                                            vul::ShaderStageFlagBits::VertexBit | vul::ShaderStageFlagBits::FragmentBit,
+                                            rlePushConstant);
+                auto vertex_count = chunk_rle_materials.size() * box_vertex_count * vertex_split_pass_count;
+                renderPassBlock.draw(vertex_count);
                 ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                                 commandBuffer.get());
             }
-#if 0
-            {
-                std::array<VkClearValue, 1> clearValues{};
-//                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
-                clearValues[0].color = {
-                        {clear_color.x, clear_color.y, clear_color.z,
-                         clear_color.w}};
-                auto extent = surface.getSwapchain()->getExtent();
-                auto renderPassBlock = commandBuffer.beginRenderPass(
-                        imguiRenderPass,
-                        imguiFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
-                        clearValues);
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
-            }
-#endif
             commandBuffer.end();
         }
 
@@ -948,6 +1094,7 @@ int main() {
         } else if (presentResult != vul::Result::Success) {
             throw std::runtime_error("failed to present swapchain image");
         }
+
 
         currentFrameIndex = (currentFrameIndex + 1) % maxFramesInFlight;
         frame_counter += 1;

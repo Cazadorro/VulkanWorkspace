@@ -109,12 +109,12 @@ void vul::GraphicsPipelineBuilder::setRasterizationState(
     m_rasterizationState = rasterizer;
 }
 
-void vul::GraphicsPipelineBuilder::setDefaultRasterizationState() {
+
+void vul::GraphicsPipelineBuilder::setDefaultRasterizationState(vul::CullModeBitMask cullMode) {
     m_rasterizationState.depthClampEnable = VK_FALSE;
     m_rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     m_rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-//    m_rasterizationState.cullMode = VK_CULL_MODE_BACK_BIT;
-    m_rasterizationState.cullMode = VK_CULL_MODE_NONE;
+    m_rasterizationState.cullMode = cullMode.to_underlying();
     m_rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     m_rasterizationState.depthBiasEnable = VK_FALSE;
 //    m_rasterizationState.depthBiasConstantFactor;
@@ -237,13 +237,24 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
     }
 
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
-    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.pNext = nullptr;
-    vertexInputInfo.flags = {};
-    vertexInputInfo.vertexBindingDescriptionCount = inputBindingDescriptions.size();
-    vertexInputInfo.pVertexBindingDescriptions = inputBindingDescriptions.data();
-    vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
-    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    if(m_bindingAttributeDescriptions.size() != 0){
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.pNext = nullptr;
+        vertexInputInfo.flags = {};
+        vertexInputInfo.vertexBindingDescriptionCount = inputBindingDescriptions.size();
+        vertexInputInfo.pVertexBindingDescriptions = inputBindingDescriptions.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
+        vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    }else{
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.pNext = nullptr;
+        vertexInputInfo.flags = 0;
+        vertexInputInfo.vertexBindingDescriptionCount = 0;
+        vertexInputInfo.vertexAttributeDescriptionCount = 0;
+        vertexInputInfo.pVertexBindingDescriptions = nullptr;
+        vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+    }
+
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
