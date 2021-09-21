@@ -5,6 +5,7 @@
 #include "stbimage.h"
 #include <glm/glm.hpp>
 #include <stdexcept>
+#include <cstdlib>
 
 
 VkDeviceSize gul::StbImage::getDeviceSize() const {
@@ -73,6 +74,7 @@ gul::StbImage::StbImage(const gul::StbImage &rhs) : m_width(rhs.m_width),
                                                     m_height(rhs.m_height),
                                                     m_frames(rhs.m_frames),
                                                     m_channels(rhs.m_channels) {
+    m_pixels = reinterpret_cast<stbi_uc*>(std::malloc(rhs.getDeviceSize()));
     memcpy(m_pixels, rhs.m_pixels, static_cast<size_t>(rhs.getDeviceSize()));
 }
 

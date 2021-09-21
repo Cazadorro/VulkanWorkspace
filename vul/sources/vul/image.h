@@ -234,6 +234,11 @@ namespace vul {
     VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
     [[nodiscard]]
     VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    [[nodiscard]]
+    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    [[nodiscard]]
+    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
 
 }
 #endif //VULKANWORKSPACE_IMAGE_H

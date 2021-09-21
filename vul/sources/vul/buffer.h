@@ -8,7 +8,8 @@
 #include "vul/vmaallocation.h"
 #include "vul/enumsfwd.h"
 #include "vul/bitmasksfwd.h"
-#include "commandutils.h"
+#include "vul/commandutils.h"
+#include "vul/temparrayproxy.h"
 
 #include <gsl/span>
 #include <vk_mem_alloc.h>
@@ -79,6 +80,15 @@ namespace vul {
         template<typename T>
         void copyToMapped(const TempArrayProxy<T>& array){
            m_allocation.copyToMapped(array);
+        }
+        template<typename T>
+        void copyToMapped(const TempArrayProxy<TempArrayProxy<T>>& arrayList){
+            //TODO could reduce compile times by having concepts of "void" TempArrayProxy?
+            std::size_t offsetBytes = 0;
+            for(const auto& array : arrayList){
+                m_allocation.copyToMapped(array, offsetBytes);
+                offsetBytes += array.size_bytes();
+            }
         }
 
         [[nodiscard]]

@@ -118,13 +118,13 @@ vul::CommandBuffer::pipelineBarrier(const VkDependencyInfoKHR &dependencyInfo) {
 void vul::CommandBuffer::copyBufferToImage(const vul::Buffer &srcBuffer,
                                            vul::Image &dstImage,
                                            vul::ImageAspectBitMask flags,
-                                           std::uint32_t mipLevel_t) {
+                                           std::uint32_t mipLevel) {
 
     VkBufferImageCopy copyRegion = {};
     copyRegion.bufferOffset = 0;
     copyRegion.bufferRowLength = 0;
     copyRegion.bufferImageHeight = 0;
-    copyRegion.imageSubresource = vul::ImageSubresourceLayers(flags, mipLevel_t).get();
+    copyRegion.imageSubresource = vul::ImageSubresourceLayers(flags, mipLevel).get();
     copyRegion.imageOffset = {};
     copyRegion.imageExtent = dstImage.getExtent3D();
     copyBufferToImage(srcBuffer, dstImage, copyRegion);

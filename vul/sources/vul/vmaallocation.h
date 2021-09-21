@@ -48,8 +48,8 @@ namespace vul {
         void unmapMemory();
 
         template<typename T>
-        void copyToMapped(const TempArrayProxy<T>& array){
-            void * mappedPtr = mapMemory();
+        void copyToMapped(const TempArrayProxy<T>& array, const std::size_t offsetBytes = 0){
+            void * mappedPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(mapMemory()) + offsetBytes);
             memcpy(mappedPtr, array.data(), array.size_bytes());
         }
 

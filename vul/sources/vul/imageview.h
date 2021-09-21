@@ -65,7 +65,6 @@ namespace vul {
 
 
 
-
     class SubresourceRange{
     public:
         vul::ImageAspectBitMask aspectMask;

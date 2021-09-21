@@ -323,10 +323,42 @@ vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUs
     return info;
 }
 
-
 VkImageCreateInfo
 vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
                              vul::ImageUsageBitMask usage,
                              vul::ImageTiling tiling) {
     return createSimple2DImageInfo(format, {extent.width, extent.height,1}, usage, tiling);
+}
+
+VkImageCreateInfo
+vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent,
+                             vul::ImageUsageBitMask usage,
+                             std::uint32_t mipLevels,
+                             std::uint32_t arrayLayers,
+                             vul::ImageTiling tiling) {
+    VkImageCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.pNext = nullptr;
+    info.flags = 0;
+    info.imageType = VK_IMAGE_TYPE_2D;
+    info.format = vul::get(format);
+    info.extent = extent;
+    info.mipLevels = mipLevels;
+    info.arrayLayers = arrayLayers;
+    info.samples = VK_SAMPLE_COUNT_1_BIT;
+    info.tiling = vul::get(tiling);
+    info.usage = usage.to_underlying();
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    info.queueFamilyIndexCount  = 0;
+    info.pQueueFamilyIndices = nullptr;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    return info;
+}
+VkImageCreateInfo
+vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
+                             vul::ImageUsageBitMask usage,
+                             std::uint32_t mipLevels,
+                             std::uint32_t arrayLayers,
+                             vul::ImageTiling tiling) {
+    return createSimple2DImageInfo(format, {extent.width, extent.height,1}, usage, mipLevels, arrayLayers, tiling);
 }

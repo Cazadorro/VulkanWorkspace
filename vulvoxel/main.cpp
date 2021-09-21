@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include "cpu_bitmask_intersect.h"
 #include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
@@ -117,7 +118,7 @@ struct UniformBufferObject {
     glm::vec3 camera_pos;
     float u_time;
 };
-static_assert(sizeof(UniformBufferObject) == 16*4*3+16);
+static_assert(sizeof(UniformBufferObject) == 16 * 4 * 3 + 16);
 
 const std::vector<Vertex> vertices = {
         {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
@@ -235,7 +236,7 @@ int main() {
     features.physicalDeviceVulkan12Features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
     features.physicalDeviceVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
     features.physicalDeviceVulkan12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing  = VK_TRUE;
+    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
     features.physicalDeviceVulkan12Features.runtimeDescriptorArray = VK_TRUE;
@@ -384,42 +385,50 @@ int main() {
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
     descriptorSetLayoutBuilder.setBindings({vul::UniformBufferBinding(0,
-                                                                      vul::ShaderStageFlagBits::VertexBit | vul::ShaderStageFlagBits::FragmentBit).get(),
+                                                                      vul::ShaderStageFlagBits::VertexBit |
+                                                                      vul::ShaderStageFlagBits::FragmentBit).get(),
                                             vul::CombinedSamplerBinding(1,
 
                                                                         vul::ShaderStageFlagBits::FragmentBit).get()});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
-    std::vector<std::uint32_t> chunk_data(32*32*32, 1);
+    std::vector<std::uint32_t> chunk_data(32 * 32 * 32, 1);
 
 
-    std::vector<std::uint32_t> set_offsets = {1,5,2,24,32*32-32, 32, 32*32 - 32, 32*32, 32*3 + 4, 28+17, 32*8,32*32};
-    std::vector<std::uint32_t> set_values = {4,5,7,6,2,3,2,0,2,4,1,0};
+    std::vector<std::uint32_t> set_offsets = {1, 5, 2, 24, 32 * 32 - 32, 32,
+                                              32 * 32 - 32, 32 * 32, 32 * 3 + 4,
+                                              28 + 17, 32 * 8, 32 * 32};
+    std::vector<std::uint32_t> set_values = {4, 5, 7, 6, 2, 3, 2, 0, 2, 4, 1,
+                                             0};
 
-    std::size_t total_offset =0;
-    for(auto [offset, value] : ranges::views::zip(set_offsets, set_values)){
-        for(std::size_t i =total_offset; i < total_offset + offset; ++i){
+    std::size_t total_offset = 0;
+    for (auto[offset, value]: ranges::views::zip(set_offsets, set_values)) {
+        for (std::size_t i = total_offset; i < total_offset + offset; ++i) {
             chunk_data[i] = value;
         }
         total_offset += offset;
     }
 
-    gul::bitmask bitmask(32*32*32);
-    for(auto [idx, value] : ranges::views::enumerate(chunk_data)){
-        if(value != 0){
+    gul::bitmask bitmask(32 * 32 * 32);
+    for (auto[idx, value]: ranges::views::enumerate(chunk_data)) {
+        if (value != 0) {
             bitmask.set(idx);
         }
     }
 
-    auto bitmask_intersect = [&u_bitmask = bitmask](glm::vec3 orig, glm::vec3 dir, glm::vec3 block_offset, std::uint32_t& voxel_index){
+
+    auto bitmask_intersect_l = [&u_bitmask = bitmask](glm::vec3 orig,
+                                                      glm::vec3 dir,
+                                                      glm::vec3 block_offset,
+                                                      std::uint32_t &voxel_index) {
         orig = orig.xzy();
         dir = dir.xzy();
         orig.z *= -1.0;
         dir.z *= -1.0;
         glm::vec3 invDir = 1.0f / dir;
 //    bvec3 sign = bvec3(dir.x < 0, dir.y < 0, dir.z < 0);
-        glm::vec3 cellDimension = glm::vec3(1,1,1);
-        glm::uvec3 resolution = glm::uvec3(32u,32u,32u);
+        glm::vec3 cellDimension = glm::vec3(1, 1, 1);
+        glm::uvec3 resolution = glm::uvec3(32u, 32u, 32u);
         float tHitBox = 0.0f;
         // initialization step
         glm::ivec3 exit, step, cell;
@@ -429,30 +438,36 @@ int main() {
             // convert ray starting point to cell coordinates
             //bbox origin should be 0,0,0 now?
 
-            float rayOrigCell = ((orig[i] + dir[i] * tHitBox) - block_offset[i]);
-            cell[i] = int(glm::clamp(int(floor(rayOrigCell / cellDimension[i])), 0, int(resolution[i] - 1))); //should I even clamp?
+            float rayOrigCell = ((orig[i] + dir[i] * tHitBox) -
+                                 block_offset[i]);
+            cell[i] = int(
+                    glm::clamp(int(floor(rayOrigCell / cellDimension[i])), 0,
+                               int(resolution[i] - 1))); //should I even clamp?
             cell[i] = int(floor(rayOrigCell / cellDimension[i]));
             if (dir[i] < 0) {
                 deltaT[i] = -cellDimension[i] * invDir[i];
-                nextCrossingT[i] = tHitBox + (float(cell[i]) * cellDimension[i] - rayOrigCell) * invDir[i];
-                if(i == 234){
+                nextCrossingT[i] = tHitBox +
+                                   (float(cell[i]) * cellDimension[i] -
+                                    rayOrigCell) * invDir[i];
+                if (i == 234) {
                     exit[i] = int(resolution[i]);
                     step[i] = 1;
-                }else{
+                } else {
                     exit[i] = -1;
                     step[i] = -1;
                 }
 
-            }
-            else {
+            } else {
                 deltaT[i] = cellDimension[i] * invDir[i];
-                nextCrossingT[i] = tHitBox + ((float(cell[i]) + 1)  * cellDimension[i] - rayOrigCell) * invDir[i];
+                nextCrossingT[i] = tHitBox +
+                                   ((float(cell[i]) + 1) * cellDimension[i] -
+                                    rayOrigCell) * invDir[i];
 //            exit[i] = int(resolution[i]);
 //            step[i] = 1;
-                if(i == 234){
+                if (i == 234) {
                     exit[i] = -1;
                     step[i] = -1;
-                }else{
+                } else {
                     exit[i] = int(resolution[i]);
                     step[i] = 1;
                 }
@@ -463,18 +478,22 @@ int main() {
         // Walk through each cell of the grid and test for an intersection if
         // current cell contains geometry
         while (true) {
-            if(cell.x >= 32 || cell.y >= 32 || cell.z >= 32 || cell.x < 0 || cell.y < 0 || cell.z < 0){
+            if (cell.x >= 32 || cell.y >= 32 || cell.z >= 32 || cell.x < 0 ||
+                cell.y < 0 || cell.z < 0) {
                 return false;
             }
 
-            uint32_t o = cell.z * resolution.x * resolution.y + cell.y * resolution.x + cell.x;
+            uint32_t o = cell.z * resolution.x * resolution.y +
+                         cell.y * resolution.x + cell.x;
             if (u_bitmask.get(o)) {
                 voxel_index = o;
                 return true;
             }
             uint8_t k =
-                    (uint8_t(nextCrossingT[0] < nextCrossingT[1]) << uint8_t(2)) + //y > x
-                    (uint8_t(nextCrossingT[0] < nextCrossingT[2]) << uint8_t(1)) + //z > x
+                    (uint8_t(nextCrossingT[0] < nextCrossingT[1])
+                            << uint8_t(2)) + //y > x
+                    (uint8_t(nextCrossingT[0] < nextCrossingT[2])
+                            << uint8_t(1)) + //z > x
                     (uint8_t(nextCrossingT[1] < nextCrossingT[2])); //z > y
             const uint8_t map[8] = {uint8_t(2),
                                     uint8_t(1),
@@ -494,38 +513,43 @@ int main() {
 //                                uint8_t(2)};
             uint8_t axis = map[std::uint32_t(k)];
 
+
             //not needed because if we "get" a value at the position, we gaurantee a hit.
 //        if (tHit < nextCrossingT[axis]) break;
             cell[std::uint32_t(axis)] += step[std::uint32_t(axis)];
-            if (cell[std::uint32_t(axis)] == exit[std::uint32_t(axis)]){
+            if (cell[std::uint32_t(axis)] == exit[std::uint32_t(axis)]) {
                 break;
             }
             nextCrossingT[std::uint32_t(axis)] += deltaT[std::uint32_t(axis)];
         }
         return false;
     };
-    auto org = glm::vec3(3.25f,0.0f,3.25f);
-    auto dir = normalize(glm::vec3(0.0f,2,-1));
-    auto org_offset = glm::vec3(0.0f,1.0f,0.0f) * 0.001f;
+
+
+    auto org = glm::vec3(6.0f, 0.0f, 6.0f);
+    auto dir = normalize(glm::vec3(0.0f, 1, -3));
+    auto org_offset = glm::vec3(0.0f, 1.0f, 0.0f) * 0.001f;
     auto block_offset = glm::vec3(0.0f);
     std::uint32_t voxel_index;
-    auto intersected = bitmask_intersect(org + org_offset, dir, block_offset,voxel_index);
+    auto intersected = bitmask_intersect(bitmask, org + org_offset, dir,
+                                         block_offset, voxel_index);
     fmt::print("intersectred {}\n", intersected);
-    auto calc_rle = [](const std::vector<std::uint32_t> & chunk){
+    auto calc_rle = [](const std::vector<std::uint32_t> &chunk) {
         std::vector<std::uint16_t> offsets;
         std::vector<std::uint32_t> materials;
         std::uint16_t running_size = 0;
         std::uint32_t running_material = chunk.empty() ? 0 : chunk[0];
-        for(const auto& voxel : chunk){
-            if(running_material != voxel){
+        for (const auto &voxel: chunk) {
+            if (running_material != voxel) {
                 offsets.push_back(running_size);
                 materials.push_back(running_material);
                 running_material = voxel;
             }
             running_size += 1;
         }
-        VUL_ASSERT(materials.empty() || materials.back() != running_material , "Last value shouldn't have actually been set...");
-        if(!chunk.empty()){
+        VUL_ASSERT(materials.empty() || materials.back() != running_material,
+                   "Last value shouldn't have actually been set...");
+        if (!chunk.empty()) {
             VUL_ASSERT(running_size == chunk.size());
             offsets.push_back(running_size);
             materials.push_back(running_material);
@@ -533,20 +557,21 @@ int main() {
         return std::tuple{materials, offsets};
     };
 
+
     auto[chunk_rle_materials, chunk_rle_offsets] = calc_rle(chunk_data);
 
     auto rle_material_buffer = allocator.createDeviceBuffer(commandPool,
-                                                     presentationQueue,
-                                                     vul::TempArrayProxy(
-                                                             chunk_rle_materials.size(),
-                                                             chunk_rle_materials.data()),
-                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+                                                            presentationQueue,
+                                                            vul::TempArrayProxy(
+                                                                    chunk_rle_materials.size(),
+                                                                    chunk_rle_materials.data()),
+                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
     auto rle_offset_buffer = allocator.createDeviceBuffer(commandPool,
-                                                           presentationQueue,
-                                                           vul::TempArrayProxy(
-                                                                   chunk_rle_offsets.size(),
-                                                                   chunk_rle_offsets.data()),
-                                                           vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+                                                          presentationQueue,
+                                                          vul::TempArrayProxy(
+                                                                  chunk_rle_offsets.size(),
+                                                                  chunk_rle_offsets.data()),
+                                                          vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
     auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
                                                            presentationQueue,
                                                            vul::TempArrayProxy(
@@ -555,9 +580,8 @@ int main() {
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
 
-
     vul::GraphicsPipeline graphicsPipeline;
-    struct alignas(8) RunLengthEncodingPushConstant{
+    struct alignas(8) RunLengthEncodingPushConstant {
         std::uint32_t size;
         std::uint32_t padding;
         std::uint64_t materials;
@@ -577,10 +601,11 @@ int main() {
     auto pipelineLayout = device.createPipelineLayout(
             descriptorLayout,
             VkPushConstantRange{
-                (vul::ShaderStageFlagBits::VertexBit | vul::ShaderStageFlagBits::FragmentBit).to_underlying(),
-                0,
-                sizeof(RunLengthEncodingPushConstant)
-        }).assertValue();
+                    (vul::ShaderStageFlagBits::VertexBit |
+                     vul::ShaderStageFlagBits::FragmentBit).to_underlying(),
+                    0,
+                    sizeof(RunLengthEncodingPushConstant)
+            }).assertValue();
 //    auto pipelineLayout = device.createPipelineLayout(
 //            descriptorLayout).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
@@ -620,7 +645,6 @@ int main() {
                 fragmentShader.createFragmentStageInfo());
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
-
 
 
     vul::Image depthImage = allocator.createDeviceImage(
@@ -696,6 +720,40 @@ int main() {
     gul::StbImage pixels;
     gul::load("../../textures/texture.jpg", pixels,
               gul::StbImage::Channels::rgb_alpha);
+
+    std::vector<std::string> texture_file_paths = {
+            "../../resources/brick_goodvibes.png",
+            "../../resources/clay_goodvibes.png",
+            "../../resources/cobblestone_goodvibes.png",
+            "../../resources/dirt_goodvibes.png",
+            "../../resources/end_stone_goodvibes.png",
+            "../../resources/grass_block_top_goodvibes.png",
+            "../../resources/oak_planks_goodvibes.png",
+            "../../resources/sand_goodvibes.png"
+    };
+    std::vector<gul::StbImage> textureLayers;
+    for (const auto &file_path: texture_file_paths) {
+        gul::StbImage block_texture;
+        gul::load(file_path, block_texture, gul::StbImage::Channels::rgb_alpha);
+        textureLayers.push_back(block_texture);
+    }
+
+    std::vector<vul::TempArrayProxy<const stbi_uc>> textureLayerSpans;
+    for (const auto &textureLayer: textureLayers) {
+        textureLayerSpans.push_back(
+                vul::TempArrayProxy(pixels.size(), pixels.data()));
+    }
+
+    auto arrayTextureImage = allocator.createDeviceTexture(commandPool,
+                                                           presentationQueue,
+                                                           vul::TempArrayProxy(textureLayerSpans),
+                                                           vul::createSimple2DImageInfo(
+                                                                   vul::Format::R8g8b8a8Srgb,
+                                                                   pixels.getExtent3D(),
+                                                                   vul::ImageUsageFlagBits::TransferDstBit |
+                                                                   vul::ImageUsageFlagBits::SampledBit,
+                                                                   1,textureLayers.size())).assertValue();
+
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
                                                       vul::TempArrayProxy(
@@ -825,7 +883,6 @@ int main() {
                                              0);
 
 
-
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
@@ -839,7 +896,7 @@ int main() {
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
-        auto cursor_pos =  window.getCursorPosition();
+        auto cursor_pos = window.getCursorPosition();
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
         {
             static float f = 0.0f;
@@ -869,7 +926,8 @@ int main() {
                         1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
 
-            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x, cursor_pos.y).c_str());
+            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x,
+                                    cursor_pos.y).c_str());
             ImGui::End();
         }
 
@@ -888,7 +946,8 @@ int main() {
 
 
         {
-            fmt::print("Value {},{},{}\n", camera.getPosition().x,camera.getPosition().y,camera.getPosition().z);
+            fmt::print("Value {},{},{}\n", camera.getPosition().x,
+                       camera.getPosition().y, camera.getPosition().z);
         }
 
         //TODO do actual timeline semaphore update here. use framecounter, not sure how, will need to make sure value is <= actual signal value.
@@ -982,8 +1041,8 @@ int main() {
 
             UniformBufferObject ubo = {};
             ubo.model = glm::identity<glm::mat4x4>();
-            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f),
-                        glm::vec3(1.0f, 0.0f, 0.0f));
+//            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f),
+//                        glm::vec3(1.0f, 0.0f, 0.0f));
 //            ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
 //                                    glm::vec3(0.0f, 1.0f, 0.0f));
 //            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
@@ -1007,10 +1066,7 @@ int main() {
         }
 
 
-
         ImGui::Render();
-
-
 
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
@@ -1043,9 +1099,12 @@ int main() {
                 std::uint32_t box_vertex_count = 36;
                 std::uint32_t vertex_split_pass_count = 5;
                 commandBuffer.pushConstants(pipelineLayout,
-                                            vul::ShaderStageFlagBits::VertexBit | vul::ShaderStageFlagBits::FragmentBit,
+                                            vul::ShaderStageFlagBits::VertexBit |
+                                            vul::ShaderStageFlagBits::FragmentBit,
                                             rlePushConstant);
-                auto vertex_count = chunk_rle_materials.size() * box_vertex_count * vertex_split_pass_count;
+                auto vertex_count =
+                        chunk_rle_materials.size() * box_vertex_count *
+                        vertex_split_pass_count;
                 renderPassBlock.draw(vertex_count);
                 ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                                 commandBuffer.get());

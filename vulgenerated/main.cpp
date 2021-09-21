@@ -22,8 +22,7 @@ struct ObjtypeEnumValue {
 
 int main() {
     pugi::xml_document doc;
-    pugi::xml_parse_result result = doc.load_file(
-            "C:/Users/Shae Bolt/Documents/GitRepositories/VulkanProject/vknewtest/resources/vk.xml");
+    pugi::xml_parse_result result = doc.load_file((std::string(VUL_GEN_RESOURCE_PATH) + "/resources/vk.xml").c_str());
     if (!result)
         return -1;
     auto root = doc.root().first_child(); //get attributes first.
@@ -331,7 +330,8 @@ int main() {
     bitmask_header += vul::end_include_guard("VUL_BITMASKS_H");
     bitmask_forward += vul::end_include_guard("VUL_BITMASKSFWD_H");
 
-    std::string output_dir = "C:/Users/Shae Bolt/Documents/GitRepositories/VulkanWorkspace/vul/generated_sources/vul/";
+    //TODO need a make directory thing here if doesn't exist.
+    std::string output_dir = std::string(VUL_GEN_RESOURCE_PATH) + "/../vul/generated_sources/vul/";
     std::ofstream enum_forward_file(output_dir + "enumsfwd.h");
     std::ofstream enum_header_file(output_dir + "enums.h");
     std::ofstream enum_source_file(output_dir + "enums.cpp");

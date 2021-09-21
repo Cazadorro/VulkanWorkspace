@@ -16,20 +16,20 @@ namespace gul {
         template<typename T>
         [[nodiscard]]
         bool get(const glm::vec<3, T, glm::defaultp>& pos,
-                 const glm::vec<3, T, glm::defaultp>& size){
+                 const glm::vec<3, T, glm::defaultp>& size) const{
             auto linear_index = pos.z * size.x*size.y + pos.y * size.x + pos.x;
             return get(linear_index);
         }
         template<typename T>
         [[nodiscard]]
         bool get(const glm::vec<2, T, glm::defaultp>& pos,
-                 const glm::vec<2, T, glm::defaultp>& size){
+                 const glm::vec<2, T, glm::defaultp>& size) const{
             auto linear_index = pos.y * size.x + pos.x;
             return get(linear_index);
         }
         template<typename T>
         [[nodiscard]]
-        bool get(const T& pos){
+        bool get(const T& pos) const{
             auto linear_index = pos;
             auto u32_index = linear_index / m_bit_count;
             auto bit_index = linear_index % m_bit_count;

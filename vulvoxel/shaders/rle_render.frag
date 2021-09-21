@@ -51,7 +51,7 @@ layout(push_constant) uniform PushConstantBlock{
     uint32_array u_bitmask;
 };
 
-bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index){
+bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T){
     orig = orig.xzy;
     orig.z *= -1.0;
     dir = dir.xzy;
@@ -110,6 +110,9 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
         uint32_t o = cell.z * resolution.x * resolution.y + cell.y * resolution.x + cell.x;
         if (get(u_bitmask, o)) {
             voxel_index = o;
+            vec3 temp = nextCrossingT;
+            temp.z *= -1.0;
+            final_crossing_T = temp.xzy;
             return true;
         }
         uint8_t k =
@@ -145,28 +148,58 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
     return false;
 }
 
-
-void main() {
+vec3 get_material_color(uint material_id){
     vec3 color;
-    if (block_material_id == 1){
-        color = vec3(0.1, 1.0, 0.1);
-    }else if(block_material_id == 2){
-        color = vec3(1.0, 0.1, 0.1);
-    }else if(block_material_id == 3){
+    if (material_id == 1){
+        color = vec3(0.3, 1.0, 0.3);
+    }else if(material_id == 2){
+        color = vec3(1.0, 0.3, 0.3);
+    }else if(material_id == 3){
         color = vec3(0.1, 0.1, 1.0);
-    }else if(block_material_id == 4){
+    }else if(material_id == 4){
         color = vec3(1.0, 0.1, 1.0);
-    }else if(block_material_id == 5){
+    }else if(material_id == 5){
         color = vec3(0.5, 0.5, 1.0);
-    }else if(block_material_id == 6){
+    }else if(material_id == 6){
         color = vec3(0.1, 0.1, 0.5);
-    }else if(block_material_id == 7){
+    }else if(material_id == 7){
         color = vec3(0.1, 0.5, 0.5);
-    } else if (block_material_id == 354){
+    } else if (material_id == 354){
         color = vec3(1.0, 0.5, 0.5);
     }else{
         color = vec3(0.0,0.0,0.0);
     }
+    color += vec3(0.001,0.001,0.001);
+    return color;
+}
+
+uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, uint cell_index){
+    uint low = 0u;
+    uint high = rle_offsets_size - 1u;
+    uint mid = 0u;
+
+    while(low <= high){
+        uint mid = (high + low); // 2
+        uint before_arr = mid > 0 ? uint(rle_offsets.data[mid - 1]) : 0;
+        //If cell index is greater than last index in LE, ignore left half
+        if( uint(rle_offsets.data[mid]) <= cell_index){
+            low = mid + 1u;
+        }
+        //If x is smaller than RLE range, ignore right half
+        else if(before_arr > cell_index){
+            high = mid - 1u;
+        }
+        //means x is present at mid
+        else{
+            return uint16_t(mid);
+        }
+    }
+    // We would never reach here, If we reach here, then the element was not present
+}
+
+void main() {
+    vec3 color = get_material_color(block_material_id);
+
     color += vec3(0.001,0.001,0.001);
 
     vec3 light_dir_normal = vec3(0.0,1.0,0.0);
@@ -181,11 +214,20 @@ void main() {
     vec3 specular = light_color * spec * color.rgb;
 
     vec3 result = ambient + diffuse + specular;
-    vec3 ray_normal = reflect(normalize(block_world_position - ubo.camera_pos), block_world_normal);
+    vec3 ray_normal = normalize(reflect(normalize(block_world_position - ubo.camera_pos), block_world_normal));
     uint cell_position;
+    vec3 final_crossing_T;
     vec3 offset = vec3(0.0f);
-    if(bitmask_intersect(block_world_position + block_world_normal * 0.001,offset, ray_normal,cell_position)){
-        result *= 0.1;
+
+    //todo multiple bounce
+    //texture array for materials.
+    //sample from sky if make it to sky.
+    //fix the actual ray tracing?
+    if(bitmask_intersect(block_world_position + block_world_normal * 0.001, ray_normal, offset,cell_position,final_crossing_T)){
+        uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
+        uint material_id = u_rle_materials.data[uint(material_id_index)];
+        result *= get_material_color(material_id);
     }
+
     outColor = vec4(result, 1.0);
 }

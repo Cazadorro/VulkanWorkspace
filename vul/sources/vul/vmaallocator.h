@@ -13,6 +13,7 @@
 #include "vul/buffer.h"
 #include "vul/image.h"
 #include "vul/commandutils.h"
+#include "vul/temparrayproxy.h"
 #include <vk_mem_alloc.h>
 
 
@@ -110,6 +111,26 @@ namespace vul {
 
         template<typename T>
         [[nodiscard]]
+        ExpectedResult<Buffer>
+        createStagingBuffer(const TempArrayProxy<TempArrayProxy<T>> &arrayList,
+                            vul::BufferUsageBitMask otherUsages = {}) const {
+
+            VkDeviceSize totalSizeBytes = 0;
+            for(const auto& array : arrayList){
+                totalSizeBytes += array.size_bytes();
+            }
+            auto expectedResult = createStagingBuffer(totalSizeBytes,
+                                                      otherUsages);
+            if (!expectedResult.hasValue()) {
+                return expectedResult;
+            }
+            expectedResult.value.copyToMapped(arrayList);
+            return expectedResult;
+        }
+
+
+        template<typename T>
+        [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(
                 CommandPool& commandPool, Queue& queue,
                 const TempArrayProxy<T> &array,
@@ -163,6 +184,34 @@ namespace vul {
             auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
             return {result, std::move(image)};
         }
+
+        template<typename T>
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceImage(
+                CommandPool& commandPool, Queue& queue,
+                const TempArrayProxy<TempArrayProxy<T>> &arrayList,
+                const VkImageCreateInfo &imageInfo,
+                vul::ImageAspectBitMask aspectMask,
+                vul::PipelineStageFlagBits2KHR dstStageMask,
+                vul::AccessFlagBits2KHR dstAccessMask,
+                vul::ImageLayout dstLayout,
+                std::uint32_t mipLevel = 0) const {
+            auto expectedStageBuffer = createStagingBuffer(arrayList);
+            if(!expectedStageBuffer.hasValue()){
+                return {expectedStageBuffer.result, {}};
+            }
+            auto stagingBuffer = std::move(expectedStageBuffer.value);
+            auto tempImageInfo = imageInfo;
+            tempImageInfo.usage |= vul::get(vul::ImageUsageFlagBits::TransferDstBit);
+            auto expectedImage = createDeviceImage(tempImageInfo);
+            if(!expectedImage.hasValue()){
+                return {expectedImage.result, {}};
+            }
+            auto image = std::move(expectedImage.value);
+            auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
+            return {result, std::move(image)};
+        }
+
         template<typename T>
         [[nodiscard]]
         ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
@@ -175,6 +224,20 @@ namespace vul {
                                      vul::ImageLayout::ShaderReadOnlyOptimal,
                                      mipLevel);
         }
+
+        template<typename T>
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
+                                                   const TempArrayProxy<TempArrayProxy<T>> &array,
+                                                   const VkImageCreateInfo &imageInfo,
+                                                   std::uint32_t mipLevel = 0){
+            return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
+                                     vul::PipelineStageFlagBits2KHR::AllCommandsBit,
+                                     vul::AccessFlagBits2KHR::ShaderReadBit,
+                                     vul::ImageLayout::ShaderReadOnlyOptimal,
+                                     mipLevel);
+        }
+
         template<typename T>
         [[nodiscard]]
         ExpectedResult<Image> createStorageImage( CommandPool& commandPool, Queue& queue,
