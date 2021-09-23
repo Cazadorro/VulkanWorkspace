@@ -186,7 +186,24 @@ void main() {
     block_world_normal = temp_normal;
     block_world_position = vertex;
 
-
+    if(block_world_normal == vec3(0.0,1.0,0.0) || block_world_normal == vec3(0.0,-1.0,0.0)){
+        vec2 temp_coord = vert_coord.tex_coord;
+        temp_coord.x *= offset_dim3.x;
+        temp_coord.y *= offset_dim3.z;
+        block_tex_coord = temp_coord;
+    }
+    else if(block_world_normal == vec3(1.0,0.0,0.0) || block_world_normal == vec3(-1.0,0.0,0.0)){
+        vec2 temp_coord = vert_coord.tex_coord;
+        temp_coord.x *= offset_dim3.z;
+        temp_coord.y *= offset_dim3.y;
+        block_tex_coord = temp_coord;
+    }
+    else if(block_world_normal == vec3(0.0,0.0,1.0) || block_world_normal == vec3(0.0,0.0,-1.0)){
+        vec2 temp_coord = vert_coord.tex_coord;
+        temp_coord.x *= offset_dim3.x;
+        temp_coord.y *= offset_dim3.y;
+        block_tex_coord = temp_coord;
+    }
 
 
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(vertex, 1.0);

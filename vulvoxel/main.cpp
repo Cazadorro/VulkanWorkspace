@@ -3,6 +3,7 @@
 //
 
 #include "cpu_bitmask_intersect.h"
+#include <iostream>
 #include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
@@ -526,14 +527,17 @@ int main() {
     };
 
 
-    auto org = glm::vec3(6.0f, 0.0f, 6.0f);
-    auto dir = normalize(glm::vec3(0.0f, 1, -3));
+
+    auto org = glm::vec3(6.5f, -3.0f, 6.5f);
+    auto dir = normalize(glm::vec3(0.0f, 1.0f, 1.0f));
     auto org_offset = glm::vec3(0.0f, 1.0f, 0.0f) * 0.001f;
     auto block_offset = glm::vec3(0.0f);
     std::uint32_t voxel_index;
     auto intersected = bitmask_intersect(bitmask, org + org_offset, dir,
                                          block_offset, voxel_index);
+
     fmt::print("intersectred {}\n", intersected);
+    std::cout << std::endl;
     auto calc_rle = [](const std::vector<std::uint32_t> &chunk) {
         std::vector<std::uint16_t> offsets;
         std::vector<std::uint32_t> materials;
@@ -741,18 +745,26 @@ int main() {
     std::vector<vul::TempArrayProxy<const stbi_uc>> textureLayerSpans;
     for (const auto &textureLayer: textureLayers) {
         textureLayerSpans.push_back(
-                vul::TempArrayProxy(pixels.size(), pixels.data()));
+                vul::TempArrayProxy(textureLayer.size(), textureLayer.data()));
     }
+
 
     auto arrayTextureImage = allocator.createDeviceTexture(commandPool,
                                                            presentationQueue,
                                                            vul::TempArrayProxy(textureLayerSpans),
                                                            vul::createSimple2DImageInfo(
                                                                    vul::Format::R8g8b8a8Srgb,
-                                                                   pixels.getExtent3D(),
+                                                                   VkExtent3D{16,16,1},
                                                                    vul::ImageUsageFlagBits::TransferDstBit |
                                                                    vul::ImageUsageFlagBits::SampledBit,
                                                                    1,textureLayers.size())).assertValue();
+
+
+
+
+
+    auto arrayTextureView = arrayTextureImage.createImageView(vul::ImageSubresourceRange(
+            vul::ImageAspectFlagBits::ColorBit, 0, 1, 0, 8)).assertValue();
 
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
@@ -765,13 +777,14 @@ int main() {
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
+
     auto textureImageView = textureImage.createImageView(
             vul::ImageSubresourceRange(
                     vul::ImageAspectFlagBits::ColorBit)).assertValue();
 
     vul::SamplerBuilder samplerBuilder(device);
-    samplerBuilder.setFilter(vul::Filter::Linear);
-    samplerBuilder.setAddressMode(vul::SamplerAddressMode::MirroredRepeat);
+    samplerBuilder.setFilter(vul::Filter::Nearest);
+    samplerBuilder.setAddressMode(vul::SamplerAddressMode::Repeat);
     samplerBuilder.enableAnisotropy();
     samplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
@@ -799,6 +812,7 @@ int main() {
                                                      vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
     }
 
+
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,
               swapchainSize}}).assertValue();
@@ -813,11 +827,12 @@ int main() {
                 {uniformBuffers[i].createDescriptorInfo()});
         //TODO potentially could keep as layout general?
         updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
-                {textureImageView.createDescriptorInfo(sampler,
+                {arrayTextureView.createDescriptorInfo(sampler,
                                                        vul::ImageLayout::ShaderReadOnlyOptimal)});
         auto updates = updateBuilder.create(descriptorSet);
         device.updateDescriptorSets(updates);
     }
+
 
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
@@ -928,6 +943,7 @@ int main() {
 
             ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x,
                                     cursor_pos.y).c_str());
+            ImGui::Text(fmt::format("CameraPos {},{},{}\n", camera.getPosition().x,camera.getPosition().y, camera.getPosition().z).c_str());
             ImGui::End();
         }
 
@@ -945,10 +961,6 @@ int main() {
         }
 
 
-        {
-            fmt::print("Value {},{},{}\n", camera.getPosition().x,
-                       camera.getPosition().y, camera.getPosition().z);
-        }
 
         //TODO do actual timeline semaphore update here. use framecounter, not sure how, will need to make sure value is <= actual signal value.
         renderFinishedSemaphores[currentFrameIndex].wait(
@@ -1111,6 +1123,7 @@ int main() {
             }
             commandBuffer.end();
         }
+
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(

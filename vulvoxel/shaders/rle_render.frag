@@ -34,7 +34,7 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     vec3 camera_pos;
     float time;
 } ubo;
-layout(binding = 1) uniform sampler2D texSampler;
+layout(binding = 1) uniform sampler2DArray texSampler;
 
 layout(location = 0) flat in uint block_material_id;
 layout(location = 1) in vec2 block_tex_coord;
@@ -51,7 +51,7 @@ layout(push_constant) uniform PushConstantBlock{
     uint32_array u_bitmask;
 };
 
-bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T){
+bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec2 texcoord){
     orig = orig.xzy;
     orig.z *= -1.0;
     dir = dir.xzy;
@@ -76,33 +76,21 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
         if (dir[i] < 0) {
             deltaT[i] = -cellDimension[i] * invDir[i];
             nextCrossingT[i] = tHitBox + (float(cell[i]) * cellDimension[i] - rayOrigCell) * invDir[i];
-            if(i == 234){
-                exit[i] = int(resolution[i]);
-                step[i] = 1;
-            }else{
-                exit[i] = -1;
-                step[i] = -1;
-            }
-
+            exit[i] = -1;
+            step[i] = -1;
         }
         else {
             deltaT[i] = cellDimension[i] * invDir[i];
             nextCrossingT[i] = tHitBox + ((float(cell[i]) + 1)  * cellDimension[i] - rayOrigCell) * invDir[i];
-//            exit[i] = int(resolution[i]);
-//            step[i] = 1;
-            if(i == 234){
-                exit[i] = -1;
-                step[i] = -1;
-            }else{
-                exit[i] = int(resolution[i]);
-                step[i] = 1;
-            }
-
+            exit[i] = int(resolution[i]);
+            step[i] = 1;
         }
     }
 
     // Walk through each cell of the grid and test for an intersection if
     // current cell contains geometry
+    uint previous_axis = 0;
+    float last_t = 0;
     while (true) {
         if(cell.x >= 32 || cell.y >= 32 || cell.z >= 32 || cell.x < 0 || cell.y < 0 || cell.z < 0){
             return false;
@@ -110,9 +98,20 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
         uint32_t o = cell.z * resolution.x * resolution.y + cell.y * resolution.x + cell.x;
         if (get(u_bitmask, o)) {
             voxel_index = o;
-            vec3 temp = nextCrossingT;
-            temp.z *= -1.0;
-            final_crossing_T = temp.xzy;
+            float t = last_t;
+            vec3 endpoint = orig + dir * t;
+            vec3 fixed_endpoint = endpoint.xzy;
+            fixed_endpoint.y *= -1.0;
+            final_crossing_T = fixed_endpoint;
+            if(previous_axis == 0){
+                texcoord = fixed_endpoint.zy; //zy?
+            }
+            else if(previous_axis == 1){
+                texcoord = fixed_endpoint.xy; //xy?
+            }
+            else if(previous_axis == 2){
+                texcoord = fixed_endpoint.xz; //xz?
+            }
             return true;
         }
         uint8_t k =
@@ -127,14 +126,7 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
                                 uint8_t(2),
                                 uint8_t(0),
                                 uint8_t(0)};
-//        const uint8_t map[8] = {uint8_t(0),
-//                                uint8_t(0),
-//                                uint8_t(2),
-//                                uint8_t(2),
-//                                uint8_t(1),
-//                                uint8_t(2),
-//                                uint8_t(1),
-//                                uint8_t(2)};
+
         uint8_t axis = map[uint(k)];
 
         //not needed because if we "get" a value at the position, we gaurantee a hit.
@@ -143,34 +135,16 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
         if (cell[uint(axis)] == exit[uint(axis)]){
             break;
         }
+        last_t = nextCrossingT[uint(axis)];
         nextCrossingT[uint(axis)] += deltaT[uint(axis)];
+        previous_axis = uint(axis);
     }
     return false;
 }
 
-vec3 get_material_color(uint material_id){
-    vec3 color;
-    if (material_id == 1){
-        color = vec3(0.3, 1.0, 0.3);
-    }else if(material_id == 2){
-        color = vec3(1.0, 0.3, 0.3);
-    }else if(material_id == 3){
-        color = vec3(0.1, 0.1, 1.0);
-    }else if(material_id == 4){
-        color = vec3(1.0, 0.1, 1.0);
-    }else if(material_id == 5){
-        color = vec3(0.5, 0.5, 1.0);
-    }else if(material_id == 6){
-        color = vec3(0.1, 0.1, 0.5);
-    }else if(material_id == 7){
-        color = vec3(0.1, 0.5, 0.5);
-    } else if (material_id == 354){
-        color = vec3(1.0, 0.5, 0.5);
-    }else{
-        color = vec3(0.0,0.0,0.0);
-    }
-    color += vec3(0.001,0.001,0.001);
-    return color;
+vec3 get_material_color(uint material_id, vec2 tex_coord){
+    vec4 color = texture(texSampler, vec3(tex_coord, float(material_id - 1)));
+    return color.rgb;
 }
 
 uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, uint cell_index){
@@ -198,7 +172,7 @@ uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, ui
 }
 
 void main() {
-    vec3 color = get_material_color(block_material_id);
+    vec3 color = get_material_color(block_material_id, block_tex_coord);
 
     color += vec3(0.001,0.001,0.001);
 
@@ -217,16 +191,18 @@ void main() {
     vec3 ray_normal = normalize(reflect(normalize(block_world_position - ubo.camera_pos), block_world_normal));
     uint cell_position;
     vec3 final_crossing_T;
+    vec2 hit_texcoord;
     vec3 offset = vec3(0.0f);
 
+//    result = vec3(0.2);
     //todo multiple bounce
     //texture array for materials.
     //sample from sky if make it to sky.
     //fix the actual ray tracing?
-    if(bitmask_intersect(block_world_position + block_world_normal * 0.001, ray_normal, offset,cell_position,final_crossing_T)){
+    if(bitmask_intersect(block_world_position + block_world_normal * 0.001, ray_normal, offset,cell_position,final_crossing_T, hit_texcoord)){
         uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
         uint material_id = u_rle_materials.data[uint(material_id_index)];
-        result *= get_material_color(material_id);
+        result *= get_material_color(material_id, hit_texcoord) * 0.8;
     }
 
     outColor = vec4(result, 1.0);

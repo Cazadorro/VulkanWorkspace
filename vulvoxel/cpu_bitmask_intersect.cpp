@@ -3,6 +3,8 @@
 //
 
 #include "cpu_bitmask_intersect.h"
+#include <gul/collision.h>
+#include <fmt/core.h>
 #include <algorithm>
 #include <utility>
 #include <cmath>
@@ -10,7 +12,7 @@
 bool
 bitmask_intersect(const gul::bitmask &bitmask, glm::vec3 orig, glm::vec3 dir,
                   glm::vec3 block_offset, uint32_t &voxel_index) {
-
+    gul::Ray ray{orig, dir};
     orig = orig.xzy();
     orig.z *= -1.0;
     dir = dir.xzy();
@@ -65,6 +67,9 @@ bitmask_intersect(const gul::bitmask &bitmask, glm::vec3 orig, glm::vec3 dir,
 
     // Walk through each cell of the grid and test for an intersection if
     // current cell contains geometry
+    std::uint32_t previous_axis = 0;
+    glm::vec3 sum_stuff = ((orig + dir * tHitBox) - block_offset);
+    float last_t = 0;
     while (true) {
         if (cell.x >= 32 || cell.y >= 32 || cell.z >= 32 || cell.x < 0 ||
             cell.y < 0 || cell.z < 0) {
@@ -74,7 +79,43 @@ bitmask_intersect(const gul::bitmask &bitmask, glm::vec3 orig, glm::vec3 dir,
                 cell.z * resolution.x * resolution.y + cell.y * resolution.x +
                 cell.x;
         if (bitmask.get(o)) {
+
+            auto box = gul::Box::FromCorner(glm::vec3(cell.xzy()), cellDimension);
+            box.pos.y *= -1.0;
+            float distance;
+            auto normal = glm::vec3(0.0f);
+            bool intersected = gul::intersect(ray, box, distance, normal);
+            fmt::print("intersected {}\n,",intersected);
+
             voxel_index = o;
+            glm::vec3 temp = nextCrossingT;
+            if(std::isinf(temp.x)){
+                temp.x = orig.x;
+            }
+            if(std::isinf(temp.y)){
+                temp.y = orig.y;
+            }
+            if(std::isinf(temp.z)){
+                temp.z = orig.z;
+            }
+
+            temp.z *= -1.0;
+            temp = temp.xzy();
+            glm::vec3 final_crossing_T = temp;
+            glm::vec2 texcoord;
+            float t = last_t;//nextCrossingT[previous_axis];
+            glm::vec3 endpoint = orig + dir * t;
+            glm::vec3 fixed_endpoint = endpoint.xzy();
+            fixed_endpoint.y *= -1.0;
+            if(previous_axis == 0){
+                texcoord = temp.zy(); //zy?
+            }
+            else if(previous_axis == 1){
+                texcoord = temp.xy(); //xy?
+            }
+            else if(previous_axis == 2){
+                texcoord = temp.xz(); //xz?
+            }
             return true;
         }
         uint8_t k =
@@ -107,7 +148,10 @@ bitmask_intersect(const gul::bitmask &bitmask, glm::vec3 orig, glm::vec3 dir,
         if (cell[uint32_t(axis)] == exit[uint32_t(axis)]) {
             break;
         }
+        sum_stuff[uint32_t(axis)] += deltaT[uint32_t(axis)];
+        last_t = nextCrossingT[uint32_t(axis)];
         nextCrossingT[uint32_t(axis)] += deltaT[uint32_t(axis)];
+        previous_axis = std::uint32_t(axis);
     }
     return false;
 

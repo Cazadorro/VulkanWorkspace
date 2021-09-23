@@ -64,6 +64,8 @@ namespace vul {
         const VkImageSubresourceLayers &get() const;
     };
 
+    vul::ImageViewType toImageViewType(vul::ImageType type, std::uint32_t arrayLayers, bool isCube = false);
+
     class Image {
     public:
         Image() = default;

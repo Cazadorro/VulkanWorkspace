@@ -80,7 +80,7 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
         dependencyInfo.pImageMemoryBarriers = &toTransferBarrier;
         commandBuffer.pipelineBarrier(dependencyInfo);
     }
-    commandBuffer.copyBufferToImage(src, dst, aspectMask, mipLevel);
+    commandBuffer.copyBufferToImage(src, dst, aspectMask, mipLevel, dst.getArrayLayerCount());
     {
         VkDependencyInfoKHR dependencyInfo = {};
         dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;

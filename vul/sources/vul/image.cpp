@@ -174,7 +174,7 @@ vul::Image::createImageView(const vul::ImageSubresourceRange &subresourceRange,
                             const void *pNext,
                             const VkAllocationCallbacks *pAllocator) const {
 
-    return createImageView(static_cast<vul::ImageViewType>(m_imageType), subresourceRange, components, flags, pNext, pAllocator);
+    return createImageView(toImageViewType(static_cast<ImageType>(m_imageType), subresourceRange.layerCount), subresourceRange, components, flags, pNext, pAllocator);
 }
 
 vul::ExpectedResult <vul::ImageView>
@@ -361,4 +361,42 @@ vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
                              std::uint32_t arrayLayers,
                              vul::ImageTiling tiling) {
     return createSimple2DImageInfo(format, {extent.width, extent.height,1}, usage, mipLevels, arrayLayers, tiling);
+}
+
+vul::ImageViewType
+vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
+                bool isCube) {
+    VUL_ASSERT(arrayLayers > 0, "Array layers cannot be zero");
+    if(isCube){
+        VUL_ASSERT(arrayLayers % 6 == 0, "If image view is cube, array layers must be multiple of 6");
+        VUL_ASSERT(type == vul::ImageType::_2D, "If image view is cube, image type must be 2D");
+        if(arrayLayers > 6){
+            return vul::ImageViewType::CubeArray;
+        }else{
+            return vul::ImageViewType::Cube;
+        }
+    }
+    switch(type){
+        case vul::ImageType::_1D :{
+            if(arrayLayers == 1){
+                return vul::ImageViewType::_1D;
+            }else{
+                return vul::ImageViewType::_1DArray;
+            }
+        }
+        case vul::ImageType::_2D :{
+            if(arrayLayers == 1){
+                return vul::ImageViewType::_2D;
+            }else{
+                return vul::ImageViewType::_2DArray;
+            }
+        }
+        case vul::ImageType::_3D :{
+            if(arrayLayers == 1){
+                return vul::ImageViewType::_3D;
+            }else{
+                VUL_ASSERT(arrayLayers > 1 && type == vul::ImageType::_3D, "Can't have layered 3D image views");
+            }
+        }
+    }
 }

@@ -125,7 +125,8 @@ namespace vul {
 
         void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
                                vul::ImageAspectBitMask flags,
-                               std::uint32_t mipLevel_t = 0);
+                               std::uint32_t mipLevel_t = 0,
+                               std::uint32_t arrayLayerCount =1);
 
         void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
                                const TempArrayProxy<const VkBufferImageCopy> &copyRegions);
