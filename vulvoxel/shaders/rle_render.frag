@@ -51,7 +51,7 @@ layout(push_constant) uniform PushConstantBlock{
     uint32_array u_bitmask;
 };
 
-bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec2 texcoord){
+bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord){
     orig = orig.xzy;
     orig.z *= -1.0;
     dir = dir.xzy;
@@ -105,12 +105,15 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
             final_crossing_T = fixed_endpoint;
             if(previous_axis == 0){
                 texcoord = fixed_endpoint.zy; //zy?
+                hit_normal = dot(vec3(1.0,0.0,0.0), dir) > 0.0 ? vec3(1.0,0.0,0.0) : vec3(-1.0,0.0,0.0);
             }
             else if(previous_axis == 1){
                 texcoord = fixed_endpoint.xy; //xy?
+                hit_normal = dot(vec3(0.0,0.0,1.0), dir) > 0.0 ? vec3(0.0,0.0,1.0) : vec3(0.0,0.0,-1.0);
             }
             else if(previous_axis == 2){
                 texcoord = fixed_endpoint.xz; //xz?
+                hit_normal = dot(vec3(0.0,1.0,0.0), dir) > 0.0 ? vec3(0.0,1.0,0.0) : vec3(0.0,-1.0,0.0);
             }
             return true;
         }
@@ -190,7 +193,8 @@ void main() {
     vec3 result = ambient + diffuse + specular;
     vec3 ray_normal = normalize(reflect(normalize(block_world_position - ubo.camera_pos), block_world_normal));
     uint cell_position;
-    vec3 final_crossing_T;
+    vec3 hit_position;
+    vec3 hit_normal;
     vec2 hit_texcoord;
     vec3 offset = vec3(0.0f);
 
@@ -199,11 +203,33 @@ void main() {
     //texture array for materials.
     //sample from sky if make it to sky.
     //fix the actual ray tracing?
-    if(bitmask_intersect(block_world_position + block_world_normal * 0.001, ray_normal, offset,cell_position,final_crossing_T, hit_texcoord)){
+    vec3 ray_world_position = block_world_position;
+    vec3 ray_world_normal = block_world_normal;
+
+    uint iteration = 0;
+    uint max_iteration = 4;
+    while(iteration <= max_iteration && bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
         uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
         uint material_id = u_rle_materials.data[uint(material_id_index)];
-        result *= get_material_color(material_id, hit_texcoord) * 0.8;
+        result *= get_material_color(material_id, hit_texcoord) * 0.99;
+        ray_normal = reflect(ray_normal, hit_normal);
+        ray_world_position = hit_position;
+        ray_world_normal = hit_normal;
+        iteration += 1;
     }
+//    if(bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
+//        uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
+//        uint material_id = u_rle_materials.data[uint(material_id_index)];
+//        result *= get_material_color(material_id, hit_texcoord) * 0.9;
+//        ray_normal = reflect(ray_normal, hit_normal);
+//        ray_world_position = hit_position;
+//        ray_world_normal = hit_normal;
+//        if(bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
+//            uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
+//            uint material_id = u_rle_materials.data[uint(material_id_index)];
+//            result *= get_material_color(material_id, hit_texcoord) * 0.8;
+//        }
+//    }
 
     outColor = vec4(result, 1.0);
 }

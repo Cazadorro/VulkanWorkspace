@@ -416,116 +416,14 @@ int main() {
             bitmask.set(idx);
         }
     }
-
-
-    auto bitmask_intersect_l = [&u_bitmask = bitmask](glm::vec3 orig,
-                                                      glm::vec3 dir,
-                                                      glm::vec3 block_offset,
-                                                      std::uint32_t &voxel_index) {
-        orig = orig.xzy();
-        dir = dir.xzy();
-        orig.z *= -1.0;
-        dir.z *= -1.0;
-        glm::vec3 invDir = 1.0f / dir;
-//    bvec3 sign = bvec3(dir.x < 0, dir.y < 0, dir.z < 0);
-        glm::vec3 cellDimension = glm::vec3(1, 1, 1);
-        glm::uvec3 resolution = glm::uvec3(32u, 32u, 32u);
-        float tHitBox = 0.0f;
-        // initialization step
-        glm::ivec3 exit, step, cell;
-        glm::vec3 deltaT, nextCrossingT;
-        for (uint8_t i_8 = uint8_t(0); i_8 < uint8_t(3); ++i_8) {
-            std::uint32_t i = std::uint32_t(i_8);
-            // convert ray starting point to cell coordinates
-            //bbox origin should be 0,0,0 now?
-
-            float rayOrigCell = ((orig[i] + dir[i] * tHitBox) -
-                                 block_offset[i]);
-            cell[i] = int(
-                    glm::clamp(int(floor(rayOrigCell / cellDimension[i])), 0,
-                               int(resolution[i] - 1))); //should I even clamp?
-            cell[i] = int(floor(rayOrigCell / cellDimension[i]));
-            if (dir[i] < 0) {
-                deltaT[i] = -cellDimension[i] * invDir[i];
-                nextCrossingT[i] = tHitBox +
-                                   (float(cell[i]) * cellDimension[i] -
-                                    rayOrigCell) * invDir[i];
-                if (i == 234) {
-                    exit[i] = int(resolution[i]);
-                    step[i] = 1;
-                } else {
-                    exit[i] = -1;
-                    step[i] = -1;
-                }
-
-            } else {
-                deltaT[i] = cellDimension[i] * invDir[i];
-                nextCrossingT[i] = tHitBox +
-                                   ((float(cell[i]) + 1) * cellDimension[i] -
-                                    rayOrigCell) * invDir[i];
-//            exit[i] = int(resolution[i]);
-//            step[i] = 1;
-                if (i == 234) {
-                    exit[i] = -1;
-                    step[i] = -1;
-                } else {
-                    exit[i] = int(resolution[i]);
-                    step[i] = 1;
-                }
-
-            }
-        }
-
-        // Walk through each cell of the grid and test for an intersection if
-        // current cell contains geometry
-        while (true) {
-            if (cell.x >= 32 || cell.y >= 32 || cell.z >= 32 || cell.x < 0 ||
-                cell.y < 0 || cell.z < 0) {
-                return false;
-            }
-
-            uint32_t o = cell.z * resolution.x * resolution.y +
-                         cell.y * resolution.x + cell.x;
-            if (u_bitmask.get(o)) {
-                voxel_index = o;
-                return true;
-            }
-            uint8_t k =
-                    (uint8_t(nextCrossingT[0] < nextCrossingT[1])
-                            << uint8_t(2)) + //y > x
-                    (uint8_t(nextCrossingT[0] < nextCrossingT[2])
-                            << uint8_t(1)) + //z > x
-                    (uint8_t(nextCrossingT[1] < nextCrossingT[2])); //z > y
-            const uint8_t map[8] = {uint8_t(2),
-                                    uint8_t(1),
-                                    uint8_t(2),
-                                    uint8_t(1),
-                                    uint8_t(2),
-                                    uint8_t(2),
-                                    uint8_t(0),
-                                    uint8_t(0)};
-//        const uint8_t map[8] = {uint8_t(0),
-//                                uint8_t(0),
-//                                uint8_t(2),
-//                                uint8_t(2),
-//                                uint8_t(1),
-//                                uint8_t(2),
-//                                uint8_t(1),
-//                                uint8_t(2)};
-            uint8_t axis = map[std::uint32_t(k)];
-
-
-            //not needed because if we "get" a value at the position, we gaurantee a hit.
-//        if (tHit < nextCrossingT[axis]) break;
-            cell[std::uint32_t(axis)] += step[std::uint32_t(axis)];
-            if (cell[std::uint32_t(axis)] == exit[std::uint32_t(axis)]) {
-                break;
-            }
-            nextCrossingT[std::uint32_t(axis)] += deltaT[std::uint32_t(axis)];
-        }
-        return false;
-    };
-
+    //counter per chunk,
+    //index to which chunk you're refering to.
+    //chunks rendering (what about large memory chunks?, maybe just allocate large memory chunks, put other stuff at the end).
+    //check count of all referenced from array of reference counts and values.
+    //u32 sets of cumsum
+    //[0,4,5,10],[refptr, refptr, refptr...]
+    //copy refptr to refptr when updated
+    //data for bitfield contained inside of RLE, so possibly remove need for bitmask, and generate bitfield on fly? would stop bit fields from being edited in other ways though...
 
 
     auto org = glm::vec3(6.5f, -3.0f, 6.5f);
@@ -1166,6 +1064,7 @@ int main() {
         } else if (presentResult != vul::Result::Success) {
             throw std::runtime_error("failed to present swapchain image");
         }
+
 
 
         currentFrameIndex = (currentFrameIndex + 1) % maxFramesInFlight;
