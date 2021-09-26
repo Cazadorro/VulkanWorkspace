@@ -78,15 +78,15 @@ namespace vul {
         void unmapMemory();
 
         template<typename T>
-        void copyToMapped(const TempArrayProxy<T>& array){
-           m_allocation.copyToMapped(array);
+        void mappedCopyFrom(const TempArrayProxy<T>& array){
+            m_allocation.mappedCopyFrom(array);
         }
         template<typename T>
-        void copyToMapped(const TempArrayProxy<TempArrayProxy<T>>& arrayList){
+        void mappedCopyFrom(const TempArrayProxy<TempArrayProxy<T>>& array){
             //TODO could reduce compile times by having concepts of "void" TempArrayProxy?
             std::size_t offsetBytes = 0;
-            for(const auto& array : arrayList){
-                m_allocation.copyToMapped(array, offsetBytes);
+            for(const auto& array : array){
+                m_allocation.mappedCopyFrom(array, offsetBytes);
                 offsetBytes += array.size_bytes();
             }
         }

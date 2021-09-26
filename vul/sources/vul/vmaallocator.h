@@ -91,7 +91,7 @@ namespace vul {
             if (!expectedResult.hasValue()) {
                 return expectedResult;
             }
-            expectedResult.value.getAllocation().copyToMapped(array);
+            expectedResult.value.getAllocation().mappedCopyFrom(array);
             return expectedResult;
         }
 
@@ -105,7 +105,7 @@ namespace vul {
             if (!expectedResult.hasValue()) {
                 return expectedResult;
             }
-            expectedResult.value.copyToMapped(array);
+            expectedResult.value.mappedCopyFrom(array);
             return expectedResult;
         }
 
@@ -124,7 +124,7 @@ namespace vul {
             if (!expectedResult.hasValue()) {
                 return expectedResult;
             }
-            expectedResult.value.copyToMapped(arrayList);
+            expectedResult.value.mappedCopyFrom(arrayList);
             return expectedResult;
         }
 

@@ -16,7 +16,8 @@ namespace vul{
     class Image;
 
 
-    Result copy(const Buffer& src, Buffer& dst, CommandPool& commandPool, Queue& queue);
+    Result copy(const Buffer& src, Buffer& dst, CommandPool& commandPool, Queue& queue, VkDeviceSize offset = 0);
+    Result copy(const Buffer& src, Buffer& dst, CommandPool& commandPool, Queue& queue,std::uint32_t srcIndex, std::uint32_t dstIndex,  VkDeviceSize offset = 0);
     Result copy(const Buffer& src, Image& dst, CommandPool& commandPool, Queue& queue,
                 vul::ImageAspectBitMask aspectMask,
                 vul::PipelineStageFlagBits2KHR dstStageMask,

@@ -208,7 +208,7 @@ namespace vul {
 
         template<typename T>
         void copyToMapped(const TempArrayProxy<T>& array){
-            m_allocation.copyToMapped(array);
+            m_allocation.mappedCopyFrom(array);
         }
 
         [[nodiscard]]

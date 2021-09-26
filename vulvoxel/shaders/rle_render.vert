@@ -48,10 +48,10 @@ layout(location = 3) out vec3 block_world_position;
 layout(push_constant) uniform PushConstantBlock{
     uint u_rle_size;
     uint u_rle_padding;
-    uint32_array u_rle_materials;
-    uint16_array u_rle_offsets;
+    uint64_t u_data_block_ptr;
     uint32_array u_bitmask;
 };
+layout (constant_id = 0) const uint64_t RLE_OFFSET_BEGIN = 1024ul*1024ul*8ul;
 
 const uint CUBE_FACE_BACK = 0;
 const uint CUBE_FACE_LEFT = 1;
@@ -117,6 +117,8 @@ VertCoord create_cube_vertex(uint cube_vertex_index){
 
 
 void main() {
+    uint32_array u_rle_materials = uint32_array(u_data_block_ptr);
+    uint16_array u_rle_offsets = uint16_array(u_data_block_ptr + RLE_OFFSET_BEGIN);
     uint rle_by_rounds_idx = gl_VertexIndex / 36;
     //a "round" is a full processing of the whole rle for the next "box"
     uint rle_round_idx = rle_by_rounds_idx / u_rle_size;

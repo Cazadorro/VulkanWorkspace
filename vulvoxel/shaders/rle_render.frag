@@ -46,10 +46,10 @@ layout(location = 0) out vec4 outColor;
 layout(push_constant) uniform PushConstantBlock{
     uint u_rle_size;
     uint u_rle_padding;
-    uint32_array u_rle_materials;
-    uint16_array u_rle_offsets;
+    uint64_t u_data_block_ptr;
     uint32_array u_bitmask;
 };
+layout (constant_id = 0) const uint64_t RLE_OFFSET_BEGIN = 1024ul*1024ul*8ul;
 
 bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord){
     orig = orig.xzy;
@@ -175,6 +175,8 @@ uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, ui
 }
 
 void main() {
+    uint32_array u_rle_materials = uint32_array(u_data_block_ptr);
+    uint16_array u_rle_offsets = uint16_array(u_data_block_ptr + RLE_OFFSET_BEGIN);
     vec3 color = get_material_color(block_material_id, block_tex_coord);
 
     color += vec3(0.001,0.001,0.001);
@@ -207,7 +209,7 @@ void main() {
     vec3 ray_world_normal = block_world_normal;
 
     uint iteration = 0;
-    uint max_iteration = 4;
+    uint max_iteration = 1;
     while(iteration <= max_iteration && bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
         uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
         uint material_id = u_rle_materials.data[uint(material_id_index)];

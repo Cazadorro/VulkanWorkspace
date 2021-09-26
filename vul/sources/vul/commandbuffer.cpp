@@ -109,6 +109,15 @@ void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
                                                            dstBuffer.size())});
 }
 
+void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
+                                    vul::Buffer &dstBuffer,
+                                    VkDeviceSize dstOffset) {
+    VUL_ASSERT(dstOffset <= dstBuffer.size());
+    copyBuffer(srcBuffer, dstBuffer, VkBufferCopy{0, dstOffset,
+                                                  std::min(srcBuffer.size(),
+                                                           dstBuffer.size() - dstOffset)});
+}
+
 void
 vul::CommandBuffer::pipelineBarrier(const VkDependencyInfoKHR &dependencyInfo) {
     auto vkCmdPipelineBarrier2KHR_f = (PFN_vkCmdPipelineBarrier2KHR) vkGetDeviceProcAddr(m_pCommandPool->getDevice().get(), "vkCmdPipelineBarrier2KHR");

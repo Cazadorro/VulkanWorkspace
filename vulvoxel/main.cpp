@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
 #include <iostream>
 #include <gul/bitmask.h>
@@ -481,24 +482,50 @@ int main() {
                                                                    bitmask.data()),
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
+    auto rle_staging_materials = allocator.createStagingBuffer(vul::TempArrayProxy(
+            chunk_rle_materials.size(),
+            chunk_rle_materials.data())).assertValue();
+    auto rle_staging_offsets = allocator.createStagingBuffer(vul::TempArrayProxy(
+            chunk_rle_offsets.size(),
+            chunk_rle_offsets.data())).assertValue();
+    auto data_chunk_block_size_bytes = 1024*1024*12;
+    auto data_chunk_block_rle_offset_begin = 1024*1024*8;
+    auto rle_data_buffer = allocator.createDeviceBuffer(data_chunk_block_size_bytes,
+                                                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit
+                                                        | vul::BufferUsageFlagBits::TransferDstBit).assertValue();
+
+
+    vul::copy(rle_staging_materials, rle_data_buffer, commandPool, presentationQueue, 0);
+    vul::copy(rle_staging_offsets, rle_data_buffer, commandPool, presentationQueue, data_chunk_block_rle_offset_begin);
+
+    auto rle_materials_address = rle_data_buffer.getDeviceAddress();
+    auto rle_offsets_address = rle_materials_address + data_chunk_block_rle_offset_begin;
+
+
+
 
     vul::GraphicsPipeline graphicsPipeline;
     struct alignas(8) RunLengthEncodingPushConstant {
         std::uint32_t size;
         std::uint32_t padding;
-        std::uint64_t materials;
-        std::uint64_t offsets;
+        std::uint64_t data_block_address;
         std::uint64_t bitmask;
     };
-    static_assert(sizeof(RunLengthEncodingPushConstant) == 32);
+    static_assert(sizeof(RunLengthEncodingPushConstant) == 24);
+//    RunLengthEncodingPushConstant rlePushConstant = {
+//            static_cast<std::uint32_t>(chunk_rle_offsets.size()),
+//            0u,
+//            rle_material_buffer.getDeviceAddress(),
+//            rle_offset_buffer.getDeviceAddress(),
+//            rle_bitmask_buffer.getDeviceAddress()
+//    };
+
     RunLengthEncodingPushConstant rlePushConstant = {
             static_cast<std::uint32_t>(chunk_rle_offsets.size()),
             0u,
-            rle_material_buffer.getDeviceAddress(),
-            rle_offset_buffer.getDeviceAddress(),
+            rle_data_buffer.getDeviceAddress(),
             rle_bitmask_buffer.getDeviceAddress()
     };
-
 
     auto pipelineLayout = device.createPipelineLayout(
             descriptorLayout,
@@ -970,7 +997,7 @@ int main() {
             ubo.u_time = time;
             ubo.camera_pos = camera.getPosition();
             u_time += 1.0f;
-            uniformBuffers[swapchainImageIndex].copyToMapped<UniformBufferObject>(
+            uniformBuffers[swapchainImageIndex].mappedCopyFrom<UniformBufferObject>(
                     ubo);
 
         }

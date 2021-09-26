@@ -120,6 +120,8 @@ namespace vul {
 
         void copyBuffer(const Buffer &srcBuffer, Buffer &dstBuffer);
 
+        void copyBuffer(const Buffer &srcBuffer, Buffer &dstBuffer, VkDeviceSize dstOffset);
+
         void copyBuffer(const Buffer &srcBuffer, Buffer &dstBuffer,
                         const TempArrayProxy<const VkBufferCopy> &copyRegions);
 
