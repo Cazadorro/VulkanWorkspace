@@ -8,6 +8,7 @@
 #include "vul/vmaallocator.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
+#include "vul/vkassert.h"
 
 vul::ImageSubresourceRange::ImageSubresourceRange(
         vul::ImageAspectBitMask aspectMask_t, std::uint32_t baseMipLevel_t,
@@ -399,4 +400,5 @@ vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
             }
         }
     }
+
 }

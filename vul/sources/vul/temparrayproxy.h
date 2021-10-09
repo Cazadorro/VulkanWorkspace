@@ -5,7 +5,9 @@
 #ifndef VULKANWORKSPACE_TEMPARRAYPROXY_H
 #define VULKANWORKSPACE_TEMPARRAYPROXY_H
 
+#include "vul/tempvoidarrayproxy.h"
 #include "vul/vkassert.h"
+#include "vul/traitutils.h"
 #include <gsl/span>
 
 namespace vul {
@@ -13,6 +15,31 @@ namespace vul {
     template<typename T>
     class TempArrayProxy {
     public:
+        using value_type = T;
+        //want this to be implicit!
+
+        template<
+                typename B = T
+                // C++11 allows the use of SFINAE right here!
+                , typename = typename std::enable_if_t<!vul::is_container<B>::value>
+        >
+        operator TempConstVoidArrayProxy() const{
+            return TempConstVoidArrayProxy(size_bytes(), m_ptr);
+        }
+
+        explicit operator TempConstVoidArrayProxy() const{
+            return TempConstVoidArrayProxy(size_bytes(), m_ptr);
+        }
+
+//        template<
+//                typename B = T
+//                // C++11 allows the use of SFINAE right here!
+//                , typename = typename std::enable_if_t<!vul::is_container<B>::value>
+//        >
+//        explicit operator TempConstVoidArrayProxy() const{
+//            return TempConstVoidArrayProxy(size_bytes(), m_ptr);
+//        }
+
         constexpr TempArrayProxy() noexcept
                 : m_size(0), m_ptr(nullptr) {}
 

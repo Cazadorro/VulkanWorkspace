@@ -4,6 +4,7 @@
 
 #include "vmaallocation.h"
 #include "vul/vmaallocator.h"
+#include "vul/tempvoidarrayproxy.h"
 
 vul::VmaAllocation::VmaAllocation(const vul::VmaAllocator &allocator,
                                   ::VmaAllocation handle) : m_pAllocator(
@@ -75,6 +76,13 @@ void vul::VmaAllocation::unmapAllCounts() {
     for(std::int64_t i = 0; i < m_mapCounter; ++i){
         unmapMemory();
     }
+}
+
+void
+vul::VmaAllocation::mappedCopyFrom(const vul::TempConstVoidArrayProxy &array,
+                                   std::size_t offsetBytes) {
+    void * mappedPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(mapMemory()) + offsetBytes);
+    memcpy(mappedPtr, array.data(), array.size_bytes());
 }
 
 

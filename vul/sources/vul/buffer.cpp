@@ -7,6 +7,9 @@
 #include "vul/vmaallocator.h"
 #include "vul/device.h"
 #include "vul/bitmasks.h"
+#include "vul/temparrayproxy.h"
+#include "vul/tempvoidarrayproxy.h"
+
 vul::Buffer::Buffer(vul::VmaAllocation && allocation, VkBuffer handle,
                     VkDeviceSize size) : m_allocation(std::move(allocation)), m_handle(handle), m_size(size) {
 
@@ -125,4 +128,17 @@ VkDeviceAddress vul::Buffer::getDeviceAddress(const void* pNext) const {
     return vkGetBufferDeviceAddress(getDevice().get(), &addressInfo);
 }
 
+void vul::Buffer::mappedCopyFrom(const vul::TempConstVoidArrayProxy &array) {
+    m_allocation.mappedCopyFrom(array);
+}
+
+void vul::Buffer::mappedCopyFrom(
+        const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &arrays) {
+    //TODO could reduce compile times by having concepts of "void" TempArrayProxy?
+    std::size_t offsetBytes = 0;
+    for(const auto& array : arrays){
+        m_allocation.mappedCopyFrom(array, offsetBytes);
+        offsetBytes += array.size_bytes();
+    }
+}
 

@@ -5,16 +5,17 @@
 #ifndef VULKANWORKSPACE_VMAALLOCATION_H
 #define VULKANWORKSPACE_VMAALLOCATION_H
 
-#include "vul/temparrayproxy.h"
+
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
-#include <optional>
+#include <cstdint>
 
 namespace vul {
     template<typename T>
     class ExpectedResult;
 
     class VmaAllocator;
+    class TempConstVoidArrayProxy;
 
     class VmaAllocation {
     public:
@@ -47,11 +48,7 @@ namespace vul {
 
         void unmapMemory();
 
-        template<typename T>
-        void mappedCopyFrom(const TempArrayProxy<T>& array, const std::size_t offsetBytes = 0){
-            void * mappedPtr = reinterpret_cast<void*>(reinterpret_cast<char*>(mapMemory()) + offsetBytes);
-            memcpy(mappedPtr, array.data(), array.size_bytes());
-        }
+        void mappedCopyFrom(const TempConstVoidArrayProxy& array, std::size_t offsetBytes = 0);
 
         [[nodiscard]]
         bool isMapped() const;

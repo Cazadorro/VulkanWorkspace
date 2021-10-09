@@ -107,8 +107,8 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
 
 vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Queue &queue,
                       vul::ImageAspectBitMask aspectMask,
-                      vul::PipelineStageFlagBits2KHR dstStageMask,
-                      vul::AccessFlagBits2KHR dstAccessMask,
+                      vul::PipelineStageFlagBitMask dstStageMask,
+                      vul::AccessFlagBitMask dstAccessMask,
                       vul::ImageLayout dstLayout,
                       std::uint32_t mipLevel) {
 

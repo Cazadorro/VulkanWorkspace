@@ -58,6 +58,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 
+#include <vul/traitutils.h>
+
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
@@ -259,8 +261,10 @@ int main() {
     vul::Device device; //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
     vul::Surface surface = window.createSurface(instance);
     //TODO will need to capitalize letters?
+    //srgb vul::Format::B8g8r8a8Srgb,
     const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
                                                      vul::ColorSpaceKHR::SrgbNonlinear};
+
     const auto defaultPresentMode = vul::PresentModeKHR::Mailbox;
     auto physicalDeviceOpt = pickPhysicalDevice(instance, surface, features,
                                                 deviceExtensions,
@@ -463,18 +467,7 @@ int main() {
 
     auto[chunk_rle_materials, chunk_rle_offsets] = calc_rle(chunk_data);
 
-    auto rle_material_buffer = allocator.createDeviceBuffer(commandPool,
-                                                            presentationQueue,
-                                                            vul::TempArrayProxy(
-                                                                    chunk_rle_materials.size(),
-                                                                    chunk_rle_materials.data()),
-                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto rle_offset_buffer = allocator.createDeviceBuffer(commandPool,
-                                                          presentationQueue,
-                                                          vul::TempArrayProxy(
-                                                                  chunk_rle_offsets.size(),
-                                                                  chunk_rle_offsets.data()),
-                                                          vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
     auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
                                                            presentationQueue,
                                                            vul::TempArrayProxy(
@@ -512,13 +505,6 @@ int main() {
         std::uint64_t bitmask;
     };
     static_assert(sizeof(RunLengthEncodingPushConstant) == 24);
-//    RunLengthEncodingPushConstant rlePushConstant = {
-//            static_cast<std::uint32_t>(chunk_rle_offsets.size()),
-//            0u,
-//            rle_material_buffer.getDeviceAddress(),
-//            rle_offset_buffer.getDeviceAddress(),
-//            rle_bitmask_buffer.getDeviceAddress()
-//    };
 
     RunLengthEncodingPushConstant rlePushConstant = {
             static_cast<std::uint32_t>(chunk_rle_offsets.size()),
@@ -667,12 +653,17 @@ int main() {
         textureLayers.push_back(block_texture);
     }
 
-    std::vector<vul::TempArrayProxy<const stbi_uc>> textureLayerSpans;
+    std::vector<vul::TempConstVoidArrayProxy> textureLayerSpans;
     for (const auto &textureLayer: textureLayers) {
         textureLayerSpans.push_back(
                 vul::TempArrayProxy(textureLayer.size(), textureLayer.data()));
     }
 
+    auto temp = vul::TempArrayProxy(textureLayerSpans);
+
+    std::cout << vul::is_container<decltype(textureLayerSpans)>::value << std::endl;
+
+    std::cout << vul::is_container<decltype(temp)>::value << std::endl;
 
     auto arrayTextureImage = allocator.createDeviceTexture(commandPool,
                                                            presentationQueue,
@@ -997,9 +988,7 @@ int main() {
             ubo.u_time = time;
             ubo.camera_pos = camera.getPosition();
             u_time += 1.0f;
-            uniformBuffers[swapchainImageIndex].mappedCopyFrom<UniformBufferObject>(
-                    ubo);
-
+            uniformBuffers[swapchainImageIndex].mappedCopyFrom(ubo);
         }
 
 

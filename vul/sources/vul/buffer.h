@@ -9,7 +9,6 @@
 #include "vul/enumsfwd.h"
 #include "vul/bitmasksfwd.h"
 #include "vul/commandutils.h"
-#include "vul/temparrayproxy.h"
 
 #include <gsl/span>
 #include <vk_mem_alloc.h>
@@ -19,6 +18,9 @@
 namespace vul {
     class Device;
     class VmaAllocation;
+    class TempConstVoidArrayProxy;
+    template<typename T>
+    class TempArrayProxy;
     class Buffer {
     public:
         Buffer() = default;
@@ -77,19 +79,9 @@ namespace vul {
 
         void unmapMemory();
 
-        template<typename T>
-        void mappedCopyFrom(const TempArrayProxy<T>& array){
-            m_allocation.mappedCopyFrom(array);
-        }
-        template<typename T>
-        void mappedCopyFrom(const TempArrayProxy<TempArrayProxy<T>>& array){
-            //TODO could reduce compile times by having concepts of "void" TempArrayProxy?
-            std::size_t offsetBytes = 0;
-            for(const auto& array : array){
-                m_allocation.mappedCopyFrom(array, offsetBytes);
-                offsetBytes += array.size_bytes();
-            }
-        }
+        void mappedCopyFrom(const TempConstVoidArrayProxy& array);
+
+        void mappedCopyFrom(const TempArrayProxy<TempConstVoidArrayProxy>& arrays);
 
         [[nodiscard]]
         bool isMapped() const;
