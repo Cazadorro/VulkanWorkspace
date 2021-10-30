@@ -4,6 +4,7 @@
 
 #ifndef VULKANWORKSPACE_TEMPVOIDARRAYPROXY_H
 #define VULKANWORKSPACE_TEMPVOIDARRAYPROXY_H
+#include "vul/traitutils.h"
 #include <gsl/span> 
 #include <vector>
 #include <array> 
@@ -20,10 +21,6 @@ namespace vul {
 
             TempConstVoidArrayProxy(std::size_t count, const void *ptr) noexcept;
 
-            template<typename T>
-            TempConstVoidArrayProxy(T &value) noexcept : TempConstVoidArrayProxy(sizeof(T),&value){}
-
-
 #  if __GNUC__ >= 9
 #    pragma GCC diagnostic push
 #    pragma GCC diagnostic ignored "-Winit-list-lifetime"
@@ -34,6 +31,12 @@ namespace vul {
 #  if __GNUC__ >= 9
 #    pragma GCC diagnostic pop
 #  endif
+
+            template<typename T, std::enable_if_t<vul::is_contiguous<T>::value>* = nullptr>
+            TempConstVoidArrayProxy(T &value) noexcept : TempConstVoidArrayProxy(value.size() * sizeof(decltype(*value.data())),value.data()){}
+
+            template<typename T, std::enable_if_t<!vul::is_contiguous<T>::value>* = nullptr>
+            TempConstVoidArrayProxy(T &value) noexcept : TempConstVoidArrayProxy(sizeof(T),&value){}
 
             template<typename T, size_t N>
             TempConstVoidArrayProxy(const std::array<T, N> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}

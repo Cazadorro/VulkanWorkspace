@@ -5,6 +5,8 @@
 #ifndef VULKANWORKSPACE_TRAITUTILS_H
 #define VULKANWORKSPACE_TRAITUTILS_H
 #include <type_traits>
+
+
 namespace vul{
     template <class, template <class, class...> class>
     struct is_instance : public std::false_type {};
@@ -26,5 +28,17 @@ namespace vul{
                     typename T::value_type
             >> : std::true_type // will  be enabled for iterable objects
     {};
+
+    template<typename T, typename = void>
+    struct is_contiguous : std::false_type
+    {};
+    template<typename T>
+    struct is_contiguous<T,
+            to_void<decltype(std::declval<T>().data()),
+                    decltype(std::declval<T>().size()),
+                    typename T::value_type
+            >> : std::true_type // will  be enabled for iterable objects
+    {};
+
 }
 #endif //VULKANWORKSPACE_TRAITUTILS_H

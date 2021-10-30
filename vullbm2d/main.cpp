@@ -821,11 +821,10 @@ int main() {
 //    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 6 * lbm_size] = 0.01;
 //    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 7 * lbm_size] = 0.01;
 //    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 8 * lbm_size] = 0.01;
+
     auto lbm_buffer_0 = allocator.createDeviceBuffer(commandPool,
                                                      presentationQueue,
-                                                     vul::TempArrayProxy(
-                                                             lbm_init_data.size(),
-                                                             lbm_init_data.data()),
+                                                     lbm_init_data,
                                                      vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
     auto lbm_buffer_1 = allocator.createDeviceBuffer(commandPool,
                                                      presentationQueue,
