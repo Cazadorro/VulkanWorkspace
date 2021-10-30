@@ -2,12 +2,14 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
-#include "lbmcpu.h"
+#include <glslang/Public/ShaderLang.h>
+#include "chunkmanagement.h"
+#include "cpu_bitmask_intersect.h"
+#include <iostream>
+#include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
-#include "bitmask.h"
-#include <gul/bitmask.h>
 #include <vul/commandutils.h>
 #include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
@@ -46,6 +48,7 @@
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/transform.hpp>
+#include <range/v3/view/zip.hpp>
 #include <gsl/span>
 #include <vul/temparrayproxy.h>
 #include <optional>
@@ -55,6 +58,8 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+
+#include <vul/traitutils.h>
 
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
@@ -115,11 +120,10 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
+    glm::vec3 camera_pos;
     float u_time;
-    float u_1;
-    float u_2;
-    float u_3;
 };
+static_assert(sizeof(UniformBufferObject) == 16 * 4 * 3 + 16);
 
 const std::vector<Vertex> vertices = {
         {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
@@ -132,6 +136,7 @@ const std::vector<Vertex> vertices = {
         {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
         {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
 };
+
 
 const std::vector<uint16_t> indices = {
         0, 1, 2, 2, 3, 0,
@@ -176,23 +181,39 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
     return std::nullopt;
 }
 
-struct alignas(8) LbmInfo {
-    std::uint32_t width;
-    std::uint32_t height;
-    float tau;
-    float u_dt;
-    float u_trt_wp;
-    float u_trt_wn;
-    std::uint64_t bitmask_array;
-    std::uint64_t lbm_array_ptrs[2];
-};
+#include <fstream>
+#include <StandAlone/ResourceLimits.h>
+#include <StandAlone/DirStackFileIncluder.h>
 
-
+std::string slurp(const char *filename)
+{
+    std::ifstream in;
+    in.open(filename, std::ifstream::in | std::ifstream::binary);
+    std::stringstream sstr;
+    sstr << in.rdbuf();
+    in.close();
+    return sstr.str();
+}
 int main() {
+    auto shader_data = slurp("C:/Users/Shae Bolt/Documents/GitRepositories/VulkanWorkspace/vulparsetest/shaders/rle_render2.vert");
+    const char* shader_c_string = shader_data.c_str();
+    glslang::InitializeProcess();
+    glslang::TShader shader(EShLanguage::EShLangVertex);
+    shader.setEnvInput(glslang::EShSourceGlsl, EShLanguage::EShLangVertex, glslang::EShClientNone, 0);
+    shader.setEnvClient(glslang::EShClient::EShClientVulkan, glslang::EshTargetClientVersion::EShTargetVulkan_1_2);
+    shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_5);
+    shader.setStrings(&shader_c_string, 1);
+    auto Resources = glslang::DefaultTBuiltInResource;
+    const int defaultVersion = 450;
+    EShMessages messages = EShMsgDefault;
+    DirStackFileIncluder includer;
+    includer.pushExternalLocalDirectory("C:/Users/Shae Bolt/Documents/GitRepositories/VulkanWorkspace/shaderutils");
+    shader.parse(&Resources, defaultVersion, false, messages, includer);
+    assert(shader.getIntermediate() != nullptr);
 
     gul::GlfwWindow window(800, 600, "ExampleWindow");
     gul::FirstPersonCamera camera;
-    camera.setPosition(glm::vec3(0.0, 0.0, -2.0));
+    camera.setPosition(glm::vec3(0.0, 0.0, -48.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
     camera.setRotation(glm::vec3(0, 0, 0.0));
 
@@ -269,8 +290,10 @@ int main() {
     vul::Device device; //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
     vul::Surface surface = window.createSurface(instance);
     //TODO will need to capitalize letters?
+    //srgb vul::Format::B8g8r8a8Srgb,
     const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
                                                      vul::ColorSpaceKHR::SrgbNonlinear};
+
     const auto defaultPresentMode = vul::PresentModeKHR::Mailbox;
     auto physicalDeviceOpt = pickPhysicalDevice(instance, surface, features,
                                                 deviceExtensions,
@@ -391,6 +414,10 @@ int main() {
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
     auto renderPass = subpassBuilder.createRenderPass(device).assertValue();
 
+    auto commandPool = device.createCommandPool(
+            presentQueueIndex,
+            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
     descriptorSetLayoutBuilder.setBindings({vul::UniformBufferBinding(0,
                                                                       vul::ShaderStageFlagBits::VertexBit |
@@ -400,20 +427,144 @@ int main() {
                                                                         vul::ShaderStageFlagBits::FragmentBit).get()});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
+    std::vector<std::uint32_t> chunk_data(32 * 32 * 32, 1);
+
+
+    std::vector<std::uint32_t> set_offsets = {1, 5, 2, 24, 32 * 32 - 32, 32,
+                                              32 * 32 - 32, 32 * 32, 32 * 3 + 4,
+                                              28 + 17, 32 * 8, 32 * 32};
+    std::vector<std::uint32_t> set_values = {4, 5, 7, 6, 2, 3, 2, 0, 2, 4, 1,
+                                             0};
+
+    std::size_t total_offset = 0;
+    for (auto[offset, value]: ranges::views::zip(set_offsets, set_values)) {
+        for (std::size_t i = total_offset; i < total_offset + offset; ++i) {
+            chunk_data[i] = value;
+        }
+        total_offset += offset;
+    }
+
+    gul::bitmask bitmask(32 * 32 * 32);
+    for (auto[idx, value]: ranges::views::enumerate(chunk_data)) {
+        if (value != 0) {
+            bitmask.set(idx);
+        }
+    }
+    //counter per chunk,
+    //index to which chunk you're refering to.
+    //chunks rendering (what about large memory chunks?, maybe just allocate large memory chunks, put other stuff at the end).
+    //check count of all referenced from array of reference counts and values.
+    //u32 sets of cumsum
+    //[0,4,5,10],[refptr, refptr, refptr...]
+    //copy refptr to refptr when updated
+    //data for bitfield contained inside of RLE, so possibly remove need for bitmask, and generate bitfield on fly? would stop bit fields from being edited in other ways though...
+
+
+    auto org = glm::vec3(6.5f, -3.0f, 6.5f);
+    auto dir = normalize(glm::vec3(0.0f, 1.0f, 1.0f));
+    auto org_offset = glm::vec3(0.0f, 1.0f, 0.0f) * 0.001f;
+    auto block_offset = glm::vec3(0.0f);
+    std::uint32_t voxel_index;
+    auto intersected = bitmask_intersect(bitmask, org + org_offset, dir,
+                                         block_offset, voxel_index);
+
+    fmt::print("intersectred {}\n", intersected);
+    std::cout << std::endl;
+    auto calc_rle = [](const std::vector<std::uint32_t> &chunk) {
+        std::vector<std::uint16_t> offsets;
+        std::vector<std::uint32_t> materials;
+        std::uint16_t running_size = 0;
+        std::uint32_t running_material = chunk.empty() ? 0 : chunk[0];
+        for (const auto &voxel: chunk) {
+            if (running_material != voxel) {
+                offsets.push_back(running_size);
+                materials.push_back(running_material);
+                running_material = voxel;
+            }
+            running_size += 1;
+        }
+        VUL_ASSERT(materials.empty() || materials.back() != running_material,
+                   "Last value shouldn't have actually been set...");
+        if (!chunk.empty()) {
+            VUL_ASSERT(running_size == chunk.size());
+            offsets.push_back(running_size);
+            materials.push_back(running_material);
+        }
+        return std::tuple{materials, offsets};
+    };
+
+
+    auto[chunk_rle_materials, chunk_rle_offsets] = calc_rle(chunk_data);
+
+
+    auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
+                                                           presentationQueue,
+                                                           vul::TempArrayProxy(
+                                                                   bitmask.size(),
+                                                                   bitmask.data()),
+                                                           vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    auto rle_staging_materials = allocator.createStagingBuffer(vul::TempArrayProxy(
+            chunk_rle_materials.size(),
+            chunk_rle_materials.data())).assertValue();
+    auto rle_staging_offsets = allocator.createStagingBuffer(vul::TempArrayProxy(
+            chunk_rle_offsets.size(),
+            chunk_rle_offsets.data())).assertValue();
+    auto data_chunk_block_size_bytes = 1024*1024*12;
+    auto data_chunk_block_rle_offset_begin = 1024*1024*8;
+    auto rle_data_buffer = allocator.createDeviceBuffer(data_chunk_block_size_bytes,
+                                                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit
+                                                        | vul::BufferUsageFlagBits::TransferDstBit).assertValue();
+
+
+    vul::copy(rle_staging_materials, rle_data_buffer, commandPool, presentationQueue, 0);
+    vul::copy(rle_staging_offsets, rle_data_buffer, commandPool, presentationQueue, data_chunk_block_rle_offset_begin);
+
+    auto rle_materials_address = rle_data_buffer.getDeviceAddress();
+    auto rle_offsets_address = rle_materials_address + data_chunk_block_rle_offset_begin;
+
+
+
+
     vul::GraphicsPipeline graphicsPipeline;
+    struct alignas(8) RunLengthEncodingPushConstant {
+        std::uint32_t size;
+        std::uint32_t padding;
+        std::uint64_t data_block_address;
+        std::uint64_t bitmask;
+    };
+    static_assert(sizeof(RunLengthEncodingPushConstant) == 24);
+
+    RunLengthEncodingPushConstant rlePushConstant = {
+            static_cast<std::uint32_t>(chunk_rle_offsets.size()),
+            0u,
+            rle_data_buffer.getDeviceAddress(),
+            rle_bitmask_buffer.getDeviceAddress()
+    };
+
     auto pipelineLayout = device.createPipelineLayout(
-            descriptorLayout).assertValue();
+            descriptorLayout,
+            VkPushConstantRange{
+                    (vul::ShaderStageFlagBits::VertexBit |
+                     vul::ShaderStageFlagBits::FragmentBit).to_underlying(),
+                    0,
+                    sizeof(RunLengthEncodingPushConstant)
+            }).assertValue();
+//    auto pipelineLayout = device.createPipelineLayout(
+//            descriptorLayout).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
 
-    pipelineBuilder.setVertexBinding<Vertex>(0);
+
+//    pipelineBuilder.setVertexBinding<Vertex>(0);
     pipelineBuilder.setPrimitiveStateInfo(
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
             surface.getSwapchain()->getExtent());
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
-    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
-//    pipelineBuilder.setDefaultRasterizationState();
+    pipelineBuilder.setDefaultRasterizationState();
+//    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
+
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
     VkPipelineColorBlendAttachmentState blendState = {};
@@ -430,18 +581,15 @@ int main() {
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
         auto vertexShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d_test.vert.spv")).assertValue();
+                vul::readSPIRV("spirv/rle_render.vert.spv")).assertValue();
         auto fragmentShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d_test.frag.spv")).assertValue();
+                vul::readSPIRV("spirv/rle_render.frag.spv")).assertValue();
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
-    auto commandPool = device.createCommandPool(
-            presentQueueIndex,
-            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
@@ -513,38 +661,56 @@ int main() {
     };
 
 
-    std::uint32_t lbm_width = 256 * 4 * 1 / 32;
-    lbm_width = 256 * 4;
-
-    std::uint32_t lbm_height = lbm_width;
-    std::uint32_t lbm_size = lbm_width * lbm_height;
-    VkExtent2D lbmExtent = {lbm_width, lbm_height};
-    glm::uvec2 lbm_dim(lbm_width, lbm_height);
-    std::uint32_t lbm_dir_count = 9;
-
-
-    std::vector<vul::Image> lbmImages;
-    std::vector<vul::ImageView> lbmImageViews;
-    for (std::size_t i = 0; i < swapchainSize; ++i) {
-        lbmImages.push_back(allocator.createDeviceImage(
-                vul::createSimple2DImageInfo(
-                        vul::Format::R32g32b32a32Sfloat, lbmExtent,
-                        vul::ImageUsageFlagBits::SampledBit |
-                        vul::ImageUsageFlagBits::StorageBit)).assertValue());
-        vul::transition(lbmImages.back(), commandPool, presentationQueue,
-                        vul::ImageAspectFlagBits::ColorBit,
-                        vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit,
-                        vul::ImageLayout::General);
-        lbmImageViews.push_back(
-                lbmImages.back().createImageView(vul::ImageSubresourceRange(
-                        vul::ImageAspectFlagBits::ColorBit)).assertValue());
-    }
-
-
     gul::StbImage pixels;
     gul::load("../../textures/texture.jpg", pixels,
               gul::StbImage::Channels::rgb_alpha);
+
+    std::vector<std::string> texture_file_paths = {
+            "../../resources/brick_goodvibes.png",
+            "../../resources/clay_goodvibes.png",
+            "../../resources/cobblestone_goodvibes.png",
+            "../../resources/dirt_goodvibes.png",
+            "../../resources/end_stone_goodvibes.png",
+            "../../resources/grass_block_top_goodvibes.png",
+            "../../resources/oak_planks_goodvibes.png",
+            "../../resources/sand_goodvibes.png"
+    };
+    std::vector<gul::StbImage> textureLayers;
+    for (const auto &file_path: texture_file_paths) {
+        gul::StbImage block_texture;
+        gul::load(file_path, block_texture, gul::StbImage::Channels::rgb_alpha);
+        textureLayers.push_back(block_texture);
+    }
+
+    std::vector<vul::TempConstVoidArrayProxy> textureLayerSpans;
+    for (const auto &textureLayer: textureLayers) {
+        textureLayerSpans.push_back(
+                vul::TempArrayProxy(textureLayer.size(), textureLayer.data()));
+    }
+
+    auto temp = vul::TempArrayProxy(textureLayerSpans);
+
+    std::cout << vul::is_container<decltype(textureLayerSpans)>::value << std::endl;
+
+    std::cout << vul::is_container<decltype(temp)>::value << std::endl;
+
+    auto arrayTextureImage = allocator.createDeviceTexture(commandPool,
+                                                           presentationQueue,
+                                                           vul::TempArrayProxy(textureLayerSpans),
+                                                           vul::createSimple2DImageInfo(
+                                                                   vul::Format::R8g8b8a8Srgb,
+                                                                   VkExtent3D{16,16,1},
+                                                                   vul::ImageUsageFlagBits::TransferDstBit |
+                                                                   vul::ImageUsageFlagBits::SampledBit,
+                                                                   1,textureLayers.size())).assertValue();
+
+
+
+
+
+    auto arrayTextureView = arrayTextureImage.createImageView(vul::ImageSubresourceRange(
+            vul::ImageAspectFlagBits::ColorBit, 0, 1, 0, 8)).assertValue();
+
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
                                                       vul::TempArrayProxy(
@@ -556,13 +722,14 @@ int main() {
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
+
     auto textureImageView = textureImage.createImageView(
             vul::ImageSubresourceRange(
                     vul::ImageAspectFlagBits::ColorBit)).assertValue();
 
     vul::SamplerBuilder samplerBuilder(device);
-    samplerBuilder.setFilter(vul::Filter::Linear);
-    samplerBuilder.setAddressMode(vul::SamplerAddressMode::MirroredRepeat);
+    samplerBuilder.setFilter(vul::Filter::Nearest);
+    samplerBuilder.setAddressMode(vul::SamplerAddressMode::Repeat);
     samplerBuilder.enableAnisotropy();
     samplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
@@ -590,6 +757,7 @@ int main() {
                                                      vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
     }
 
+
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,
               swapchainSize}}).assertValue();
@@ -599,18 +767,17 @@ int main() {
 
     for (const auto&[i, descriptorSet]: descriptorSets |
                                         ranges::views::enumerate) {
-        device.setObjectName(descriptorSet,
-                             fmt::format("GraphicsDescriptorSet{}", i));
         auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
         updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
                 {uniformBuffers[i].createDescriptorInfo()});
         //TODO potentially could keep as layout general?
         updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
-                {lbmImageViews[i].createDescriptorInfo(sampler,
-                                                       vul::ImageLayout::General)});
+                {arrayTextureView.createDescriptorInfo(sampler,
+                                                       vul::ImageLayout::ShaderReadOnlyOptimal)});
         auto updates = updateBuilder.create(descriptorSet);
         device.updateDescriptorSets(updates);
     }
+
 
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
@@ -658,24 +825,6 @@ int main() {
 //    init_info.CheckVkResultFn = check_vk_result;
 
     ImGui_ImplVulkan_Init(&init_info, renderPass.get());
-#if 0
-    auto imguiRenderPass = createImGuiRenderPass(device, surface.getSwapchain()->getFormat(), false).assertValue();
-    ImGui_ImplVulkan_Init(&init_info, imguiRenderPass.get());
-
-    std::vector<vul::Framebuffer> imguiFramebuffers;
-//    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-//    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
-
-    for (const auto &imageView: swapchainImageViews) {
-        std::array<const vul::ImageView *, 1> imageViews = {&imageView};
-        vul::FramebufferBuilder framebufferBuilder(device);
-        framebufferBuilder.setAttachments(imageViews);
-        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-        framebufferBuilder.setRenderPass(renderPass);
-        swapchainFramebuffers.push_back(
-                framebufferBuilder.create().assertValue());
-    }
-#endif
 
     renderPass.setObjectName("MyActualRenderPass");
 
@@ -693,227 +842,12 @@ int main() {
     std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(),
                                              0);
 
-    auto lbmDsetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
-    lbmDsetLayoutBuilder.setBindings(
-            {vul::UniformBufferBinding(0,
-                                       vul::ShaderStageFlagBits::ComputeBit).get(),
-             vul::StorageImageBinding(1,
-                                      vul::ShaderStageFlagBits::ComputeBit,
-                                      3).get()});
-
-
-    enum class LBMClickEvent : std::uint32_t {
-        UnClicked = 0,
-        Velocity = 1,
-        AddBitmask = 2,
-        RemoveBitmask = 3,
-    };
-    struct LbmPushConstant {
-        std::uint32_t u_iteration_idx;
-        std::uint32_t u_imageoutput_idx;
-        LBMClickEvent u_click_event;
-        float u_click_radius;
-        float u_click_magnitude;
-        float u_padding;
-        glm::vec2 u_click_coordinate;
-        glm::vec2 u_click_direction;
-    };
-    LbmPushConstant lbmPushConstant = {0, 0, LBMClickEvent::UnClicked, 10.0,
-                                       0.1, 0, {0.0f, 0.0f},
-                                       {glm::vec2(glm::cos(0.0f),
-                                                  -glm::sin(0.0f))}};
-    auto lbmDsetLayout = lbmDsetLayoutBuilder.create().assertValue();
-    auto lbmPipelineLayout = device.createPipelineLayout(
-            lbmDsetLayout,
-            VkPushConstantRange{
-                    vul::get(vul::ShaderStageFlagBits::ComputeBit),
-                    0,
-                    sizeof(LbmPushConstant)
-            }).assertValue();
-    auto computeBuilder = vul::ComputePipelineBuilder(device);
-    vul::ComputePipeline lbmComputePipeline;
-    {
-        auto computeShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d.comp.spv")).assertValue();
-        computeBuilder.setShaderCreateInfo(
-                computeShader.createComputeStageInfo());
-        computeBuilder.setPipelineLayout(lbmPipelineLayout);
-        lbmComputePipeline = computeBuilder.create().assertValue();
-    }
-
-
-    vul::bitmask lbm_bitmask(lbm_size);
-    std::vector<glm::uvec2> obstacles = {
-            glm::uvec2{lbm_width / 2u, lbm_height / 4u},
-            glm::uvec2{lbm_width / 2u + lbm_width / 6u,
-                       lbm_height / 4u + lbm_height / 6u}};
-//    glm::uvec2 obstacle_pos(lbm_width/2u, lbm_width/4u);
-    for (std::size_t i = 0; i < lbm_height; ++i) {
-        for (std::size_t j = 0; j < lbm_width; ++j) {
-            auto pos = glm::uvec2{i, j};
-            for (const auto &obstacle_pos: obstacles) {
-                if (glm::distance(glm::vec2(pos), glm::vec2(obstacle_pos)) <
-                    lbm_width / 16u) {
-                    //lbm_bitmask.set(pos, glm::uvec2{lbm_width, lbm_width});
-                }
-            }
-        }
-    }
-
-
-    std::vector<float> lbm_init_data(lbm_dir_count * lbm_size, 0.0);
-    float initial_density = 1.0;
-    float weights[9] = {1.0 / 36.0, 1.0 / 9.0, 1.0 / 36.0,
-                        1.0 / 9.0, 4.0 / 9.0, 1.0 / 9.0,
-                        1.0 / 36.0, 1.0 / 9.0, 1.0 / 36.0,
-    };
-    float density = 1000.0;
-    for (std::size_t frame_idx = 0; frame_idx < 9; ++frame_idx) {
-        for (std::size_t i = 0; i < lbm_size; i += 1) {
-            if (!lbm_bitmask.get(static_cast<std::uint32_t>(i))) {
-                auto offset = frame_idx * lbm_size;
-                lbm_init_data[i + offset] = density * weights[frame_idx];
-            }
-        }
-    }
-
-
-    for (std::size_t y = 0; y < lbm_height; ++y) {
-        for (std::size_t x = 0; x < lbm_width; ++x) {
-            std::size_t i = y * lbm_width + x;
-            if (!lbm_bitmask.get(static_cast<std::uint32_t>(i))) {
-                auto offset = 3 * lbm_size;
-//                lbm_init_data[i + offset] += 0.01f;
-//                if(x != lbm_width/2){
-//                    lbm_init_data[i + offset] += 0.01f;
-//                }
-//                if(x < (lbm_width - (lbm_width/2))){
-//                   // lbm_init_data[i + offset] += 0dddddddddddddddds.01f;
-//                }
-                if (x < (lbm_width - lbm_width / 4) && x > lbm_width / 4 &&
-                    y > lbm_height / 4 && y < (lbm_height - lbm_height / 4)) {
-                    //lbm_init_data[i + offset] += density * 0.1f;
-                }
-//                lbm_init_data[i + offset] += density * 0.01f;
-//                lbm_init_data[i + offset] += density * 0.1f;
-//                if(x != 0 && x < 24 && y < 16){
-//                    lbm_init_data[i + offset] += 0.01f;
-//                }
-
-
-            }
-        }
-    }
-//    for (std::size_t i = 0; i < lbm_size; i += 1) {
-//        if(!lbm_bitmask.get(static_cast<std::uint32_t>(i))){
-//            auto offset = 3 * lbm_size;
-//            lbm_init_data[i + offset] += 0.01f;
-//        }
-//    }
-
-
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 0 * lbm_size] = 0.01;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 1 * lbm_size] = 0.01;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 2 * lbm_size] = 0.01;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 3 *lbm_size] = 0.01;
-////    lbm_init_data[0 + 4 * lbm_width * lbm_width] = 1.0;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 5 * lbm_size] = 0.01;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 6 * lbm_size] = 0.01;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 7 * lbm_size] = 0.01;
-//    lbm_init_data[lbm_width/2 * lbm_width + lbm_width/2 + 8 * lbm_size] = 0.01;
-    auto lbm_buffer_0 = allocator.createDeviceBuffer(commandPool,
-                                                     presentationQueue,
-                                                     vul::TempArrayProxy(
-                                                             lbm_init_data.size(),
-                                                             lbm_init_data.data()),
-                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto lbm_buffer_1 = allocator.createDeviceBuffer(commandPool,
-                                                     presentationQueue,
-                                                     vul::TempArrayProxy(
-                                                             lbm_init_data.size(),
-                                                             lbm_init_data.data()),
-                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto lbm_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
-                                                           presentationQueue,
-                                                           vul::TempArrayProxy(
-                                                                   lbm_bitmask.size(),
-                                                                   lbm_bitmask.data()),
-                                                           vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-
-
-    auto calc_w_n = [](double lambda_type, double w_p, double dt) {
-        return (1.0 / (((lambda_type / ((1 / (w_p * dt)) - 0.5)) + 0.5) * dt));
-    };
-
-    double lambda_stable = 1 / 4.0;
-    double lambda_boundary = 3 / 16.0;
-    double lambda_4th = 1 / 6.0;
-    double lambda_3rd = 1 / 12.0;
-    double dt = 0.01;
-    double w_p = 0.5;
-
-    double w_n = calc_w_n(lambda_stable, w_p, dt);
-    fmt::print("w_p : {}, w_n : {}, dt : {}\n", w_p, w_n, dt);
-    LbmInfo lbmInfo = {
-            lbm_width,
-            lbm_height,
-            0.8,
-            static_cast<float>(dt),
-            static_cast<float>(w_p),
-            static_cast<float>(w_n),
-            lbm_bitmask_buffer.getDeviceAddress(),
-            {lbm_buffer_0.getDeviceAddress(), lbm_buffer_1.getDeviceAddress()}
-    };
-
-
-    auto lbm_info_buffer = allocator.createDeviceBuffer(
-            commandPool, presentationQueue, lbmInfo,
-            vul::BufferUsageFlagBits::UniformBufferBit).assertValue();
-
-
-    auto lbmDescriptorPool = device.createDescriptorPool(
-            {{lbmDsetLayoutBuilder, 1}}).assertValue();
-
-    auto lbmDescriptorSet = lbmDescriptorPool.createDescriptorSet(
-            lbmDsetLayout).assertValue();
-
-    {
-        device.setObjectName(lbmDescriptorSet, "lbmDescriptorSet");
-        using namespace ranges;
-        auto updateBuilder = lbmDsetLayoutBuilder.createUpdateBuilder();
-
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
-                {lbm_info_buffer.createDescriptorInfo()});
-        updateBuilder.getDescriptorElementAt(1).setStorageImage(
-                lbmImageViews | views::transform(
-                        [](auto &value) { return value.createStorageWriteInfo(); }) |
-                ranges::to<std::vector>());
-        auto updates = updateBuilder.create(lbmDescriptorSet);
-        device.updateDescriptorSets(updates);
-    }
-
-//#define CPU_TEST
-#ifdef CPU_TEST
-    vul::lbmcpu lbm_cpu(lbmInfo.width, lbmInfo.height, lbmInfo.tau, lbm_init_data);
-    std::size_t max_iterations = 1024 * 1024;
-    std::size_t internal_iterations = 32;
-    for(std::size_t i = 0; i < max_iterations; ++i){
-
-        for(std::size_t j = 0; j < internal_iterations; ++j){
-            fmt::print("i:{},j:{}\n", i,j);
-            lbm_cpu.compute_next_iteration();
-        }
-        auto& temp = lbm_cpu.get_current_vector();
-//        lbm_cpu.print_current_vector();
-    }
-#endif
-//    computeBuilder.set
 
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
 //        std::this_thread::sleep_for(32ms) ;
-        presentationQueue.waitIdle();
+//        presentationQueue.waitIdle();
         glfwPollEvents();
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
@@ -923,8 +857,6 @@ int main() {
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
         auto cursor_pos = window.getCursorPosition();
-        cursor_pos /= window.getWindowSize();
-        cursor_pos *= lbm_dim;
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
         {
             static float f = 0.0f;
@@ -953,16 +885,10 @@ int main() {
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
                         1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
-            static float angle = 0;
-            if (ImGui::SliderAngle("Angle", &angle)) {
-                lbmPushConstant.u_click_direction = glm::vec2(
-                        glm::cos(glm::radians(angle)),
-                        -glm::sin(glm::radians(angle)));
-            }
-            ImGui::InputFloat("Magnitude", &lbmPushConstant.u_click_magnitude);
-            ImGui::InputFloat("Radius", &lbmPushConstant.u_click_radius);
+
             ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x,
                                     cursor_pos.y).c_str());
+            ImGui::Text(fmt::format("CameraPos {},{},{}\n", camera.getPosition().x,camera.getPosition().y, camera.getPosition().z).c_str());
             ImGui::End();
         }
 
@@ -1011,26 +937,10 @@ int main() {
             bool toggle_spread = false;
             bool toggle_density = false;
             ImGuiIO &io = ImGui::GetIO();
-            lbmPushConstant.u_click_event = LBMClickEvent::UnClicked;
-            if (!io.WantCaptureMouse) {
 
-                lbmPushConstant.u_click_coordinate = cursor_pos;
-                if (window.mousePressed(GLFW_MOUSE_BUTTON_LEFT)) {
-                    if (!io.WantCaptureKeyboard) {
-                        if (window.keyPressed(GLFW_KEY_C)) {
-                            lbmPushConstant.u_click_event = LBMClickEvent::Velocity;
-                        } else {
-                            lbmPushConstant.u_click_event = LBMClickEvent::AddBitmask;
-                        }
-                    }
-                }
-                if (window.mousePressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-                    lbmPushConstant.u_click_event = LBMClickEvent::RemoveBitmask;
-                }
-            }
             if (!io.WantCaptureKeyboard) {
                 float rotate_speed = 1.5;
-                float move_speed = 3;
+                float move_speed = 15;
 
                 bool forward = false;
                 bool back = false;
@@ -1088,9 +998,8 @@ int main() {
 
             UniformBufferObject ubo = {};
             ubo.model = glm::identity<glm::mat4x4>();
-            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f),
-                                    glm::vec3(1.0f, 0.0f, 0.0f));
-//            ubo.model = glm::rotate(ubo.model, glm::radians(180.0f), glm::vec3(0.0f,1.0f,0.0f));
+//            ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(0.0f),
+//                        glm::vec3(1.0f, 0.0f, 0.0f));
 //            ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
 //                                    glm::vec3(0.0f, 1.0f, 0.0f));
 //            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
@@ -1101,13 +1010,14 @@ int main() {
                                         surface.getSwapchain()->getExtent().width /
                                         (float) surface.getSwapchain()->getExtent().height,
                                         0.1f,
-                                        10.0f);
+                                        1000.0f);
+
             ubo.proj[1][1] *= -1;
             static float u_time = 0;
-            ubo.u_time = u_time;
+            ubo.u_time = time;
+            ubo.camera_pos = camera.getPosition();
             u_time += 1.0f;
             uniformBuffers[swapchainImageIndex].mappedCopyFrom(ubo);
-
         }
 
 
@@ -1118,68 +1028,6 @@ int main() {
         {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
-            {
-                commandBuffer.bindPipeline(lbmComputePipeline);
-                commandBuffer.bindDescriptorSets(
-                        vul::PipelineBindPoint::Compute, lbmPipelineLayout,
-                        lbmDescriptorSet);
-                auto computeComputeBarrier = vul::createMemoryBarrier(
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit |
-                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit
-                        | vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit |
-                        vul::AccessFlagBits2KHR::ShaderReadBit,
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit |
-                        vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit |
-                        vul::AccessFlagBits2KHR::ShaderReadBit);
-                auto computeComputeDepInfo = vul::createDependencyInfo(
-                        computeComputeBarrier, {}, {});
-                std::uint32_t iterations = 2;
-                static std::uint32_t step = 0;
-                {
-
-
-//                    for(std::size_t i = 0; i < iterations; i++){
-//                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
-//                        lbmPushConstant.u_imageoutput_idx = swapchainImageIndex;
-//                        lbmPushConstant.u_iteration_idx = i;
-//                        commandBuffer.pushConstants(lbmPipelineLayout,
-//                                                    vul::ShaderStageFlagBits::ComputeBit,
-//                                                    lbmPushConstant);
-//                        lbmPushConstant.u_click_event = LBMClickEvent::UnClicked;
-//
-//                        commandBuffer.dispatch(
-//                                static_cast<std::uint32_t>(std::ceil((lbm_size) /
-//                                                           1024.0)));
-//
-//                    }
-                    {
-                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
-                        lbmPushConstant.u_imageoutput_idx = swapchainImageIndex;
-                        lbmPushConstant.u_iteration_idx = step;
-                        commandBuffer.pushConstants(lbmPipelineLayout,
-                                                    vul::ShaderStageFlagBits::ComputeBit,
-                                                    lbmPushConstant);
-                        lbmPushConstant.u_click_event = LBMClickEvent::UnClicked;
-
-                        commandBuffer.dispatch(
-                                static_cast<std::uint32_t>(std::ceil(
-                                        (lbm_size) /
-                                        1024.0)));
-
-                    }
-                    step += 1;
-                }
-                auto computeGraphicsBarrier = vul::createMemoryBarrier(
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit,
-                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderReadBit);
-                auto dependencyInfo = vul::createDependencyInfo(
-                        computeGraphicsBarrier, {}, {});
-                commandBuffer.pipelineBarrier(dependencyInfo);
-            }
             {
                 auto extent = surface.getSwapchain()->getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
@@ -1197,35 +1045,28 @@ int main() {
                         VkRect2D{{0, 0}, extent},
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
-                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
-                commandBuffer.bindIndexBuffer(indexBuffer,
-                                              vul::IndexType::Uint16);
+//                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
+//                commandBuffer.bindIndexBuffer(indexBuffer,
+//                                              vul::IndexType::Uint16);
                 commandBuffer.bindDescriptorSets(
                         vul::PipelineBindPoint::Graphics, pipelineLayout,
                         descriptorSets[swapchainImageIndex]);
-                renderPassBlock.drawIndexed(indices.size());
+                std::uint32_t box_vertex_count = 36;
+                std::uint32_t vertex_split_pass_count = 5;
+                commandBuffer.pushConstants(pipelineLayout,
+                                            vul::ShaderStageFlagBits::VertexBit |
+                                            vul::ShaderStageFlagBits::FragmentBit,
+                                            rlePushConstant);
+                auto vertex_count =
+                        chunk_rle_materials.size() * box_vertex_count *
+                        vertex_split_pass_count;
+                renderPassBlock.draw(vertex_count);
                 ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                                 commandBuffer.get());
             }
-#if 0
-            {
-                std::array<VkClearValue, 1> clearValues{};
-//                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
-                clearValues[0].color = {
-                        {clear_color.x, clear_color.y, clear_color.z,
-                         clear_color.w}};
-                auto extent = surface.getSwapchain()->getExtent();
-                auto renderPassBlock = commandBuffer.beginRenderPass(
-                        imguiRenderPass,
-                        imguiFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
-                        clearValues);
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
-            }
-#endif
             commandBuffer.end();
         }
+
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
@@ -1268,6 +1109,8 @@ int main() {
         } else if (presentResult != vul::Result::Success) {
             throw std::runtime_error("failed to present swapchain image");
         }
+
+
 
         currentFrameIndex = (currentFrameIndex + 1) % maxFramesInFlight;
         frame_counter += 1;

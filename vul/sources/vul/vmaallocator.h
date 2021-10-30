@@ -61,7 +61,7 @@ namespace vul {
 
         VmaAllocator(const VmaAllocator &rhs) = delete;
 
-        VmaAllocator &operator=(VmaAllocator &rhs) = delete;
+        VmaAllocator &operator=(const VmaAllocator &rhs) = delete;
 
         [[nodiscard]]
         const Device& getDevice() const;

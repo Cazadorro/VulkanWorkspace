@@ -36,7 +36,7 @@ namespace vul {
 
     class DescriptorSetLayout;
 
-    class LayoutBuilderCount;
+    struct LayoutBuilderCount;
 
     class PipelineLayout;
 
@@ -64,7 +64,7 @@ namespace vul {
         VkDevice get() const;
 
         [[nodiscard]]
-        Queue getQueue(std::uint32_t index) const;
+        Queue getQueue(std::uint32_t index)const;
 
         [[nodiscard]]
         std::optional<Queue> getQueueAt(std::uint32_t index);
@@ -198,7 +198,7 @@ namespace vul {
 
         Device(const Device &rhs) = delete;
 
-        Device &operator=(Device &rhs) = delete;
+        Device &operator=(const Device &rhs) = delete;
 
         template<typename T>
         Result setObjectName(T objectHandle, const std::string &string) const {

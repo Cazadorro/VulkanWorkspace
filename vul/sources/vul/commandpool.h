@@ -38,7 +38,7 @@ namespace vul{
 
         CommandPool(const CommandPool &rhs) = delete;
 
-        CommandPool &operator=(CommandPool &rhs) = delete;
+        CommandPool &operator=(const CommandPool &rhs) = delete;
 
         Result setObjectName(const std::string &string);
         [[nodiscard]]

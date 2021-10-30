@@ -32,7 +32,7 @@ namespace vul{
 
         PipelineCache(const PipelineCache &rhs) = delete;
 
-        PipelineCache &operator=(PipelineCache &rhs) = delete;
+        PipelineCache &operator=(const PipelineCache &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

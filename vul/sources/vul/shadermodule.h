@@ -73,7 +73,7 @@ namespace vul{
 
         ShaderModule(const ShaderModule &rhs) = delete;
 
-        ShaderModule &operator=(ShaderModule &rhs) = delete;
+        ShaderModule &operator=(const ShaderModule &rhs) = delete;
 
         Result setObjectName(const std::string &string);
         [[nodiscard]]

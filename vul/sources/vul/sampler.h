@@ -34,7 +34,7 @@ namespace vul{
 
         Sampler(const Sampler &rhs) = delete;
 
-        Sampler &operator=(Sampler &rhs) = delete;
+        Sampler &operator=(const Sampler &rhs) = delete;
 
         Result setObjectName(const std::string &string);
     private:

@@ -185,6 +185,7 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
                 const vul::ImageSubresourceRange &subresourceRange,
+                bool isCube = false,
                 const VkComponentMapping &components = {},
                 vul::ImageViewCreateBitMask flags = {},
                 const void *pNext = nullptr,
@@ -219,6 +220,8 @@ namespace vul {
         void
         invalidate(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
 
+        [[nodiscard]]
+        vul::ImageViewType toImageViewType(const vul::ImageSubresourceRange &subresourceRange, bool isCube = false) const;
     private:
         vul::VmaAllocation m_allocation;
         VkImage m_handle = VK_NULL_HANDLE;

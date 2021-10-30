@@ -31,7 +31,7 @@ namespace vul {
 
         BinarySemaphore(const BinarySemaphore &rhs) = delete;
 
-        BinarySemaphore &operator=(BinarySemaphore &rhs) = delete;
+        BinarySemaphore &operator=(const BinarySemaphore &rhs) = delete;
 
         ~BinarySemaphore();
 
@@ -63,7 +63,7 @@ namespace vul {
 
         TimelineSemaphore(const TimelineSemaphore &rhs) = delete;
 
-        TimelineSemaphore &operator=(TimelineSemaphore &rhs) = delete;
+        TimelineSemaphore &operator=(const TimelineSemaphore &rhs) = delete;
 
         ~TimelineSemaphore();
 

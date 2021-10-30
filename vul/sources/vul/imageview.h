@@ -42,7 +42,7 @@ namespace vul {
 
         ImageView(const ImageView &rhs) = delete;
 
-        ImageView &operator=(ImageView &rhs) = delete;
+        ImageView &operator=(const ImageView &rhs) = delete;
         ~ImageView();
 
         [[nodiscard]]

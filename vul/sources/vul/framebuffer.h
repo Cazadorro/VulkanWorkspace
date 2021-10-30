@@ -38,7 +38,7 @@ namespace vul {
 
         Framebuffer(const Framebuffer &rhs) = delete;
 
-        Framebuffer &operator=(Framebuffer &rhs) = delete;
+        Framebuffer &operator=(const Framebuffer &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

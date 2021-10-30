@@ -29,7 +29,7 @@ namespace vul {
 
         VmaAllocation(const VmaAllocation &rhs) = delete;
 
-        VmaAllocation &operator=(VmaAllocation &rhs) = delete;
+        VmaAllocation &operator=(const VmaAllocation &rhs) = delete;
 
         [[nodiscard]]
         VmaAllocationInfo getAllocationInfo() const;

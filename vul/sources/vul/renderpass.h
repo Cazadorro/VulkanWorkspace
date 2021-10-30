@@ -224,7 +224,7 @@ namespace vul {
 
         RenderPass(const RenderPass &rhs) = delete;
 
-        RenderPass &operator=(RenderPass &rhs) = delete;
+        RenderPass &operator=(const RenderPass &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

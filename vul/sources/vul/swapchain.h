@@ -95,7 +95,7 @@ namespace vul {
 
         Swapchain(const Swapchain &rhs) = delete;
 
-        Swapchain &operator=(Swapchain &rhs) = delete;
+        Swapchain &operator=(const Swapchain &rhs) = delete;
 
         [[nodiscard]]
         VkExtent2D getExtent() const;

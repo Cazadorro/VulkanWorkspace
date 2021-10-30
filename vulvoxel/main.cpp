@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+
 #include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
 #include <iostream>
@@ -179,6 +180,7 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
     }
     return std::nullopt;
 }
+
 
 int main() {
 

@@ -32,7 +32,7 @@ namespace vul{
 
         PipelineLayout(const PipelineLayout &rhs) = delete;
 
-        PipelineLayout &operator=(PipelineLayout &rhs) = delete;
+        PipelineLayout &operator=(const PipelineLayout &rhs) = delete;
 
         Result setObjectName(const std::string &string);
     private:

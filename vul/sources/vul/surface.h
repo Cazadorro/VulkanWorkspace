@@ -121,7 +121,7 @@ namespace vul {
 
         Surface(const Surface &rhs) = delete;
 
-        Surface &operator=(Surface &rhs) = delete;
+        Surface &operator=(const Surface &rhs) = delete;
 
         [[nodiscard]]
         bool hasSwapchain() const;

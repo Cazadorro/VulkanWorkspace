@@ -64,7 +64,7 @@ namespace vul {
 
         Instance(const Instance &rhs) = delete;
 
-        Instance &operator=(Instance &rhs) = delete;
+        Instance &operator=(const Instance &rhs) = delete;
 
     private:
         VkInstance m_handle = VK_NULL_HANDLE;

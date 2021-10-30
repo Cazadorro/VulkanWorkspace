@@ -9,4 +9,5 @@
 #include <cstdint>
 bool bitmask_intersect(const gul::bitmask& bitmask, glm::vec3 orig, glm::vec3 dir, glm::vec3 block_offset, std::uint32_t& voxel_index);
 
+
 #endif //VULKANWORKSPACE_CPU_BITMASK_INTERSECT_H

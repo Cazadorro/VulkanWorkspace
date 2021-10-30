@@ -26,7 +26,7 @@ namespace vul {
 
         Queue(const Queue &rhs) = delete;
 
-        Queue &operator=(Queue &rhs) = delete;
+        Queue &operator=(const Queue &rhs) = delete;
 
         Result waitIdle() const;
     private:

@@ -202,7 +202,7 @@ namespace vul {
 
         DescriptorSetLayout(const DescriptorSetLayout &rhs) = delete;
 
-        DescriptorSetLayout &operator=(DescriptorSetLayout &rhs) = delete;
+        DescriptorSetLayout &operator=(const DescriptorSetLayout &rhs) = delete;
 
         Result setObjectName(const std::string &string);
     private:

@@ -41,7 +41,7 @@ namespace vul{
 
         DescriptorPool(const DescriptorPool &rhs) = delete;
 
-        DescriptorPool &operator=(DescriptorPool &rhs) = delete;
+        DescriptorPool &operator=(const DescriptorPool &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

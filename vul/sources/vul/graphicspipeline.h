@@ -45,7 +45,7 @@ namespace vul {
 
         GraphicsPipeline(const GraphicsPipeline &rhs) = delete;
 
-        GraphicsPipeline &operator=(GraphicsPipeline &rhs) = delete;
+        GraphicsPipeline &operator=(const GraphicsPipeline &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

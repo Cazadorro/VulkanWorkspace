@@ -170,12 +170,12 @@ vul::ImageTiling vul::Image::getImageTiling() const {
 
 vul::ExpectedResult <vul::ImageView>
 vul::Image::createImageView(const vul::ImageSubresourceRange &subresourceRange,
+                            bool isCube,
                             const VkComponentMapping &components,
                             vul::ImageViewCreateBitMask flags,
                             const void *pNext,
                             const VkAllocationCallbacks *pAllocator) const {
-
-    return createImageView(toImageViewType(static_cast<ImageType>(m_imageType), subresourceRange.layerCount), subresourceRange, components, flags, pNext, pAllocator);
+    return createImageView(toImageViewType(subresourceRange, isCube), subresourceRange, components, flags, pNext, pAllocator);
 }
 
 vul::ExpectedResult <vul::ImageView>
@@ -302,6 +302,20 @@ vul::Image::createTransitionBarrier(vul::PipelineStageFlagBitMask dstStageMask,
                         {}, dstStageMask, dstAccessMask, ImageLayout::Undefined, newLayout, subresourceRange, srcQueueFamilyIndex, dstQueueFamilyIndex, pNext);
 }
 
+vul::ImageViewType
+vul::Image::toImageViewType(const vul::ImageSubresourceRange &subresourceRange,
+                            bool isCube) const {
+
+    std::uint32_t arrayLayers = 0;
+    if(subresourceRange.layerCount == VK_REMAINING_ARRAY_LAYERS){
+        VUL_ASSERT(m_arrayLayers > subresourceRange.baseArrayLayer, fmt::format("Number of total number of layers {} must be more than the baseArrayLayer {}", m_arrayLayers, subresourceRange.baseArrayLayer).c_str());
+        arrayLayers = (m_arrayLayers - subresourceRange.baseArrayLayer);
+    }else{
+        arrayLayers = subresourceRange.layerCount;
+    }
+    return vul::toImageViewType(static_cast<ImageType>(m_imageType), arrayLayers, isCube);
+}
+
 
 VkImageCreateInfo
 vul::createSimple2DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling) {
@@ -367,6 +381,7 @@ vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
 vul::ImageViewType
 vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
                 bool isCube) {
+    VUL_ASSERT(arrayLayers != VK_REMAINING_ARRAY_LAYERS, "Can't use 'VK_REMAINING_ARRAY_LAYERS', not enough information to infer remaining array layers");
     VUL_ASSERT(arrayLayers > 0, "Array layers cannot be zero");
     if(isCube){
         VUL_ASSERT(arrayLayers % 6 == 0, "If image view is cube, array layers must be multiple of 6");

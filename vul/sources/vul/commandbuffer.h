@@ -64,7 +64,7 @@ namespace vul {
 
         RenderPassBlock(const RenderPassBlock &rhs) = delete;
 
-        RenderPassBlock &operator=(RenderPassBlock &rhs) = delete;
+        RenderPassBlock &operator=(const RenderPassBlock &rhs) = delete;
 
         void drawIndexed(std::uint32_t indexCount,
                          std::uint32_t instanceCount = 1,
@@ -112,7 +112,7 @@ namespace vul {
 
         CommandBuffer(const CommandBuffer &rhs) = delete;
 
-        CommandBuffer &operator=(CommandBuffer &rhs) = delete;
+        CommandBuffer &operator=(const CommandBuffer &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

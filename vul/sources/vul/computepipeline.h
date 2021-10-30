@@ -42,7 +42,7 @@ namespace vul{
 
         ComputePipeline(const ComputePipeline &rhs) = delete;
 
-        ComputePipeline &operator=(ComputePipeline &rhs) = delete;
+        ComputePipeline &operator=(const ComputePipeline &rhs) = delete;
 
         Result setObjectName(const std::string &string);
 

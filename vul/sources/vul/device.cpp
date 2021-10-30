@@ -50,7 +50,9 @@ std::optional<vul::Queue> vul::Device::getQueueAt(std::uint32_t index) {
     if (index < m_queueFamilyIndexMappings.size()) {
         if (!m_queueInUseMask[index]) {
             m_queueInUseMask[index] = 1u;
-            return getQueue(index);
+            std::optional<vul::Queue> test;
+            test.emplace(getQueue(index));
+            return test;
         }
     }
     return std::nullopt;
