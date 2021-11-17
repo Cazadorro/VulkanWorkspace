@@ -116,8 +116,8 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
     float u_time;
-    float u_1;
-    float u_2;
+    float u_lbm_width;
+    float u_lbm_height;
     float u_3;
 };
 
@@ -183,6 +183,8 @@ struct alignas(8) LbmInfo {
     float u_dt;
     float u_trt_wp;
     float u_trt_wn;
+    float u_init_density;
+    float u_padding_0;
     std::uint64_t bitmask_array;
     std::uint64_t lbm_array_ptrs[2];
 };
@@ -325,6 +327,7 @@ int main() {
     //TODO Always combine present and graphics, no current implementation splits them up.
     vul::Queue presentationQueue = device.getQueueAt(0).value();
     vul::Queue computeQueue = device.getQueueAt(1).value();
+
 
 
     auto surfaceCapabilities = surface.getCapabilitiesFrom(physicalDevice);
@@ -515,6 +518,7 @@ int main() {
 
     std::uint32_t lbm_width = 256 * 4 * 1 / 32;
     lbm_width = 256 * 4;
+    lbm_width = 256;
 
     std::uint32_t lbm_height = lbm_width;
     std::uint32_t lbm_size = lbm_width * lbm_height;
@@ -547,9 +551,7 @@ int main() {
               gul::StbImage::Channels::rgb_alpha);
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
-                                                      vul::TempArrayProxy(
-                                                              pixels.size(),
-                                                              pixels.data()),
+                                                      pixels,
                                                       vul::createSimple2DImageInfo(
                                                               vul::Format::R8g8b8a8Srgb,
                                                               pixels.getExtent3D(),
@@ -572,13 +574,13 @@ int main() {
     //TODO enable non const vector/array to convert to TempArrayProxy automatically.
     auto vertexBuffer = allocator.createDeviceBuffer(
             commandPool, presentationQueue,
-            vul::TempArrayProxy(vertices.size(), vertices.data()),
+            vertices,
             vul::BufferUsageFlagBits::TransferDstBit |
             vul::BufferUsageFlagBits::VertexBufferBit).assertValue();
 
     auto indexBuffer = allocator.createDeviceBuffer(
             commandPool, presentationQueue,
-            vul::TempArrayProxy(indices.size(), indices.data()),
+            indices,
             vul::BufferUsageFlagBits::TransferDstBit |
             vul::BufferUsageFlagBits::IndexBufferBit).assertValue();
 
@@ -754,7 +756,7 @@ int main() {
             for (const auto &obstacle_pos: obstacles) {
                 if (glm::distance(glm::vec2(pos), glm::vec2(obstacle_pos)) <
                     lbm_width / 16u) {
-                    //lbm_bitmask.set(pos, glm::uvec2{lbm_width, lbm_width});
+                    lbm_bitmask.set(pos, glm::uvec2{lbm_width, lbm_width});
                 }
             }
         }
@@ -762,19 +764,41 @@ int main() {
 
 
     std::vector<float> lbm_init_data(lbm_dir_count * lbm_size, 0.0);
-    float initial_density = 1.0;
+    float init_density = 100.0;
     float weights[9] = {1.0 / 36.0, 1.0 / 9.0, 1.0 / 36.0,
                         1.0 / 9.0, 4.0 / 9.0, 1.0 / 9.0,
                         1.0 / 36.0, 1.0 / 9.0, 1.0 / 36.0,
     };
-    float density = 1000.0;
+
+    float density = init_density;
     for (std::size_t frame_idx = 0; frame_idx < 9; ++frame_idx) {
         for (std::size_t i = 0; i < lbm_size; i += 1) {
-            if (!lbm_bitmask.get(static_cast<std::uint32_t>(i))) {
+            if (!lbm_bitmask.get(static_cast<std::uint32_t>(i)) || true) {
+                auto lbm_x = lbm_size % lbm_width;
+                auto lbm_y = lbm_size / lbm_width;
                 auto offset = frame_idx * lbm_size;
-                lbm_init_data[i + offset] = density * weights[frame_idx];
+//                lbm_init_data[i + offset] = density * weights[frame_idx];
+                lbm_init_data[i + offset] = 1.01;
+                if(frame_idx == 5){
+                    lbm_init_data[i + offset] = 2.0f * (1 + 0.2f * glm::cos(2 * glm::pi<float>() * lbm_x / lbm_width * 4));
+                }
             }
         }
+    }
+
+
+
+    for (std::size_t i = 0; i < lbm_size; i += 1) {
+        float sum = 0.0;
+        for (std::size_t frame_idx = 0; frame_idx < 9; ++frame_idx) {
+            auto offset = frame_idx * lbm_size;
+            sum += lbm_init_data[i + offset];
+        }
+        for (std::size_t frame_idx = 0; frame_idx < 9; ++frame_idx) {
+            auto offset = frame_idx * lbm_size;
+            lbm_init_data[i + offset] = density / sum;
+        }
+
     }
 
 
@@ -828,15 +852,11 @@ int main() {
                                                      vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
     auto lbm_buffer_1 = allocator.createDeviceBuffer(commandPool,
                                                      presentationQueue,
-                                                     vul::TempArrayProxy(
-                                                             lbm_init_data.size(),
-                                                             lbm_init_data.data()),
+                                                     lbm_init_data,
                                                      vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
     auto lbm_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
                                                            presentationQueue,
-                                                           vul::TempArrayProxy(
-                                                                   lbm_bitmask.size(),
-                                                                   lbm_bitmask.data()),
+                                                           lbm_bitmask,
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
 
@@ -844,22 +864,29 @@ int main() {
         return (1.0 / (((lambda_type / ((1 / (w_p * dt)) - 0.5)) + 0.5) * dt));
     };
 
+
     double lambda_stable = 1 / 4.0;
     double lambda_boundary = 3 / 16.0;
     double lambda_4th = 1 / 6.0;
     double lambda_3rd = 1 / 12.0;
-    double dt = 0.01;
-    double w_p = 0.5;
+    double dt = 1.0;
+    double w_p = 1.0/128.0;
+    w_p *= 512.0;
+
+
 
     double w_n = calc_w_n(lambda_stable, w_p, dt);
     fmt::print("w_p : {}, w_n : {}, dt : {}\n", w_p, w_n, dt);
+    fmt::print("LBM WIDTH HEIGHT {}, {}", lbm_width, lbm_height);
     LbmInfo lbmInfo = {
             lbm_width,
             lbm_height,
-            0.8,
+            0.6,
             static_cast<float>(dt),
             static_cast<float>(w_p),
             static_cast<float>(w_n),
+            static_cast<float>(init_density),
+            0.0f,
             lbm_bitmask_buffer.getDeviceAddress(),
             {lbm_buffer_0.getDeviceAddress(), lbm_buffer_1.getDeviceAddress()}
     };
@@ -911,12 +938,14 @@ int main() {
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
-//        std::this_thread::sleep_for(32ms) ;
+        std::this_thread::sleep_for(32ms);
         presentationQueue.waitIdle();
         glfwPollEvents();
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
+
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
@@ -1007,6 +1036,7 @@ int main() {
             lastTime = currentTime;
 
 
+
             bool toggle_spread = false;
             bool toggle_density = false;
             ImGuiIO &io = ImGui::GetIO();
@@ -1085,6 +1115,7 @@ int main() {
             }
 
 
+
             UniformBufferObject ubo = {};
             ubo.model = glm::identity<glm::mat4x4>();
             ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(-90.0f),
@@ -1104,6 +1135,8 @@ int main() {
             ubo.proj[1][1] *= -1;
             static float u_time = 0;
             ubo.u_time = u_time;
+            ubo.u_lbm_width = lbm_width;
+            ubo.u_lbm_height = lbm_height;
             u_time += 1.0f;
             uniformBuffers[swapchainImageIndex].mappedCopyFrom(ubo);
 
@@ -1229,7 +1262,7 @@ int main() {
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
                 vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
-        std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
+        std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos = {};
         signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
                 frameCounters[currentFrameIndex],
                 vul::PipelineStageFlagBits2KHR::AllCommandsBit);

@@ -31,6 +31,8 @@ void *vul::VmaAllocation::mapMemory() {
     if (mappedData == nullptr) {
         vmaMapMemory(m_pAllocator->get(), m_handle, &mappedData);
         m_mapCounter += 1;
+    }else if(m_mapCounter == 0){
+        m_mapCounter += 1;
     }
     return mappedData;
 }

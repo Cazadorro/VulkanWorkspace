@@ -1,0 +1,111 @@
+#version 450
+////https://www.khronos.org/blog/vulkan-subgroup-tutorial
+//#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup: enable
+//#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+//#extension GL_KHR_shader_subgroup_arithmetic: enable
+//#extension GL_KHR_shader_subgroup_shuffle: enable
+//#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+//#extension GL_KHR_shader_subgroup_clustered
+//#extension GL_KHR_shader_subgroup_quad
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+#include "mathutils.glsl"
+#include "basicreftypes.glsl"
+#include "bitmask.glsl"
+//#include "bounds.glsl"
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+uint toLinear(ivec2 pos, uint width){
+    return pos.y * width + pos.x;
+}
+
+bool inBounds(uvec2 pos, uvec2 dims){
+    return pos.x < dims.x && pos.y < dims.y;
+}
+
+bool inBounds(ivec2 pos, ivec2 dims){
+    return pos.x >= 0 &&  pos.y >= 0 && pos.x < dims.x && pos.y < dims.y;
+}
+//should be 8 + 8 + 8 aligned?
+layout(set = 0, binding = 0, std430) uniform LbmParameters{
+    uint u_width;
+    uint u_height;
+
+    float u_tau;
+    float u_dt;
+
+    float u_trt_wp;
+    float u_trt_wn;
+
+    float u_init_density;
+    float u_padding_0;
+
+    uint32_array u_bitmask;
+    f32vec2_array u_lbm_velocities;
+};
+
+vec2 u_force = vec2(0.0, 0.000000);
+
+layout(set = 0, binding=1, RGBA32F) uniform image2D output_visualization[];
+
+layout(push_constant) uniform PushConstantBlock{
+    uint u_iteration_idx;
+    uint u_imageoutput_idx;
+    uint u_click_event;
+    float u_click_radius;
+    float u_click_magnitude;
+    float u_other_padding;
+    vec2 u_click_coordinate;
+    vec2 u_click_direction;
+};
+
+void main(){
+    uint x_idx = gl_GlobalInvocationID.x;
+    uint x = x_idx % u_width;
+    uint y = x_idx / u_width;
+    ivec2 pos = ivec2(x, y);
+    ivec2 dims = ivec2(u_width, u_height);
+
+    float density = 0.0;
+    if (!inBounds(pos, dims) || get(u_bitmask, pos, dims)){
+        if(inBounds(pos, dims) && get(u_bitmask, pos, dims)){
+            imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0));
+        }
+        return;
+    }
+    vec2 velocity = u_lbm_velocities.data[y * u_width + x];
+    if(y % 10 < 5){
+        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(1.0,1.0, 1.0, 1.0));
+    }else{
+        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(0.0,0.0, 0.0, 1.0));
+    }
+    return;
+    if (isinf(velocity.x) || isinf(velocity.y) || isinf(density)){
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.7, 0.7, 0.7, 0.7));
+    }
+    else if (isnan(velocity.x) || isnan(velocity.y) || isnan(density)){
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.5, 0.5, 0.5, 0.5));
+    } else {
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(abs(velocity.x), abs(velocity.y), density, 1.0));
+    }
+    imageStore(output_visualization[u_imageoutput_idx], ivec2(0,          0),          vec4(1.0,1.0, 1.0, 1.0));
+    imageStore(output_visualization[u_imageoutput_idx], ivec2(u_width-1,  u_height-1),  vec4(1.0,1.0, 1.0, 1.0));
+    imageStore(output_visualization[u_imageoutput_idx], ivec2(0,          u_height-1),  vec4(1.0,1.0, 1.0, 1.0));
+    imageStore(output_visualization[u_imageoutput_idx], ivec2(u_width-1,  0),           vec4(1.0,1.0, 1.0, 1.0));
+}

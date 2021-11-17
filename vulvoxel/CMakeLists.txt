@@ -12,5 +12,6 @@ target_compile_options(vulvoxel PRIVATE
 
 target_shader_postbuild(vulvoxel
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/rle_render.vert
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/rle_render.frag)
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/rle_render.frag
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/temp.comp)
 

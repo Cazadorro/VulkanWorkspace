@@ -12,8 +12,8 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 view;
     mat4 proj;
     float u_time;
-    float u_lbm_width;
-    float u_lbm_height;
+    float u_1;
+    float u_2;
     float u_3;
 } ubo;
 
@@ -84,8 +84,8 @@ vec4 jet(float normal_value)
 
 void main() {
     vec4 color = texture(texSampler, fragTexCoord);
-    float denom = ubo.u_lbm_width;
-    float offset = (1.0/denom) * 0.5;
+    float denom = 246 * 4;
+    float offset = (1.0/denom) * (0.5);
     vec2 vel_nw = texture(texSampler, fragTexCoord + vec2(-offset, -offset)).yz;
     vec2 vel_nm = texture(texSampler, fragTexCoord + vec2(0.0, -offset)).yz;
     vec2 vel_ne = texture(texSampler, fragTexCoord + vec2(offset, -offset)).yz;
@@ -124,16 +124,6 @@ void main() {
         outColor = vec4(max(abs_vorticity - 10.0, 0.0), 0.0, abs_vorticity, 1.0);
     }
 
-
-    if(true){
-//        (np.roll(ux, -1, axis=0) - np.roll(ux, 1, axis=0)) - (
-//        np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1))
-        float vort = (vel_ww.y - vel_ee.y) - (vel_nm.x - vel_sm.x);
-        vort = clamp(vort, -1.0, 1.0);
-        outColor = vec4(vort >= 0.0 ? abs(vort) : 0.0, 1.0, vort < 0.0 ? abs(vort) : 0.0, 1.0);
-        outColor = vec4(color.y, 1.0, color.z, 1.0);
-        return;
-    }
 
     if((uint(ubo.u_time) % 10000u > 5000u || true) && true){
 //        if(vorticity < 0.0){

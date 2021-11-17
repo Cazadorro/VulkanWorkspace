@@ -84,19 +84,32 @@ vec4 jet(float normal_value)
 
 void main() {
     vec4 color = texture(texSampler, fragTexCoord);
-    float denom = ubo.u_lbm_width;
-    float offset = (1.0/denom) * 0.5;
-    vec2 vel_nw = texture(texSampler, fragTexCoord + vec2(-offset, -offset)).yz;
-    vec2 vel_nm = texture(texSampler, fragTexCoord + vec2(0.0, -offset)).yz;
-    vec2 vel_ne = texture(texSampler, fragTexCoord + vec2(offset, -offset)).yz;
+    vec2 offset = vec2((1.0/ubo.u_lbm_width) * 10.0, (1.0/ubo.u_lbm_height));
 
-    vec2 vel_ee = texture(texSampler, fragTexCoord + vec2(offset, 0.0)).yz;
-    vec2 vel_mm = color.yz;
-    vec2 vel_ww = texture(texSampler, fragTexCoord + vec2(-offset, 0.0)).yz;
+    vec2 offset_array[9] = vec2[9](
+        vec2(-1.0, -1.0),
+        vec2( 0.0, -1.0),
+        vec2( 1.0, -1.0),
 
-    vec2 vel_sw = texture(texSampler, fragTexCoord + vec2(-offset, offset)).yz;
-    vec2 vel_sm = texture(texSampler, fragTexCoord + vec2(0.0, offset)).yz;
-    vec2 vel_se = texture(texSampler, fragTexCoord + vec2(offset, offset)).yz;
+        vec2( 1.0,  0.0),
+        vec2( 0.0,  0.0),
+        vec2(-1.0,  0.0),
+
+        vec2(-1.0,  1.0),
+        vec2( 0.0,  1.0),
+        vec2( 1.0,  1.0)
+    );
+    vec2 vel_nw = texture(texSampler, fragTexCoord + offset_array[0] * offset).xy;
+    vec2 vel_nm = texture(texSampler, fragTexCoord + offset_array[1] * offset).xy;
+    vec2 vel_ne = texture(texSampler, fragTexCoord + offset_array[2] * offset).xy;
+
+    vec2 vel_ee = texture(texSampler, fragTexCoord + offset_array[3] * offset).xy;
+    vec2 vel_mm = texture(texSampler, fragTexCoord + offset_array[4] * offset).xy;
+    vec2 vel_ww = texture(texSampler, fragTexCoord + offset_array[5] * offset).xy;
+
+    vec2 vel_sw = texture(texSampler, fragTexCoord + offset_array[6] * offset).xy;
+    vec2 vel_sm = texture(texSampler, fragTexCoord + offset_array[7] * offset).xy;
+    vec2 vel_se = texture(texSampler, fragTexCoord + offset_array[8] * offset).xy;
 
     float forward_diff = (((vel_sm.x - vel_mm.x) + (vel_se.x - vel_ee.x)) / 2.0f) -
     (((vel_ee.y - vel_mm.y) + (vel_se.y - vel_sm.y)) / 2.0f);
@@ -124,7 +137,8 @@ void main() {
         outColor = vec4(max(abs_vorticity - 10.0, 0.0), 0.0, abs_vorticity, 1.0);
     }
 
-
+    outColor = vec4(abs(color.x), abs(color.y), 0.0, 1.0);
+    return;
     if(true){
 //        (np.roll(ux, -1, axis=0) - np.roll(ux, 1, axis=0)) - (
 //        np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1))
@@ -149,7 +163,7 @@ void main() {
 
 
     }else{
-        outColor = vec4(abs(color.y) *10.0, abs(color.z)*10.0, 0.0, 1.0);
+        outColor = vec4(abs(color.x) *10.0, abs(color.y)*10.0, 0.0, 1.0);
     }
 
 //

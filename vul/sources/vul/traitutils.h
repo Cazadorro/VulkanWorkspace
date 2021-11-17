@@ -35,8 +35,7 @@ namespace vul{
     template<typename T>
     struct is_contiguous<T,
             to_void<decltype(std::declval<T>().data()),
-                    decltype(std::declval<T>().size()),
-                    typename T::value_type
+                    decltype(std::declval<T>().size())
             >> : std::true_type // will  be enabled for iterable objects
     {};
 
