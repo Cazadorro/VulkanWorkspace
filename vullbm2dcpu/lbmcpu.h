@@ -20,13 +20,14 @@ namespace vul {
 
     bool inBounds(glm::ivec2 pos, glm::ivec2 dims);
 
+    using LbmType = double;
 
     class lbmcpu2D{
     public:
         lbmcpu2D(std::uint32_t width, std::uint32_t height, float delta_time, float tau, float rho);
         void next();
         [[nodiscard]]
-        const std::vector<float>& get_current_lbm();
+        const std::vector<LbmType>& get_current_lbm();
         [[nodiscard]]
         std::vector<float> calc_rho() const;
         [[nodiscard]]
@@ -47,7 +48,7 @@ namespace vul {
         float m_tau;
         float m_rho;
         vul::bitmask m_bitmask;
-        std::vector<float> m_lbm_array;
+        std::vector<LbmType> m_lbm_array;
     };
 }
 

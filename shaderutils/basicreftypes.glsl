@@ -4,13 +4,13 @@
 layout(buffer_reference, buffer_reference_align=4, scalar) buffer float32_array{
     float32_t data[];
 };
-layout(buffer_reference, buffer_reference_align=4, scalar) buffer f32vec2_array{
+layout(buffer_reference, buffer_reference_align=8, scalar) buffer f32vec2_array{
     f32vec2 data[];
 };
-layout(buffer_reference, buffer_reference_align=4, scalar) buffer f32vec3_array{
+layout(buffer_reference, buffer_reference_align=16, scalar) buffer f32vec3_array{
     f32vec3 data[];
 };
-layout(buffer_reference, buffer_reference_align=4, scalar) buffer f32vec4_array{
+layout(buffer_reference, buffer_reference_align=32, scalar) buffer f32vec4_array{
     f32vec4 data[];
 };
 

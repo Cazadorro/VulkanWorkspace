@@ -85,27 +85,32 @@ void main(){
     float density = 0.0;
     if (!inBounds(pos, dims) || get(u_bitmask, pos, dims)){
         if(inBounds(pos, dims) && get(u_bitmask, pos, dims)){
-            imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0));
+           imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0));
         }
         return;
     }
-    vec2 velocity = u_lbm_velocities.data[y * u_width + x];
-    if(y % 10 < 5){
-        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(1.0,1.0, 1.0, 1.0));
-    }else{
-        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(0.0,0.0, 0.0, 1.0));
+    if (!inBounds(pos, dims)){
+        return;
     }
-    return;
+    vec2 velocity = u_lbm_velocities.data[y * u_width + x];
+//    if(x % 10 < 5){
+//        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(1.0,1.0, 1.0, 1.0));
+//    }else{
+//        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(0.0,0.0, 0.0, 1.0));
+//    }
+//    return;
+//    if(y % 32 < 16 && x % 32 < 16){
+//        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(1.0,1.0, 1.0, 1.0));
+//    }else{
+//        imageStore(output_visualization[u_imageoutput_idx], pos,          vec4(0.0,0.0, 0.0, 1.0));
+//    }
+//    return;
     if (isinf(velocity.x) || isinf(velocity.y) || isinf(density)){
-        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.7, 0.7, 0.7, 0.7));
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.0, 0.0, 0.0, 0.0));
     }
     else if (isnan(velocity.x) || isnan(velocity.y) || isnan(density)){
-        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.5, 0.5, 0.5, 0.5));
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.0, 0.0, 0.0, 0.0));
     } else {
-        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(abs(velocity.x), abs(velocity.y), density, 1.0));
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4((velocity.x), (velocity.y), density, 1.0));
     }
-    imageStore(output_visualization[u_imageoutput_idx], ivec2(0,          0),          vec4(1.0,1.0, 1.0, 1.0));
-    imageStore(output_visualization[u_imageoutput_idx], ivec2(u_width-1,  u_height-1),  vec4(1.0,1.0, 1.0, 1.0));
-    imageStore(output_visualization[u_imageoutput_idx], ivec2(0,          u_height-1),  vec4(1.0,1.0, 1.0, 1.0));
-    imageStore(output_visualization[u_imageoutput_idx], ivec2(u_width-1,  0),           vec4(1.0,1.0, 1.0, 1.0));
 }

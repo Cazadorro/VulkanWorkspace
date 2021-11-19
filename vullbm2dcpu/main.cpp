@@ -344,6 +344,7 @@ int main() {
             .presentMode(defaultPresentMode)
             .imageSharingMode(vul::SharingMode::Exclusive);
 
+
     //TODO graphics and present queue index as argument, or simply multiple indexes?
     //TODO Always combine present and graphics, no current implementation splits them up.
 //    if (graphicsQueueIndex != presentQueueIndex) {
@@ -514,9 +515,9 @@ int main() {
 
 
     std::uint32_t lbm_width = 256 * 4 * 1 / 32;
-    lbm_width = 256;
+    lbm_width = 64;
     //lbm_width = 256;
-    std::uint32_t lbm_height = lbm_width/2;
+    std::uint32_t lbm_height = 64;
     //lbm_height = lbm_width * 2;
     std::uint32_t lbm_size = lbm_width * lbm_height;
     VkExtent2D lbmExtent = {lbm_width, lbm_height};
@@ -543,6 +544,7 @@ int main() {
     }
 
 
+
 //    gul::StbImage pixels;
 //    gul::load("../../textures/texture.jpg", pixels,
 //              gul::StbImage::Channels::rgb_alpha);
@@ -566,7 +568,6 @@ int main() {
     samplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
     auto sampler = samplerBuilder.create().assertValue();
-
 
     //TODO enable non const vector/array to convert to TempArrayProxy automatically.
     auto vertexBuffer = allocator.createDeviceBuffer(
@@ -800,42 +801,13 @@ int main() {
     }
 
 
-    for (std::size_t y = 0; y < lbm_height; ++y) {
-        for (std::size_t x = 0; x < lbm_width; ++x) {
-            std::size_t i = y * lbm_width + x;
-            if (!lbm_bitmask.get(static_cast<std::uint32_t>(i))) {
-                auto offset = 3 * lbm_size;
-//                lbm_init_data[i + offset] += 0.01f;
-//                if(x != lbm_width/2){
-//                    lbm_init_data[i + offset] += 0.01f;
-//                }
-//                if(x < (lbm_width - (lbm_width/2))){
-//                   // lbm_init_data[i + offset] += 0dddddddddddddddds.01f;
-//                }
-                if (x < (lbm_width - lbm_width / 4) && x > lbm_width / 4 &&
-                    y > lbm_height / 4 && y < (lbm_height - lbm_height / 4)) {
-                    //lbm_init_data[i + offset] += density * 0.1f;
-                }
-//                lbm_init_data[i + offset] += density * 0.01f;
-//                lbm_init_data[i + offset] += density * 0.1f;
-//                if(x != 0 && x < 24 && y < 16){
-//                    lbm_init_data[i + offset] += 0.01f;
-//                }
-
-
-            }
-        }
-    }
-
-
-
     vul::lbmcpu2D lbm_cpu(lbm_width,lbm_height, 1.0, 0.6, 100.0);
 
 
     auto temp_uxy = lbm_cpu.calc_uxy();
     auto lbm_buffer_0 = allocator.createMappedCoherentBuffer(
-                                                temp_uxy,
-                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+                                                temp_uxy.size(),
+                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit | vul::BufferUsageFlagBits::StorageBufferBit).assertValue();
 //    auto lbm_buffer_1 = allocator.createDeviceBuffer(commandPool,
 //                                                     presentationQueue,
 //                                                     lbm_init_data,
@@ -906,17 +878,20 @@ int main() {
     }
 
 
+
 //    computeBuilder.set
 
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
-        std::this_thread::sleep_for(32ms);
+//        std::this_thread::sleep_for(32ms);
+//        std::this_thread::sleep_for(500ms);
         presentationQueue.waitIdle();
         glfwPollEvents();
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+
 
 
 
@@ -1116,10 +1091,17 @@ int main() {
 
 
         }
+
         static std::vector<glm::vec2> velocities;
         velocities = lbm_cpu.calc_uxy();
+//        std::fill(velocities.begin(), velocities.end(), glm::vec2{0.0f,0.0f});
+//        velocities[0] = glm::vec2{0.0f,0.0f};
+//        velocities[1] = glm::vec2{0.0f,0.0f};
+//        velocities[2] = glm::vec2{0.0f,0.0f};
+//        velocities[3] = glm::vec2{0.0f,0.0f};
+//        velocities[4] = glm::vec2{0.0f,0.0f};
+//        velocities[5] = glm::vec2{0.0f,0.0f};
         lbm_buffer_0.mappedCopyFrom(velocities);
-
 
         ImGui::Render();
 
@@ -1237,6 +1219,7 @@ int main() {
 #endif
             commandBuffer.end();
         }
+
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(

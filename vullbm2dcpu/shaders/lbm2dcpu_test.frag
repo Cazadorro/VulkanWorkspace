@@ -84,8 +84,9 @@ vec4 jet(float normal_value)
 
 void main() {
     vec4 color = texture(texSampler, fragTexCoord);
-    vec2 offset = vec2((1.0/ubo.u_lbm_width) * 10.0, (1.0/ubo.u_lbm_height));
-
+    vec2 vel = color.xy;
+    vec2 offset = vec2((1.0/ubo.u_lbm_width), (1.0/ubo.u_lbm_height));
+    offset *= 1.0;
     vec2 offset_array[9] = vec2[9](
         vec2(-1.0, -1.0),
         vec2( 0.0, -1.0),
@@ -131,42 +132,20 @@ void main() {
         return;
     }
 
-    if(vorticity < 0.0){
-        outColor = vec4(max(abs_vorticity - 10.0, 0.0), abs_vorticity, 0.0, 1.0);
-    }else{
-        outColor = vec4(max(abs_vorticity - 10.0, 0.0), 0.0, abs_vorticity, 1.0);
-    }
-
-    outColor = vec4(abs(color.x), abs(color.y), 0.0, 1.0);
-    return;
     if(true){
-//        (np.roll(ux, -1, axis=0) - np.roll(ux, 1, axis=0)) - (
-//        np.roll(uy, -1, axis=1) - np.roll(uy, 1, axis=1))
         float vort = (vel_ww.y - vel_ee.y) - (vel_nm.x - vel_sm.x);
+        vort *= 10.0;
         vort = clamp(vort, -1.0, 1.0);
-        outColor = vec4(vort >= 0.0 ? abs(vort) : 0.0, 1.0, vort < 0.0 ? abs(vort) : 0.0, 1.0);
-        outColor = vec4(color.y, 1.0, color.z, 1.0);
+        if(vort >= 0.0){
+            outColor = vec4(1.0,1.0-abs(vort), 1.0-abs(vort), 1.0);
+        }else{
+            outColor = vec4(1.0-abs(vort),1.0-abs(vort), 1.0, 1.0);
+        }
+//        outColor = vec4(vort >= 0.0 ? 1.0 - abs(vort) : 1.0, vort < 0.0 ? 1.0 - abs(vort) : 1.0, 1.0, 1.0);
+//        outColor = vec4(vort >= 0.0 ? 1.0 - abs(vort) : 1.0, vort < 0.0 ? 1.0 - abs(vort) : 1.0, 1.0, 1.0);
+//        outColor = vec4(length(vel)/10.0, 0.0, 0.0, 1.0);
+//        outColor = vec4(color.y, 1.0, color.z, 1.0);
         return;
     }
 
-    if((uint(ubo.u_time) % 10000u > 5000u || true) && true){
-//        if(vorticity < 0.0){
-//            outColor = vec4(1.0,1.0,1.0,0.0) - jet(abs(vorticity) *10.0);
-//        }else{
-//            outColor = jet(abs(vorticity) *10.0);
-//        }
-        vec4 temp_color= jet(abs(vorticity));
-        if (vorticity < 0.0){
-            temp_color.xyz *= 0.5;
-        }
-        outColor = temp_color;
-
-
-    }else{
-        outColor = vec4(abs(color.x) *10.0, abs(color.y)*10.0, 0.0, 1.0);
-    }
-
-//
-//    outColor = vec4(max(color.r - 1000.0, 0.0)/10.0, 0.0,0.0,1.0);
-//    outColor = vec4(color.r, abs(color.g), abs(color.b), 1.0);
 }

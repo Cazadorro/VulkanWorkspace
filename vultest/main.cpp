@@ -280,7 +280,7 @@ int main() {
 
     features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
     features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
-    features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
+//    features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
 
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;
@@ -378,8 +378,8 @@ int main() {
 
     surface.createSwapchain(swapchainBuilder);
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
-                                               device,
-                                               VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT).assertValue();
+                                               device/*,
+                                               VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT*/).assertValue();
 
     const std::int32_t maxFramesInFlight = 2;
     std::uint64_t currentFrameIndex = 0;
@@ -429,14 +429,14 @@ int main() {
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
 
 
-//    pipelineBuilder.setVertexBinding<Vertex>(0);
+    pipelineBuilder.setVertexBinding<Vertex>(0);
     pipelineBuilder.setPrimitiveStateInfo(
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
             surface.getSwapchain()->getExtent());
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
-    pipelineBuilder.setDefaultRasterizationState();
+    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
     VkPipelineColorBlendAttachmentState blendState = {};
@@ -453,9 +453,9 @@ int main() {
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
         auto vertexShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d_test.vert.spv")).assertValue();
+                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
         auto fragmentShader = device.createShaderModule(
-                vul::readSPIRV("spirv/lbm2d_test.frag.spv")).assertValue();
+                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
@@ -537,7 +537,9 @@ int main() {
 
 
     gul::StbImage pixels;
-    gul::load("../../textures/texture.jpg", pixels,
+//    gul::load("../../textures/texture.jpg", pixels,
+//              gul::StbImage::Channels::rgb_alpha);
+    gul::load("../../textures/texture2.png", pixels,
               gul::StbImage::Channels::rgb_alpha);
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
@@ -876,14 +878,15 @@ int main() {
                         VkRect2D{{0, 0}, extent},
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
-//                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
-//                commandBuffer.bindIndexBuffer(indexBuffer,
-//                                              vul::IndexType::Uint16);
+                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
+                commandBuffer.bindIndexBuffer(indexBuffer,
+                                              vul::IndexType::Uint16);
                 commandBuffer.bindDescriptorSets(
                         vul::PipelineBindPoint::Graphics, pipelineLayout,
                         descriptorSets[swapchainImageIndex]);
-//                renderPassBlock.drawIndexed(indices.size());
-                renderPassBlock.draw(36);
+                renderPassBlock.drawIndexed(indices.size());
+
+//                renderPassBlock.draw(36);
                 ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                                 commandBuffer.get());
             }
@@ -917,6 +920,7 @@ int main() {
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
                 vul::PipelineStageFlagBits2KHR::AllCommandsBit);
         auto commandBufferInfo = commandBuffer.createSubmitInfo();
+
 
         VkSubmitInfo2KHR submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;

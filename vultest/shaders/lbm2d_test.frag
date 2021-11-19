@@ -9,11 +9,12 @@ layout(location = 0) out vec4 outColor;
 
 void main() {
     outColor = texture(texSampler, fragTexCoord);
-    if (test_color == 32){
-        outColor = vec4(0.5, 0.5, 0.5, 1.0);
-    } else if (test_color == 354){
-        outColor = vec4(1.0, 0.5, 0.5, 1.0);
-}else{
-        outColor = vec4(0.0,0.0,0.0,1.0);
-    }
+    outColor = vec4(1.0,1.0,1.0,1.0);
+//    if (test_color == 32){
+//        outColor = vec4(0.5, 0.5, 0.5, 1.0);
+//    } else if (test_color == 354){
+//        outColor = vec4(1.0, 0.5, 0.5, 1.0);
+//}else{
+//        outColor = vec4(0.0,0.0,0.0,1.0);
+//    }
 }
