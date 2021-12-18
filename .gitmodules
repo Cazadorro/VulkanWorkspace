@@ -25,3 +25,6 @@
 [submodule "external/fmt"]
 	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "external/enkiMI"]
+	path = external/enkiMI
+	url = https://github.com/dougbinks/enkiMI.git

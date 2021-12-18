@@ -1,0 +1,251 @@
+#version 450
+////https://www.khronos.org/blog/vulkan-subgroup-tutorial
+//#extension GL_ARB_separate_shader_objects : enable
+//#extension GL_KHR_shader_subgroup_vote: enable
+//#extension GL_KHR_shader_subgroup_ballot: enable
+//#extension GL_KHR_shader_subgroup_arithmetic: enable
+//#extension GL_KHR_shader_subgroup_shuffle: enable
+//#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+//#extension GL_KHR_shader_subgroup_clustered
+//#extension GL_KHR_shader_subgroup_quad
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+#include "mathutils.glsl"
+#include "basicreftypes.glsl"
+#include "bitmask.glsl"
+
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+const uint LBM_DIR_COUNT = 9;
+const uint LBM_IDX_NW = 0;
+const uint LBM_IDX_NM = 1;
+const uint LBM_IDX_NE = 2;
+const uint LBM_IDX_WW = 3;
+const uint LBM_IDX_MM = 4;
+const uint LBM_IDX_EE = 5;
+const uint LBM_IDX_SW = 6;
+const uint LBM_IDX_SM = 7;
+const uint LBM_IDX_SE = 8;
+
+float cardinal_weight = 1.0/9.0;
+float ordinal_weight = 1.0/36.0;
+float middle_weight = 4.0/9.0;
+
+float weights[LBM_DIR_COUNT] = float[](
+ordinal_weight, cardinal_weight, ordinal_weight,
+cardinal_weight, middle_weight, cardinal_weight,
+ordinal_weight, cardinal_weight, ordinal_weight
+);
+
+uint opposite_idxs[LBM_DIR_COUNT] = uint[](
+LBM_IDX_SE, LBM_IDX_SM, LBM_IDX_SW,
+LBM_IDX_EE, LBM_IDX_MM, LBM_IDX_WW,
+LBM_IDX_NE, LBM_IDX_NM, LBM_IDX_NW
+);
+
+ivec2 stream_offsets[LBM_DIR_COUNT] = ivec2[](
+ivec2(-1, -1), ivec2(0, -1), ivec2(1, -1),
+ivec2(-1, 0), ivec2(0, 0), ivec2(1, 0),
+ivec2(-1, 1), ivec2(0, 1), ivec2(1, 1)
+);
+
+vec2 velocities[LBM_DIR_COUNT] = vec2[](
+vec2(-1.0, -1.0), vec2(0.0, -1.0), vec2(1.0, -1.0),
+vec2(-1.0, 0.0), vec2(0.0, 0.0), vec2(1.0, 0.0),
+vec2(-1.0, 1.0), vec2(0.0, 1.0), vec2(1.0, 1.0)
+);
+
+uint toLinear(ivec2 pos, uint width){
+    return pos.y * width + pos.x;
+}
+
+bool inBounds(uvec2 pos, uvec2 dims){
+    return pos.x < dims.x && pos.y < dims.y;
+}
+
+bool inBounds(ivec2 pos, ivec2 dims){
+    return pos.x >= 0 &&  pos.y >= 0 && pos.x < dims.x && pos.y < dims.y;
+}
+
+////TODO see if this can fit inside an include instead?
+//layout(buffer_reference, buffer_reference_align=4, scalar) buffer float32_array{
+//    float32_t data[];
+//};
+
+//should be 8 + 8 + 8 aligned?
+layout(set = 0, binding = 0, std430) uniform LbmParameters{
+    uint u_width;
+    uint u_height;
+    float u_tau;
+    float u_padding;
+    float32_array u_lbm_arrays[2];
+    uint32_array u_bitmask;
+};
+
+layout(set = 0, binding=1, RGBA32F) uniform image2D output_visualization[];
+
+
+layout(push_constant) uniform PushConstantBlock{
+    uint u_iteration_idx;
+    uint u_imageoutput_idx;
+
+//    vec2 u_click_coordinate;
+//
+//    uint radius;
+//    uint activate;
+//
+//    float amount;
+//    vec2 direction;
+};
+
+float32_array getInput(){
+    return u_lbm_arrays[u_iteration_idx % 2];
+}
+
+float32_array getOutput(){
+    return u_lbm_arrays[(u_iteration_idx+1) % 2];
+}
+
+float getInputFor(uint frame, ivec2 pos){
+    uint frame_offset = (u_width * u_height) * frame;
+
+    return getInput().data[frame_offset + toLinear(pos + -stream_offsets[frame], u_width)];
+}
+float getBounceInputFor(uint frame, ivec2 pos){
+    uint opposite_frame = opposite_idxs[frame];
+    uint frame_offset = (u_width * u_height) * opposite_frame;
+    return getInput().data[frame_offset + toLinear(pos, u_width)];
+}
+
+float getCheckedInputFor(uint frame, ivec2 pos, ivec2 dims){
+    if (inBounds(pos + -stream_offsets[frame], dims) && (!get(u_bitmask, pos + -stream_offsets[frame], dims))){
+        return getInputFor(frame, pos);
+    } else {
+        return getBounceInputFor(frame, pos);
+    }
+}
+
+void setInput(uint frame, uint linear_idx, float value){
+    uint frame_offset = (u_width * u_height) * frame;
+    getOutput().data[frame_offset + linear_idx] = value;
+}
+
+
+void main(){
+    uint x_idx = gl_GlobalInvocationID.x;
+    uint x = x_idx % u_width;
+    uint y = x_idx / u_width;
+    ivec2 pos = ivec2(x, y);
+    ivec2 dims = ivec2(u_width, u_height);
+    if (x > u_width || y > u_height || get(u_bitmask, pos, dims)){
+        if(!(x > u_width || y > u_height) && get(u_bitmask, pos, dims)){
+            imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0));
+        }
+        return;
+    }
+
+    float streamed[LBM_DIR_COUNT] = {
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f
+    };
+
+
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+        streamed[i] = getCheckedInputFor(i, pos, dims);
+    }
+    float middle = streamed[LBM_IDX_MM];
+    float spread_ammount = middle/128.0;
+    if (pos.x == u_width/2 && pos.y == u_width/2 && false){
+        for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+            if(i == LBM_IDX_MM){
+                streamed[i] -= spread_ammount;
+            }else if(i == LBM_IDX_NM){
+                streamed[i] += spread_ammount/8.0;
+            }else{
+                streamed[i] += spread_ammount/8.0;
+            }
+        }
+    }
+
+    //assumes speed of sound is 1/sqrt(3)
+    float density = 0;
+    vec2 momentum = vec2(0.0, 0.0);
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+        vec2 c_i = velocities[i];
+        float value = streamed[i];
+        momentum += c_i * value;
+        density += value;
+    }
+
+    vec2 velocity;
+    if(density != 0.0){
+        velocity = momentum / density;
+    }else{
+        velocity = vec2(0.0);
+    }
+    float mass_conservation_sum = 0.0;
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+        float w_i = weights[i];
+        vec2 c_i = velocities[i];
+        float cu_i = dot(c_i, velocity);
+        float uu = dot(velocity, velocity);
+        //actually a -3/2 instead of +
+        float f_eq = w_i * density * (1 + 3 *cu_i + (9.0/2.0) * pow2(cu_i) - (3.0/2.0) * pow2(uu));
+        streamed[i] = max(streamed[i] * (1.0 - (1/u_tau)) + f_eq*(1/u_tau), 0.0);
+        mass_conservation_sum += streamed[i];
+    }
+    if(mass_conservation_sum != density){
+        for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+            streamed[i] *= density / mass_conservation_sum;
+        }
+    }
+
+    middle = streamed[LBM_IDX_MM];
+    for (uint i = 0; i < LBM_DIR_COUNT; ++i){
+        if (pos.x == u_width/2 && pos.y == u_width/2 && false){
+            if(i == LBM_IDX_MM){
+                setInput(i, x_idx, middle - middle/8.0);
+            }else{
+                setInput(i, x_idx, streamed[i] + middle/16.0);
+            }
+        } else {
+            setInput(i, x_idx, streamed[i]);
+        }
+    }
+//
+
+//    float curl = (streamed[LBM_IDX_SM] - streamed[LBM_IDX_NM]) - (streamed[LBM_IDX_EE] - streamed[LBM_IDX_WW]);
+    float curl = ((streamed[LBM_IDX_SM] + streamed[LBM_IDX_SE] + streamed[LBM_IDX_SW]) - (streamed[LBM_IDX_NM] + streamed[LBM_IDX_NE] + streamed[LBM_IDX_NW]))
+    - ((streamed[LBM_IDX_EE] + streamed[LBM_IDX_NE] + streamed[LBM_IDX_SE]) - (streamed[LBM_IDX_WW] + streamed[LBM_IDX_NW] + streamed[LBM_IDX_SW]));
+    if (isinf(velocity.x) || isinf(velocity.y) || isinf(density)){
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.5, 0.5, 0.5, 1.0));
+    }
+    else if (isnan(velocity.x) || isnan(velocity.y) || isnan(density)){
+        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(0.5, 0.5, 0.5, 1.0));
+    } else {
+//        imageStore(output_visualization[u_imageoutput_idx], pos, vec4(max(density - 10.0, 0.0) * 10.0, abs(velocity.x*(10.0/u_tau)), abs(velocity.y*(10.0/u_tau)), 1.0));
+        if(curl < 0.0){
+            imageStore(output_visualization[u_imageoutput_idx], pos, vec4(max(density - 1000.0, 0.0) * 0.01, abs(curl) * 10.0, 0.0, 1.0));
+        }else{
+            imageStore(output_visualization[u_imageoutput_idx], pos, vec4(max(density - 1000.0, 0.0) * 0.01, 0.0, abs(curl) * 10.0, 1.0));
+        }
+
+    }
+    //imageStore(output_visualization[u_imageoutput_idx], ivec2(128,128), vec4(1.0,0.0,1.0,1.0));
+}

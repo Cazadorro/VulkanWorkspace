@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul sources/vul/extensionfunctions.h sources/vul/extensionfunctions.cpp sources/vul/vkstructutils.cpp sources/vul/vkstructutils.h sources/vul/tempvoidarrayproxy.cpp sources/vul/tempvoidarrayproxy.h sources/vul/traitutils.h)
+add_library(vul)
 target_sources(vul PRIVATE
         sources/vul/instance.cpp
         sources/vul/instance.h
@@ -79,7 +79,14 @@ target_sources(vul PRIVATE
         sources/vul/image.cpp
         sources/vul/image.h
         sources/vul/ioutils.cpp
-        sources/vul/ioutils.h)
+        sources/vul/ioutils.h
+        sources/vul/extensionfunctions.h
+        sources/vul/extensionfunctions.cpp
+        sources/vul/vkstructutils.cpp
+        sources/vul/vkstructutils.h
+        sources/vul/tempvoidarrayproxy.cpp
+        sources/vul/tempvoidarrayproxy.h
+        sources/vul/traitutils.h)
 target_sources(vul PRIVATE
         ./generated_sources/vul/bitmasks.cpp
         ./generated_sources/vul/enums.cpp

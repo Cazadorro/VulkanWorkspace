@@ -48,3 +48,8 @@ add_subdirectory(vulvoxel)
 #add_subdirectory(vulparsetest)
 add_subdirectory(vullbmtesting)
 add_subdirectory(vullbm2dcpu)
+add_subdirectory(vulraytracingweekend)
+
+#add_subdirectory(external/enkiMI)
+#add_subdirectory(chunk_compression_testing)
+

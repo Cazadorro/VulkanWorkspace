@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(gul STATIC gul/collision.cpp gul/collision.h ../vullbmtesting/seconds.cpp)
+add_library(gul STATIC gul/collision.cpp gul/collision.h)
 target_sources(gul
         PRIVATE
         ./gul/glfwwindow.cpp
