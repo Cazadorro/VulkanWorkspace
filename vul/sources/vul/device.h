@@ -5,13 +5,19 @@
 #ifndef VULKANWORKSPACE_DEVICE_H
 #define VULKANWORKSPACE_DEVICE_H
 
-#include"vul/physicaldevice.h"
+#include "vul/physicaldevice.h"
 #include "vul/bitmasks.h"
-#include"vul/debugutils.h"
-#include<vulkan/vulkan.h>
-#include<vector>
-#include<optional>
-#include<unordered_map>
+#include "vul/debugutils.h"
+#include "vul/threadsafequeue.h"
+#include "vul/semaphoreownershiptracker.h"
+
+
+#include <vulkan/vulkan.h>
+#include <vector>
+#include <optional>
+#include <unordered_map>
+#include <functional>
+
 
 namespace vul {
     class PhysicalDevice;
@@ -64,7 +70,7 @@ namespace vul {
         VkDevice get() const;
 
         [[nodiscard]]
-        Queue getQueue(std::uint32_t index)const;
+        Queue getQueue(std::uint32_t index) const;
 
         [[nodiscard]]
         std::optional<Queue> getQueueAt(std::uint32_t index);
@@ -144,6 +150,7 @@ namespace vul {
                           vul::CommandPoolCreateBitMask flags = {},
                           const void *pNext = nullptr,
                           const VkAllocationCallbacks *pAllocator = nullptr) const;
+
         [[nodiscard]]
         ExpectedResult<Framebuffer>
         createFramebuffer(
@@ -154,6 +161,7 @@ namespace vul {
                 vul::FramebufferCreateBitMask flags = {},
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
+
         [[nodiscard]]
         ExpectedResult<Framebuffer>
         createFramebuffer(
@@ -180,7 +188,7 @@ namespace vul {
         ExpectedResult<Framebuffer>
         createFramebuffer(
                 const RenderPass &renderPass,
-                const TempArrayProxy<const ImageView*> &imageViews,
+                const TempArrayProxy<const ImageView *> &imageViews,
                 VkExtent2D widthHeight,
                 std::uint32_t layers = 1,
                 vul::FramebufferCreateBitMask flags = {},
@@ -191,6 +199,7 @@ namespace vul {
 
         ~Device();
 
+        //TODO don't know how this works with objects that used this device already?
         Device(Device &&rhs) noexcept;
 
 //        was noexcept?
@@ -234,14 +243,24 @@ namespace vul {
              vul::SemaphoreWaitBitMask waitFlags = {},
              const void *pNext = nullptr) const;
 
-        void updateDescriptorSets(const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites) const;
-        void updateDescriptorSets(const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites, const TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const;
+        void updateDescriptorSets(
+                const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites) const;
+
+        void updateDescriptorSets(
+                const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites,
+                const TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const;
+
+        //TODO should probably be in its own class? const to get around mutability
+        [[nodiscard]]
+        SemaphoreOwnershipTracker& getSemaphoreOwnershipTracker() const;
     private:
         PhysicalDevice m_physicalDevice;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkDevice m_handle = VK_NULL_HANDLE;
         std::vector<QueueFamilyIndexMapping> m_queueFamilyIndexMappings;
         std::vector<std::uint8_t> m_queueInUseMask;
+        //TODO easiest way to still enable move construction/assignment, maybe make it so the class can handle this itself in the future?
+        mutable std::unique_ptr<SemaphoreOwnershipTracker> m_pSemaphoreOwnershipTracker;
     };
 }
 

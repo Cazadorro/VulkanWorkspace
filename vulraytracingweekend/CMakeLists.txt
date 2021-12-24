@@ -11,6 +11,8 @@ target_compile_options(vulraytracingweekend PRIVATE
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g -ggdb -fuse-ld=lld>)
 
 target_shader_postbuild(vulraytracingweekend
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/lbm2d.comp
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/add_shader.comp
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/raytrace.comp
         )
 

@@ -36,8 +36,9 @@ add_subdirectory(external/pugixml)
 add_subdirectory(external/range)
 add_subdirectory(external/vma)
 add_subdirectory(external/stb)
+add_subdirectory(external/abseil)
 
-add_subdirectory(external/glslang)
+#add_subdirectory(external/glslang)
 
 add_subdirectory(vulgenerated)
 add_subdirectory(vul)

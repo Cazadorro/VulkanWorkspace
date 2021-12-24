@@ -755,7 +755,7 @@ int main() {
         auto updateBuilder = raytracingLayoutBuilder.createUpdateBuilder();
 
         updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
-                {raytracingParameterBuffer.createDescriptorInfo()});
+                {raytracingParameterBuffers[0].createDescriptorInfo()});
         updateBuilder.getDescriptorElementAt(1).setStorageImage(
                 swapchainImageViews | views::transform(
                         [](auto &value) { return value.createStorageWriteInfo(); }) |

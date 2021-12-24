@@ -57,8 +57,10 @@ vul::ImageViewBuilder::subresourceRange(SubresourceRange value) {
 vul::ExpectedResult<vul::ImageView>
 vul::ImageViewBuilder::create() const {
     VkImageView imageView;
-    auto result = static_cast<Result>(vkCreateImageView(m_pDevice->get(), &m_createInfo,
-                                    m_pAllocator, &imageView));
+    auto result = static_cast<Result>(vkCreateImageView(m_pDevice->get(),
+                                                        &m_createInfo,
+                                                        m_pAllocator,
+                                                        &imageView));
     return {result, ImageView(*m_pDevice, imageView, m_pAllocator)};
 }
 
@@ -67,13 +69,16 @@ vul::ImageViewBuilder::create(VkImage image) const {
     auto createInfo = m_createInfo;
     createInfo.image = image;
     VkImageView imageView;
-    auto result = static_cast<Result>(vkCreateImageView(m_pDevice->get(), &createInfo,
-                                                        m_pAllocator, &imageView));
+    auto result = static_cast<Result>(vkCreateImageView(m_pDevice->get(),
+                                                        &createInfo,
+                                                        m_pAllocator,
+                                                        &imageView));
     return {result, ImageView(*m_pDevice, imageView, m_pAllocator)};
 }
 
 vul::ImageView::ImageView(const vul::Device &device, VkImageView handle,
-                          const VkAllocationCallbacks *pAllocator) : m_pDevice(&device), m_handle(handle), m_pAllocator(pAllocator) {
+                          const VkAllocationCallbacks *pAllocator) : m_pDevice(
+        &device), m_handle(handle), m_pAllocator(pAllocator) {
 
 }
 
@@ -93,8 +98,18 @@ vul::ImageView &vul::ImageView::operator=(vul::ImageView &&rhs) noexcept {
 }
 
 vul::ImageView::~ImageView() {
-    if(m_handle != VK_NULL_HANDLE) {
-        vkDestroyImageView(m_pDevice->get(), m_handle, m_pAllocator);
+    if (m_handle != VK_NULL_HANDLE) {
+        auto objectID = reinterpret_cast<std::uintptr_t>(m_handle);
+        if (m_pDevice->getSemaphoreOwnershipTracker().objectUsedInQueue(
+                objectID)) {
+            m_pDevice->getSemaphoreOwnershipTracker().addDeletedObject(
+                    objectID,
+                    [device = m_pDevice->get(), handle = m_handle, allocator = m_pAllocator]() mutable {
+                        vkDestroyImageView(device, handle, allocator);
+                    });
+        } else {
+            vkDestroyImageView(m_pDevice->get(), m_handle, m_pAllocator);
+        }
     }
 }
 
@@ -122,5 +137,5 @@ VkDescriptorImageInfo vul::ImageView::createDescriptorInfo(VkSampler sampler,
 }
 
 vul::SubresourceRange::operator VkImageSubresourceRange() const {
-    return *reinterpret_cast<const VkImageSubresourceRange*>(this);
+    return *reinterpret_cast<const VkImageSubresourceRange *>(this);
 }

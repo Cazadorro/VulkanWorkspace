@@ -233,6 +233,9 @@ int main() {
     features.getPhysicalDeviceFeatures().shaderInt64 = VK_TRUE;
     features.getPhysicalDeviceFeatures().shaderInt16 = VK_TRUE;
 
+    features.physicalDeviceVulkan11Features.variablePointers = VK_TRUE;
+    features.physicalDeviceVulkan11Features.variablePointersStorageBuffer = VK_TRUE;
+
     features.physicalDeviceVulkan11Features.storageBuffer16BitAccess = VK_TRUE;
     features.physicalDeviceVulkan11Features.uniformAndStorageBuffer16BitAccess = VK_TRUE;
     features.physicalDeviceVulkan11Features.storagePushConstant16 = VK_TRUE;

@@ -16,8 +16,18 @@ vul::Buffer::Buffer(vul::VmaAllocation && allocation, VkBuffer handle,
 }
 vul::Buffer::~Buffer() {
     if (m_allocation.get() != VK_NULL_HANDLE) {
-        m_allocation.unmapAllCounts();
-        vmaDestroyBuffer(m_allocation.getAllocator().get(), m_handle, m_allocation.get());
+        auto objectID = reinterpret_cast<std::uintptr_t>(m_handle);
+        if(getDevice().getSemaphoreOwnershipTracker().objectUsedInQueue(objectID)){
+            getDevice().getSemaphoreOwnershipTracker().addDeletedObject(objectID, [allocation = std::move(m_allocation), handle = m_handle]() mutable{
+                allocation.unmapAllCounts();
+                vmaDestroyBuffer(allocation.getAllocator().get(), handle,
+                                 allocation.get());
+            });
+        }else {
+            m_allocation.unmapAllCounts();
+            vmaDestroyBuffer(m_allocation.getAllocator().get(), m_handle,
+                             m_allocation.get());
+        }
     }
 }
 

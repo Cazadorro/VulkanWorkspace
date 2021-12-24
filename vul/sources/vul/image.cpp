@@ -42,9 +42,19 @@ const VkImageSubresourceLayers &vul::ImageSubresourceLayers::get() const {
 
 vul::Image::~Image() {
     if (m_allocation.get() != VK_NULL_HANDLE) {
-        m_allocation.unmapAllCounts();
-        vmaDestroyImage(m_allocation.getAllocator().get(), m_handle,
-                        m_allocation.get());
+        auto objectID = reinterpret_cast<std::uintptr_t>(m_handle);
+        if(getDevice().getSemaphoreOwnershipTracker().objectUsedInQueue(objectID)){
+            getDevice().getSemaphoreOwnershipTracker().addDeletedObject(objectID, [allocation = std::move(m_allocation), handle = m_handle]() mutable{
+                allocation.unmapAllCounts();
+                vmaDestroyImage(allocation.getAllocator().get(), handle,
+                                 allocation.get());
+            });
+        }else {
+            m_allocation.unmapAllCounts();
+            vmaDestroyImage(m_allocation.getAllocator().get(), m_handle,
+                            m_allocation.get());
+        }
+
     }
 }
 

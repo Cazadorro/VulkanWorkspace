@@ -27,7 +27,8 @@ vul::Device::Device(const vul::PhysicalDevice &physicalDevice, VkDevice handle,
           m_pAllocator(pAllocator),
           m_handle(handle),
           m_queueFamilyIndexMappings(std::move(queueFamilyIndexMappings)),
-          m_queueInUseMask(m_queueFamilyIndexMappings.size(), 0) {
+          m_queueInUseMask(m_queueFamilyIndexMappings.size(), 0),
+          m_pSemaphoreOwnershipTracker(std::make_unique<SemaphoreOwnershipTracker>(*this)){
 
 }
 
@@ -71,6 +72,7 @@ vul::Device::Device(vul::Device &&rhs) noexcept {
     swap(m_handle, rhs.m_handle);
     swap(m_queueFamilyIndexMappings, rhs.m_queueFamilyIndexMappings);
     swap(m_queueInUseMask, rhs.m_queueInUseMask);
+    swap(m_pSemaphoreOwnershipTracker, rhs.m_pSemaphoreOwnershipTracker);
 }
 
 vul::Device &vul::Device::operator=(vul::Device &&rhs) noexcept {
@@ -80,6 +82,7 @@ vul::Device &vul::Device::operator=(vul::Device &&rhs) noexcept {
     swap(m_handle, rhs.m_handle);
     swap(m_queueFamilyIndexMappings, rhs.m_queueFamilyIndexMappings);
     swap(m_queueInUseMask, rhs.m_queueInUseMask);
+    swap(m_pSemaphoreOwnershipTracker, rhs.m_pSemaphoreOwnershipTracker);
     return *this;
 }
 
@@ -141,7 +144,7 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
 
     std::vector<VkDescriptorPoolSize> poolSizes;
     std::uint32_t setCount = 0;
-    for (const auto&[builder, count] : layoutBuilders) {
+    for (const auto&[builder, count]: layoutBuilders) {
         auto newPoolSizes = builder.calcPoolSizes(count);
         setCount += count;
         poolSizes.insert(poolSizes.begin(), newPoolSizes.begin(),
@@ -353,7 +356,11 @@ vul::ExpectedResult<vul::ShaderModule> vul::Device::createShaderModule(
     return {result, ShaderModule(*this, shaderModule, pAllocator)};
 }
 
-vul::ExpectedResult<vul::CommandPool> vul::Device::createCommandPool(std::uint32_t queueFamilyIndex, vul::CommandPoolCreateBitMask flags, const void * pNext,  const VkAllocationCallbacks *pAllocator) const {
+vul::ExpectedResult<vul::CommandPool>
+vul::Device::createCommandPool(std::uint32_t queueFamilyIndex,
+                               vul::CommandPoolCreateBitMask flags,
+                               const void *pNext,
+                               const VkAllocationCallbacks *pAllocator) const {
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.pNext = pNext;
@@ -361,7 +368,9 @@ vul::ExpectedResult<vul::CommandPool> vul::Device::createCommandPool(std::uint32
     poolInfo.queueFamilyIndex = queueFamilyIndex;
 
     VkCommandPool commandPool;
-    auto result = static_cast<Result>(vkCreateCommandPool(m_handle, &poolInfo, pAllocator, &commandPool));
+    auto result = static_cast<Result>(vkCreateCommandPool(m_handle, &poolInfo,
+                                                          pAllocator,
+                                                          &commandPool));
 
     return {result, CommandPool(*this, commandPool, pAllocator)};
 }
@@ -375,8 +384,9 @@ vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                const VkAllocationCallbacks *pAllocator) const {
     auto rawImageViews = imageViews | ranges::views::transform(
             [](auto &imageView) { return imageView.get().get(); }) |
-                      ranges::to<std::vector>();
-    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
+                         ranges::to<std::vector>();
+    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers,
+                             flags, pNext, pAllocator);
 }
 
 vul::ExpectedResult<vul::Framebuffer>
@@ -389,7 +399,8 @@ vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
     auto rawImageViews = imageViews | ranges::views::transform(
             [](auto &imageView) { return imageView.get(); }) |
                          ranges::to<std::vector>();
-    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
+    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers,
+                             flags, pNext, pAllocator);
 }
 
 vul::ExpectedResult<vul::Framebuffer>
@@ -402,7 +413,8 @@ vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
     auto rawImageViews = imageViews | ranges::views::transform(
             [](auto &imageView) { return imageView->get(); }) |
                          ranges::to<std::vector>();
-    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
+    return createFramebuffer(renderPass, rawImageViews, widthHeight, layers,
+                             flags, pNext, pAllocator);
 }
 
 vul::ExpectedResult<vul::Framebuffer>
@@ -440,8 +452,14 @@ void vul::Device::updateDescriptorSets(
 void vul::Device::updateDescriptorSets(
         const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites,
         const vul::TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const {
-    vkUpdateDescriptorSets(m_handle, descriptorWrites.size(), descriptorWrites.data(), descriptorCopies.size(), descriptorCopies.data());
+    vkUpdateDescriptorSets(m_handle, descriptorWrites.size(),
+                           descriptorWrites.data(), descriptorCopies.size(),
+                           descriptorCopies.data());
 }
 
+vul::SemaphoreOwnershipTracker &
+vul::Device::getSemaphoreOwnershipTracker() const {
+    return *m_pSemaphoreOwnershipTracker;
+}
 
 

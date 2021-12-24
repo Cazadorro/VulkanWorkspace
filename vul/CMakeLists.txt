@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul)
+add_library(vul sources/vul/semaphoreownershiptracker.cpp sources/vul/semaphoreownershiptracker.h sources/vul/unique_function.h)
 target_sources(vul PRIVATE
         sources/vul/instance.cpp
         sources/vul/instance.h
@@ -86,7 +86,9 @@ target_sources(vul PRIVATE
         sources/vul/vkstructutils.h
         sources/vul/tempvoidarrayproxy.cpp
         sources/vul/tempvoidarrayproxy.h
-        sources/vul/traitutils.h)
+        sources/vul/traitutils.h
+        sources/vul/threadsafequeue.cpp
+        sources/vul/threadsafequeue.h)
 target_sources(vul PRIVATE
         ./generated_sources/vul/bitmasks.cpp
         ./generated_sources/vul/enums.cpp
@@ -117,10 +119,13 @@ target_link_libraries(vul
         Microsoft.GSL::GSL
         range-v3::range-v3
         pugixml::pugixml
+        absl::flat_hash_map
+        absl::flat_hash_set
         )
 
 target_compile_options(vul PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g -ggdb>)
+target_compile_definitions(vul PUBLIC $<$<CONFIG:Debug>: VUL_DEBUG> $<$<CONFIG:Release>: VUL_RELEASE>)
 
 target_link_options (vul PRIVATE -fuse-ld=lld)

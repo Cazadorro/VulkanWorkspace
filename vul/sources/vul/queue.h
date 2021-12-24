@@ -19,6 +19,9 @@ namespace vul {
         Result setObjectName(const std::string &string);
 
         Result submit(const TempArrayProxy<const VkSubmitInfo2KHR>& submitInfos) const;
+        Result submit(const TempArrayProxy<const VkSubmitInfo2KHR>& submitInfos,
+                      const TempArrayProxy<const std::vector<uint64_t>>& objectHandlesList,
+                      const TempArrayProxy<const std::size_t> submitInfoFinishedSemaphoreIndexList) const;
 
         Queue(Queue &&rhs) noexcept = default;
 

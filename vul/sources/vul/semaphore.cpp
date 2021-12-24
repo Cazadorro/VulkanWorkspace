@@ -85,6 +85,7 @@ vul::TimelineSemaphore::operator=(vul::TimelineSemaphore &&rhs) noexcept {
 
 vul::TimelineSemaphore::~TimelineSemaphore() {
     if(m_handle != VK_NULL_HANDLE) {
+        m_pDevice->getSemaphoreOwnershipTracker().removeSemaphoreOwnership(*this);
         vkDestroySemaphore(m_pDevice->get(), m_handle, m_pAllocator);
     }
 }

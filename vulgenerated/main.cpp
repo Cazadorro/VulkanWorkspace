@@ -11,6 +11,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <filesystem>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan.hpp>
@@ -332,6 +333,13 @@ int main() {
 
     //TODO need a make directory thing here if doesn't exist.
     std::string output_dir = std::string(VUL_GEN_RESOURCE_PATH) + "/../vul/generated_sources/vul/";
+    auto generated_sources_path = std::filesystem::path(std::string(VUL_GEN_RESOURCE_PATH) + "/../vul/generated_sources/");
+    if(!std::filesystem::exists(generated_sources_path)){
+        std::filesystem::create_directory(generated_sources_path);
+    }
+    if(!std::filesystem::exists(output_dir)){
+        std::filesystem::create_directory(output_dir);
+    }
     std::ofstream enum_forward_file(output_dir + "enumsfwd.h");
     std::ofstream enum_header_file(output_dir + "enums.h");
     std::ofstream enum_source_file(output_dir + "enums.cpp");

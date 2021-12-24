@@ -29,7 +29,17 @@ VkPipeline vul::GraphicsPipeline::get() const {
 
 vul::GraphicsPipeline::~GraphicsPipeline() {
     if (m_handle != VK_NULL_HANDLE) {
-        vkDestroyPipeline(m_pDevice->get(), m_handle, m_pAllocator);
+        auto objectID = reinterpret_cast<std::uintptr_t>(m_handle);
+        if (m_pDevice->getSemaphoreOwnershipTracker().objectUsedInQueue(
+                objectID)) {
+            m_pDevice->getSemaphoreOwnershipTracker().addDeletedObject(
+                    objectID,
+                    [device = m_pDevice->get(), handle = m_handle, allocator = m_pAllocator]() mutable {
+                        vkDestroyPipeline(device, handle, allocator);
+                    });
+        } else {
+            vkDestroyPipeline(m_pDevice->get(), m_handle, m_pAllocator);
+        }
     }
 }
 

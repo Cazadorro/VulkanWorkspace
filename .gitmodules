@@ -28,3 +28,6 @@
 [submodule "external/enkiMI"]
 	path = external/enkiMI
 	url = https://github.com/dougbinks/enkiMI.git
+[submodule "external/abseil"]
+	path = external/abseil
+	url = https://github.com/abseil/abseil-cpp.git

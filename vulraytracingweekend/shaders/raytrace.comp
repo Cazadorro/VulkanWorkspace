@@ -42,19 +42,29 @@ struct RayTracingParameters{
     vec3 m_padding;
 };
 
+//layout(set = 0, binding = 0, std430) uniform LbmParameters{
+//    uint u_width;
+//    uint u_height;
+//
+//    float u_tau;
+//    float u_dt;
+//
+//    float u_trt_wp;
+//    float u_trt_wn;
+//
+//    float u_init_density;
+//    float u_padding_0;
+//
+//    uint32_array u_bitmask;
+//    float32_array u_lbm_arrays[2];
+//
+//};
 //should be 8 + 8 + 8 aligned?
-layout(set = 0, binding = 0, std430) uniform RayTracingParameters{
+layout(set = 0, binding = 0, std430) uniform RayTracingParametersBlock{
     RayTracingParameters u_rt_parameters;
 } raytracingParameters[];
 
-uvec2 pixel_from_linear(uint linear_idx){
-    return uvec2(
-    linear_idx % raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width,
-    x_idx / raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width);
-}
-bool pixel_within_image(uvec2 pixel_idx){
-    return (pixel_idx.x < raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width && pixel_idx.y < raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.height);
-}
+
 
 layout(set = 0, binding=1, rgba8) uniform image2D output_image[];
 
@@ -63,15 +73,23 @@ layout(push_constant) uniform PushConstantBlock{
 
 };
 
-
+uvec2 pixel_from_linear(uint linear_idx){
+    return uvec2(
+    linear_idx % raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width,
+    linear_idx / raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width);
+}
+bool pixel_within_image(uvec2 pixel_idx){
+    return (pixel_idx.x < raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width && pixel_idx.y < raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.height);
+}
 void main(){
     uint tidx = gl_GlobalInvocationID.x;
     uvec2 pixel_idx = pixel_from_linear(tidx);
     ivec2 pos = ivec2(pixel_idx);
-    ivec2 dims = ivec2(u_width, u_height);
+    ivec2 dims = ivec2(raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width, raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.height);
     if(!pixel_within_image(pixel_idx)){
         return;
     }
+
     imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, vec4(1.0));
 //    if (pixel_idx.x > u_width || pixel_idx.y > u_height || get(u_bitmask, pos, dims)){
 //        if(!(x > u_width || y > u_height) && get(u_bitmask, pos, dims)){
