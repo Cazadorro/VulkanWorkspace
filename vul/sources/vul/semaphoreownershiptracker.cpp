@@ -135,6 +135,7 @@ vul::SemaphoreOwnershipTracker::SemaphoreOwnershipTracker(
 }
 
 vul::SemaphoreOwnershipTracker::~SemaphoreOwnershipTracker() {
+    m_deletionQueue.finish();
     m_deletionThread.join();
 }
 

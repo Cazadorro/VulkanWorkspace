@@ -100,7 +100,7 @@ namespace vul {
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
         [[nodiscard]]
-        ExpectedResult<PipelineLayout> createPipelineLayout(
+        ExpectedResult<> createPipelineLayout(
                 const TempArrayProxy<const DescriptorSetLayout *> &setLayouts,
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
