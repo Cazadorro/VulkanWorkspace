@@ -15,6 +15,7 @@ target_compile_definitions(glm INTERFACE
         -DGLM_FORCE_DEPTH_ZERO_TO_ONE
         -DGLM_FORCE_LEFT_HANDED
         -DGLM_FORCE_SWIZZLE
+        -DGLM_FORCE_SILENT_WARNINGS
         )
 option(GLFW_BUILD_EXAMPLES "" OFF)
 option(GLFW_BUILD_TESTS "" OFF)
@@ -49,7 +50,8 @@ add_subdirectory(vulvoxel)
 add_subdirectory(vullbmtesting)
 add_subdirectory(vullbm2dcpu)
 add_subdirectory(vulraytracingweekend)
-
+add_executable(testmain testmain.cpp)
+target_link_libraries(testmain PRIVATE fmt::fmt)
 #add_subdirectory(external/enkiMI)
 #add_subdirectory(chunk_compression_testing)
 

@@ -241,9 +241,9 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
         vertexInputInfo.pNext = nullptr;
         vertexInputInfo.flags = {};
-        vertexInputInfo.vertexBindingDescriptionCount = inputBindingDescriptions.size();
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<std::uint32_t>(inputBindingDescriptions.size());
         vertexInputInfo.pVertexBindingDescriptions = inputBindingDescriptions.data();
-        vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.size();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<std::uint32_t>(attributeDescriptions.size());
         vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
     }else{
         vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -258,9 +258,9 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
 
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-    viewportState.viewportCount = m_viewports.size();
+    viewportState.viewportCount = static_cast<std::uint32_t>(m_viewports.size());
     viewportState.pViewports = m_viewports.data();
-    viewportState.scissorCount = m_scissors.size();
+    viewportState.scissorCount = static_cast<std::uint32_t>(m_scissors.size());
     viewportState.pScissors = m_scissors.data();
 
 
@@ -273,7 +273,7 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
         colorBlending.logicOpEnable = VK_FALSE;
         colorBlending.logicOp = VK_LOGIC_OP_COPY;
     }
-    colorBlending.attachmentCount = m_blendAttachmentStates.size();
+    colorBlending.attachmentCount = static_cast<std::uint32_t>(m_blendAttachmentStates.size());
     colorBlending.pAttachments = m_blendAttachmentStates.data();
     colorBlending.blendConstants[0] = m_blendConstants[0];
     colorBlending.blendConstants[1] = m_blendConstants[1];
@@ -284,7 +284,7 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
     dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicStateInfo.pNext = nullptr;
     dynamicStateInfo.flags = {};
-    dynamicStateInfo.dynamicStateCount = m_dynamicStates.size();
+    dynamicStateInfo.dynamicStateCount = static_cast<std::uint32_t>(m_dynamicStates.size());
     dynamicStateInfo.pDynamicStates = reinterpret_cast<const VkDynamicState *>(m_dynamicStates.data());
 
     VkPipelineTessellationStateCreateInfo tesselationStateInfo = {};
@@ -295,7 +295,7 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.flags = m_flags;
-    pipelineInfo.stageCount = m_shaderStages.size();
+    pipelineInfo.stageCount = static_cast<std::uint32_t>(m_shaderStages.size());
     pipelineInfo.pStages = m_shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
     pipelineInfo.pInputAssemblyState = &m_inputAssemblyInfo;

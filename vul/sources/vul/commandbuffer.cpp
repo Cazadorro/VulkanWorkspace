@@ -44,11 +44,11 @@ VkDependencyInfoKHR vul::createDependencyInfo(
     dependencyInfo.sType= VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
     dependencyInfo.pNext = pNext;
     dependencyInfo.dependencyFlags = dependencyFlags.to_underlying();
-    dependencyInfo.memoryBarrierCount = memoryBarriers.size();
+    dependencyInfo.memoryBarrierCount = static_cast<std::uint32_t>(memoryBarriers.size());
     dependencyInfo.pMemoryBarriers = memoryBarriers.data();
-    dependencyInfo.bufferMemoryBarrierCount = bufferMemoryBarriers.size();
+    dependencyInfo.bufferMemoryBarrierCount = static_cast<std::uint32_t>(bufferMemoryBarriers.size());
     dependencyInfo.pBufferMemoryBarriers = bufferMemoryBarriers.data();
-    dependencyInfo.imageMemoryBarrierCount = imageMemoryBarriers.size();
+    dependencyInfo.imageMemoryBarrierCount = static_cast<std::uint32_t>(imageMemoryBarriers.size());
     dependencyInfo.pImageMemoryBarriers = imageMemoryBarriers.data();
     return dependencyInfo;
 }
@@ -98,7 +98,7 @@ void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
                                     const vul::TempArrayProxy<const VkBufferCopy> &copyRegions) {
     vkCmdCopyBuffer(m_handle,
                     srcBuffer.get(),
-                    dstBuffer.get(), copyRegions.size(),
+                    dstBuffer.get(), static_cast<std::uint32_t>(copyRegions.size()),
                     copyRegions.data());
 }
 
@@ -147,7 +147,7 @@ void vul::CommandBuffer::copyBufferToImage(const vul::Buffer &srcBuffer,
                            srcBuffer.get(),
                            dstImage.get(),
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           copyRegions.size(),
+                           static_cast<std::uint32_t>(copyRegions.size()),
                            copyRegions.data());
 }
 
@@ -157,7 +157,7 @@ void vul::CommandBuffer::blitImage(const vul::Image &srcImage,
     vkCmdBlitImage(m_handle,
                    srcImage.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                    dstImage.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                   blitRegions.size(), blitRegions.data(),
+                   static_cast<std::uint32_t>(blitRegions.size()), blitRegions.data(),
                    VK_FILTER_LINEAR);
 }
 
@@ -198,7 +198,7 @@ void vul::CommandBuffer::bindVertexBuffers(
         const vul::TempArrayProxy<const VkDeviceSize> &offsets,
         std::uint32_t firstBinding) {
     VUL_ASSERT(buffers.size() == offsets.size(), "Expected buffers count to be the same as offsets");
-    vkCmdBindVertexBuffers(m_handle, firstBinding, buffers.size(), buffers.data(), offsets.data());
+    vkCmdBindVertexBuffers(m_handle, firstBinding, static_cast<std::uint32_t>(buffers.size()), buffers.data(), offsets.data());
 }
 
 void vul::CommandBuffer::bindIndexBuffer(const vul::Buffer &buffer,
@@ -213,7 +213,12 @@ vul::CommandBuffer::bindDescriptorSets(vul::PipelineBindPoint pipelineBindPoint,
                                        const vul::TempArrayProxy<VkDescriptorSet const> &descriptorSets,
                                        const vul::TempArrayProxy<const uint32_t> &dynamicOffsets,
                                        std::uint32_t firstSet) {
-    vkCmdBindDescriptorSets(m_handle, vul::get(pipelineBindPoint), pipelineLayout.get(), firstSet, descriptorSets.size(), descriptorSets.data(), dynamicOffsets.size(), dynamicOffsets.data());
+    vkCmdBindDescriptorSets(m_handle, vul::get(pipelineBindPoint),
+                            pipelineLayout.get(), firstSet,
+                            static_cast<std::uint32_t>(descriptorSets.size()),
+                            descriptorSets.data(),
+                            static_cast<std::uint32_t>(dynamicOffsets.size()),
+                            dynamicOffsets.data());
 }
 
 void
@@ -238,13 +243,13 @@ void vul::CommandBuffer::dispatchIndirect(const vul::Buffer &buffer,
 void vul::CommandBuffer::setScissor(
         const vul::TempArrayProxy<const VkRect2D>& scissors,
         std::uint32_t firstScissor) {
-    vkCmdSetScissor(m_handle, firstScissor, scissors.size(), scissors.data());
+    vkCmdSetScissor(m_handle, firstScissor, static_cast<std::uint32_t>(scissors.size()), scissors.data());
 }
 
 void vul::CommandBuffer::setViewport(
         const vul::TempArrayProxy<const VkViewport>& viewports,
         std::uint32_t firstViewport) {
-    vkCmdSetViewport(m_handle, firstViewport, viewports.size(), viewports.data());
+    vkCmdSetViewport(m_handle, firstViewport, static_cast<std::uint32_t>(viewports.size()), viewports.data());
 }
 
 void
@@ -284,7 +289,7 @@ void vul::PrimaryCommandBuffer::executeCommands(
                                                   ranges::views::transform(
                                                           [](auto &commandBuffer) { return commandBuffer.get(); }) |
                                                   ranges::to<std::vector>();
-    vkCmdExecuteCommands(m_handle, commandBuffers.size(),
+    vkCmdExecuteCommands(m_handle, static_cast<std::uint32_t>(commandBuffers.size()),
                          commandBuffers.data());
 }
 
@@ -294,7 +299,7 @@ void vul::PrimaryCommandBuffer::executeCommands(
                                                   ranges::views::transform(
                                                           [](auto &commandBuffer) { return commandBuffer.get().get(); }) |
                                                   ranges::to<std::vector>();
-    vkCmdExecuteCommands(m_handle, commandBuffers.size(),
+    vkCmdExecuteCommands(m_handle, static_cast<std::uint32_t>(commandBuffers.size()),
                          commandBuffers.data());
 }
 
@@ -304,7 +309,7 @@ void vul::PrimaryCommandBuffer::executeCommands(
                                                   ranges::views::transform(
                                                           [](auto &commandBuffer) { return commandBuffer->get(); }) |
                                                   ranges::to<std::vector>();
-    vkCmdExecuteCommands(m_handle, commandBuffers.size(),
+    vkCmdExecuteCommands(m_handle, static_cast<std::uint32_t>(commandBuffers.size()),
                          commandBuffers.data());
 }
 
@@ -385,7 +390,7 @@ vul::RenderPassBlock::RenderPassBlock(VkCommandBuffer commandBuffer,
     renderPassInfo.renderPass = renderPass.get();
     renderPassInfo.framebuffer = framebuffer.get();
     renderPassInfo.renderArea = renderArea;
-    renderPassInfo.clearValueCount = clearValues.size();
+    renderPassInfo.clearValueCount = static_cast<std::uint32_t>(clearValues.size());
     renderPassInfo.pClearValues = clearValues.data();
     vkCmdBeginRenderPass(m_handle, &renderPassInfo, vul::get(subpassContents));
 }

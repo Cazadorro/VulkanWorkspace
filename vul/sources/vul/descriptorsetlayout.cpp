@@ -279,7 +279,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
     m_bindings.reserve(descriptorSetBindings.size());
     m_nameBindingMap.reserve(descriptorSetBindings.size());
     for (const auto &idx : idxs) {
-        m_nameBindingMap[bindingName[idx]] = m_bindings.size();
+        m_nameBindingMap[bindingName[idx]] = static_cast<std::uint32_t>(m_bindings.size());
         m_bindings.push_back(descriptorSetBindings[idx]);
     }
     auto max_value = *std::max_element(m_bindings.begin(), m_bindings.end(),

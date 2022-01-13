@@ -2,8 +2,9 @@
 // Created by Shae Bolt on 8/29/2021.
 //
 
-#include "descriptorset.h"
-#include "vkassert.h"
+#include "vul/descriptorset.h"
+#include "vul/vkassert.h"
+#include "vul/unreachable.h"
 
 
 vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::Sampler(
@@ -194,21 +195,21 @@ vul::WriteDescriptorSetInfo::createWriteDescriptorSet(VkDescriptorSet dstSet,
         case 0: {
             auto &infoArray = std::get<std::vector<VkDescriptorImageInfo>>(
                     m_infoVariant);
-            writeDescriptorSet.descriptorCount = infoArray.size();
+            writeDescriptorSet.descriptorCount = static_cast<std::uint32_t>(infoArray.size());
             writeDescriptorSet.pImageInfo = infoArray.data();
             break;
         }
         case 1: {
             auto &infoArray = std::get<std::vector<VkDescriptorBufferInfo>>(
                     m_infoVariant);
-            writeDescriptorSet.descriptorCount = infoArray.size();
+            writeDescriptorSet.descriptorCount = static_cast<std::uint32_t>(infoArray.size());
             writeDescriptorSet.pBufferInfo = infoArray.data();
             break;
         }
         case 2: {
             auto &infoArray = std::get<std::vector<VkBufferView>>(
                     m_infoVariant);
-            writeDescriptorSet.descriptorCount = infoArray.size();
+            writeDescriptorSet.descriptorCount = static_cast<std::uint32_t>(infoArray.size());
             writeDescriptorSet.pTexelBufferView = infoArray.data();
             break;
         }
@@ -403,6 +404,9 @@ std::size_t vul::WriteDescriptorSetInfo::infoCount() const {
             auto &infoArray = std::get<std::vector<VkBufferView>>(
                     m_infoVariant);
             return infoArray.size();
+        }
+        default:{
+                unreachable();
         }
     }
 }

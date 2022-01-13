@@ -190,8 +190,8 @@ VkBool32 vul::defaultDebugMessengerCallback(
     std::string prefix;
     if (messageSeverity ==
         vul::DebugUtilsMessageSeverityFlagBitsEXT::VerboseBit) {
-        return VK_FALSE;
         prefix = "VERBOSE : ";
+        return VK_FALSE;
     } else if (messageSeverity ==
                vul::DebugUtilsMessageSeverityFlagBitsEXT::InfoBit) {
         prefix = "INFO : ";

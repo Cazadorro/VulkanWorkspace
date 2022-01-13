@@ -62,7 +62,7 @@ vul::DescriptorPool::createDescriptorSets(
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     allocInfo.pNext = pNext;
     allocInfo.descriptorPool = m_handle;
-    allocInfo.descriptorSetCount =rawLayouts.size();
+    allocInfo.descriptorSetCount = static_cast<std::uint32_t>(rawLayouts.size());
     allocInfo.pSetLayouts = rawLayouts.data();
 
     std::vector<VkDescriptorSet> descriptorSets(rawLayouts.size());

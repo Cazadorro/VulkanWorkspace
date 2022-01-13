@@ -2,13 +2,14 @@
 // Created by Shae Bolt on 9/2/2021.
 //
 
-#include "image.h"
+#include "vul/image.h"
 #include "vul/imageview.h"
 #include "vul/vmaallocation.h"
 #include "vul/vmaallocator.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/vkassert.h"
+#include "vul/unreachable.h"
 
 vul::ImageSubresourceRange::ImageSubresourceRange(
         vul::ImageAspectBitMask aspectMask_t, std::uint32_t baseMipLevel_t,
@@ -413,6 +414,9 @@ vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
             }else{
                 VUL_ASSERT(arrayLayers > 1 && type == vul::ImageType::_3D, "Can't have layered 3D image views");
             }
+        }
+        default: {
+            unreachable();
         }
     }
 

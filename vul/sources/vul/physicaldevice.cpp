@@ -96,7 +96,7 @@ vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
     auto notHasPresentationQueueBits =
             [&physicalDevice = *m_physicalDevice, &surface,
                     queueFamilyBits](const auto &pair) {
-                auto queueFamilyIndex = pair.first;
+                auto queueFamilyIndex = static_cast<std::uint32_t>(pair.first);
                 const auto &props = pair.second;
                 return !(props.queueCount > 0 &&
                        vul::QueueBitMask(props.queueFlags).contains(
@@ -165,13 +165,13 @@ bool vul::QueueFamilyProperties::contains(const vul::Surface &surface,
     if (ranges::find_if(enumerated,
                         [&physicalDevice = *m_physicalDevice, queueFamilyBits, &surface](
                                 const auto &pair) {
-                            auto queueFamilyIndex = pair.first;
+                            auto queueFamilyIndex = static_cast<std::uint32_t>(pair.first);
                             const auto &props = pair.second;
                             return props.queueCount > 0 &&
                                    vul::QueueBitMask(props.queueFlags).contains(
                                            queueFamilyBits) &&
                                    surface.isSupportedBy(physicalDevice,
-                                                         queueFamilyIndex);;
+                                                         queueFamilyIndex);
                         }) == enumerated.end()) {
         return false;
     }
@@ -354,7 +354,7 @@ vul::ExpectedResult<vul::Device> vul::PhysicalDevice::createDevice(
         createInfo.pNext = nullptr;
         createInfo.flags = 0;
         createInfo.queueFamilyIndex = queueFamilyIndex;
-        createInfo.queueCount = priorities.size();
+        createInfo.queueCount = static_cast<std::uint32_t>(priorities.size());
         createInfo.pQueuePriorities = priorities.data();
         multiQueueCreateInfos.push_back(createInfo);
     }

@@ -134,7 +134,7 @@ vul::TimelineSemaphore::wait(const gsl::span<const TimelineSemaphore *const> &se
     waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
     waitInfo.pNext = nullptr;
     waitInfo.flags = flags.to_underlying();
-    waitInfo.semaphoreCount = semaphores.size();
+    waitInfo.semaphoreCount = static_cast<std::uint32_t>(semaphores.size());
     waitInfo.pSemaphores = vkSemaphores.data();
     waitInfo.pValues = waitValues.data();
 

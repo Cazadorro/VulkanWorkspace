@@ -208,9 +208,9 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     createInfo.pNext = pNext;
     createInfo.flags = 0;
-    createInfo.setLayoutCount = rawLayouts.size();
+    createInfo.setLayoutCount = static_cast<std::uint32_t>(rawLayouts.size());
     createInfo.pSetLayouts = rawLayouts.data();
-    createInfo.pushConstantRangeCount = pushConstantRanges.size();
+    createInfo.pushConstantRangeCount = static_cast<std::uint32_t>(pushConstantRanges.size());
     createInfo.pPushConstantRanges = pushConstantRanges.data();
 
     VkPipelineLayout pipelineLayout;
@@ -236,9 +236,9 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     createInfo.pNext = pNext;
     createInfo.flags = 0;
-    createInfo.setLayoutCount = rawLayouts.size();
+    createInfo.setLayoutCount = static_cast<std::uint32_t>(rawLayouts.size());
     createInfo.pSetLayouts = rawLayouts.data();
-    createInfo.pushConstantRangeCount = pushConstantRanges.size();
+    createInfo.pushConstantRangeCount = static_cast<std::uint32_t>(pushConstantRanges.size());
     createInfo.pPushConstantRanges = pushConstantRanges.data();
 
     VkPipelineLayout pipelineLayout;
@@ -262,9 +262,9 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     createInfo.pNext = pNext;
     createInfo.flags = 0;
-    createInfo.setLayoutCount = rawLayouts.size();
+    createInfo.setLayoutCount = static_cast<std::uint32_t>(rawLayouts.size());
     createInfo.pSetLayouts = rawLayouts.data();
-    createInfo.pushConstantRangeCount = pushConstantRanges.size();
+    createInfo.pushConstantRangeCount = static_cast<std::uint32_t>(pushConstantRanges.size());
     createInfo.pPushConstantRanges = pushConstantRanges.data();
 
     VkPipelineLayout pipelineLayout;
@@ -309,7 +309,7 @@ vul::Result vul::Device::wait(
     waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
     waitInfo.pNext = pNext;
     waitInfo.flags = waitFlags.to_underlying();
-    waitInfo.semaphoreCount = rawSemaphores.size();
+    waitInfo.semaphoreCount = static_cast<std::uint32_t>(rawSemaphores.size());
     waitInfo.pSemaphores = rawSemaphores.data();
     waitInfo.pValues = values.data();
     return wait(waitInfo, timeout);
@@ -329,7 +329,7 @@ vul::Result vul::Device::wait(
     waitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
     waitInfo.pNext = pNext;
     waitInfo.flags = waitFlags.to_underlying();
-    waitInfo.semaphoreCount = rawSemaphores.size();
+    waitInfo.semaphoreCount = static_cast<std::uint32_t>(rawSemaphores.size());
     waitInfo.pSemaphores = rawSemaphores.data();
     waitInfo.pValues = values.data();
     return wait(waitInfo, timeout);
@@ -417,7 +417,7 @@ vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
     createInfo.pNext = pNext;
     createInfo.flags = flags.to_underlying();
     createInfo.renderPass = renderPass.get();
-    createInfo.attachmentCount = imageViews.size();
+    createInfo.attachmentCount = static_cast<std::uint32_t>(imageViews.size());
     createInfo.pAttachments = imageViews.data();
     createInfo.width = widthHeight.width;
     createInfo.height = widthHeight.height;
@@ -440,7 +440,7 @@ void vul::Device::updateDescriptorSets(
 void vul::Device::updateDescriptorSets(
         const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites,
         const vul::TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const {
-    vkUpdateDescriptorSets(m_handle, descriptorWrites.size(), descriptorWrites.data(), descriptorCopies.size(), descriptorCopies.data());
+    vkUpdateDescriptorSets(m_handle, static_cast<std::uint32_t>(descriptorWrites.size()), descriptorWrites.data(), static_cast<std::uint32_t>(descriptorCopies.size()), descriptorCopies.data());
 }
 
 

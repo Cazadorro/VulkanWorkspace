@@ -78,7 +78,7 @@ vul::SwapchainBuilder::imageSharingMode(vul::SharingMode value) {
 
 vul::SwapchainBuilder &vul::SwapchainBuilder::queueFamilyIndices(
         const gsl::span<std::uint32_t> &value) {
-    m_createInfo.queueFamilyIndexCount = value.size();
+    m_createInfo.queueFamilyIndexCount = static_cast<std::uint32_t>(value.size());
     m_createInfo.pQueueFamilyIndices = value.data();
     return *this;
 }

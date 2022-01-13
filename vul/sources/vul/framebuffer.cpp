@@ -66,21 +66,21 @@ void vul::FramebufferBuilder::setRenderPass(const vul::RenderPass &renderPass) {
 void vul::FramebufferBuilder::setAttachments(
         const vul::TempArrayProxy<const vul::ImageView> &attachments) {
     m_attachments = attachments | ranges::views::transform([](auto& attachment){return attachment.get();}) | ranges::to<std::vector>();
-    m_createInfo.attachmentCount = m_attachments.size();
+    m_createInfo.attachmentCount = static_cast<std::uint32_t>(m_attachments.size());
     m_createInfo.pAttachments = m_attachments.data();
 }
 
 void vul::FramebufferBuilder::setAttachments(
         const vul::TempArrayProxy<std::reference_wrapper<const ImageView>> &attachments) {
     m_attachments = attachments | ranges::views::transform([](auto& attachment){return attachment.get().get();}) | ranges::to<std::vector>();
-    m_createInfo.attachmentCount = m_attachments.size();
+    m_createInfo.attachmentCount = static_cast<std::uint32_t>(m_attachments.size());
     m_createInfo.pAttachments = m_attachments.data();
 }
 
 void vul::FramebufferBuilder::setAttachments(
         const vul::TempArrayProxy<const vul::ImageView *> &attachments) {
     m_attachments = attachments | ranges::views::transform([](auto& attachment){return attachment->get();}) | ranges::to<std::vector>();
-    m_createInfo.attachmentCount = m_attachments.size();
+    m_createInfo.attachmentCount = static_cast<std::uint32_t>(m_attachments.size());
     m_createInfo.pAttachments = m_attachments.data();
 }
 

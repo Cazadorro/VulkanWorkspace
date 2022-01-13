@@ -556,9 +556,9 @@ VkSubpassDescription vul::SubpassNode::createDescription(
     VkSubpassDescription subpassDescription = {};
     subpassDescription.flags = flags.to_underlying();
     subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpassDescription.inputAttachmentCount = m_inputAttachmentReferences.size();
+    subpassDescription.inputAttachmentCount = static_cast<std::uint32_t>(m_inputAttachmentReferences.size());
     subpassDescription.pInputAttachments = reinterpret_cast<const VkAttachmentReference *>(m_inputAttachmentReferences.data());
-    subpassDescription.colorAttachmentCount = m_colorAttachmentWriteReferences.size();
+    subpassDescription.colorAttachmentCount = static_cast<std::uint32_t>(m_colorAttachmentWriteReferences.size());
     subpassDescription.pColorAttachments = reinterpret_cast<const VkAttachmentReference *>(m_colorAttachmentWriteReferences.data());
     subpassDescription.pResolveAttachments = reinterpret_cast<const VkAttachmentReference *>(m_resolveAttachmentReferences.data());
     if (m_depthAttachmentWriteReference.has_value()) {
@@ -566,7 +566,7 @@ VkSubpassDescription vul::SubpassNode::createDescription(
     } else {
         subpassDescription.pDepthStencilAttachment = nullptr;
     }
-    subpassDescription.preserveAttachmentCount = m_preserveAttachmentReferences.size();
+    subpassDescription.preserveAttachmentCount = static_cast<std::uint32_t>(m_preserveAttachmentReferences.size());
     subpassDescription.pPreserveAttachments = m_preserveAttachmentReferences.data();
     return subpassDescription;
 }
@@ -790,11 +790,11 @@ vul::SubpassGraph::createRenderPass(const Device &device,
     render_pass_info.pNext = nullptr;
     render_pass_info.flags = 0;
     //2 attachments from said array
-    render_pass_info.attachmentCount = m_attachmentDescriptions.size();
+    render_pass_info.attachmentCount = static_cast<std::uint32_t>(m_attachmentDescriptions.size());
     render_pass_info.pAttachments = reinterpret_cast<const VkAttachmentDescription *>(m_attachmentDescriptions.data());
-    render_pass_info.subpassCount = subpassDescriptions.size();
+    render_pass_info.subpassCount = static_cast<std::uint32_t>(subpassDescriptions.size());
     render_pass_info.pSubpasses = subpassDescriptions.data();
-    render_pass_info.dependencyCount = subpassDependencies.size();
+    render_pass_info.dependencyCount = static_cast<std::uint32_t>(subpassDependencies.size());
     render_pass_info.pDependencies = subpassDependencies.data();
 
     VkRenderPass renderPass;
@@ -803,7 +803,8 @@ vul::SubpassGraph::createRenderPass(const Device &device,
                                &render_pass_info,
                                pAllocator,
                                &renderPass));
-    return {result, RenderPass(device, renderPass, subpassDescriptions.size(),
+    return {result, RenderPass(device, renderPass,
+                               static_cast<std::uint32_t>(subpassDescriptions.size()),
                                pAllocator)};
 }
 

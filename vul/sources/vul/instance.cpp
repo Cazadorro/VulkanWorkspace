@@ -38,9 +38,9 @@ vul::Instance::Instance(const VkApplicationInfo &appInfo,
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pNext = pNext;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = enabledLayers.size();
+    createInfo.enabledLayerCount = static_cast<std::uint32_t>(enabledLayers.size());
     createInfo.ppEnabledLayerNames = enabledLayers.data();
-    createInfo.enabledExtensionCount = enabledExtensions.size();
+    createInfo.enabledExtensionCount = static_cast<std::uint32_t>(enabledExtensions.size());
     createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
     auto result = static_cast<Result>(vkCreateInstance(&createInfo,
@@ -108,9 +108,9 @@ vul::Instance::create(const VkApplicationInfo &appInfo,
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pNext = pNext;
     createInfo.pApplicationInfo = &appInfo;
-    createInfo.enabledLayerCount = enabledLayers.size();
+    createInfo.enabledLayerCount = static_cast<std::uint32_t>(enabledLayers.size());
     createInfo.ppEnabledLayerNames = enabledLayers.data();
-    createInfo.enabledExtensionCount = enabledExtensions.size();
+    createInfo.enabledExtensionCount = static_cast<std::uint32_t>(enabledExtensions.size());
     createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
     //probably could check success before returning, saves space, but w/e.

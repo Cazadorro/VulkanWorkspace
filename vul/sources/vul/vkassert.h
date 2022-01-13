@@ -86,21 +86,24 @@ namespace vul{
 #define VUL_VOID_ARG2(x0, x1) \
     do { (void)sizeof(x0), (void)sizeof(x1); } while(0)
 
+//  idea from  https://stackoverflow.com/a/28074198/
 #define VUL_ARG_CHOOSER_2(arg0, arg1, arg2, ...) arg2
+//needs extra set of parenthesis when used.
+#define VUL_MSVC_FUNC_RECOMPOSER_WORK_AROUND_2(args_with_parenthesis) VUL_ARG_CHOOSER_2 args_with_parenthesis
 #define VUL_CHOOSE_ASSERT_MACRO(...) \
-    VUL_ARG_CHOOSER_2(__VA_ARGS__,   \
+    VUL_MSVC_FUNC_RECOMPOSER_WORK_AROUND_2((__VA_ARGS__,   \
         VUL_ASSERT_WITH_MESSAGE,     \
-        VUL_ASSERT_NO_MESSAGE, )
+        VUL_ASSERT_NO_MESSAGE, ))
 
 #define VUL_CHOOSE_WARNING_MACRO(...) \
-    VUL_ARG_CHOOSER_2(__VA_ARGS__,   \
+    VUL_MSVC_FUNC_RECOMPOSER_WORK_AROUND_2((__VA_ARGS__,   \
         VUL_WARNING_WITH_MESSAGE,     \
-        VUL_WARNING_NO_MESSAGE, )
+        VUL_WARNING_NO_MESSAGE, ))
 
 #define VUL_CHOOSE_VOID_MACRO(...) \
-    VUL_ARG_CHOOSER_2(__VA_ARGS__, \
+    VUL_MSVC_FUNC_RECOMPOSER_WORK_AROUND_2((__VA_ARGS__, \
         VUL_VOID_ARG2,             \
-        VUL_VOID_ARG1, )
+        VUL_VOID_ARG1, ))
 #define VUL_ASSERT(...)  VUL_CHOOSE_ASSERT_MACRO(__VA_ARGS__)(__VA_ARGS__)
 #define VUL_WARNING(...)  VUL_CHOOSE_WARNING_MACRO(__VA_ARGS__)(__VA_ARGS__)
 

@@ -22,7 +22,7 @@ vul::Result vul::Queue::waitIdle() const {
 
 vul::Result vul::Queue::submit(const TempArrayProxy<const VkSubmitInfo2KHR>& submitInfos) const {
     auto vkQueueSubmit2KHR_f = (PFN_vkQueueSubmit2KHR) vkGetDeviceProcAddr(m_pDevice->get(), "vkQueueSubmit2KHR");
-    return static_cast<Result>(vkQueueSubmit2KHR_f(m_handle, submitInfos.size(), submitInfos.data(), VK_NULL_HANDLE));
+    return static_cast<Result>(vkQueueSubmit2KHR_f(m_handle, static_cast<std::uint32_t>(submitInfos.size()), submitInfos.data(), VK_NULL_HANDLE));
 }
 
 vul::Queue::Queue(const vul::Device &device, VkQueue handle) : m_pDevice(&device), m_handle(handle){
