@@ -280,7 +280,8 @@ int main() {
 
     features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
     features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
-//    features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
+    features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
+    features.physicalDeviceVulkan12Features.bufferDeviceAddressCaptureReplay = VK_TRUE;
 
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;

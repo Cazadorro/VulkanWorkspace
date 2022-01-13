@@ -105,7 +105,10 @@ vul::CodeGen vul::generate_from_string_vk_enum(const vul::EnumInfo &info,
                                                        body);
                     first_added = true;
                 }else{
-                    case_string += format_else_if_statement(indent, conditional, body);
+//                    had to change this because MSVC can only support 128 max else ifs....
+//                    case_string += format_else_if_statement(indent, conditional, body);
+                    case_string += format_if_statement(indent, conditional,
+                                                       body);
                 }
             }else{
                 std::string pre_define = fmt::format("\n#if defined( {} )\n", enum_value_info.define_string);
@@ -116,7 +119,11 @@ vul::CodeGen vul::generate_from_string_vk_enum(const vul::EnumInfo &info,
                                                        post_define);
                     first_added = true;
                 }else{
-                    case_string += format_else_if_statement(indent, conditional, body, pre_define, post_define);
+                    //                    had to change this because MSVC can only support 128 max else ifs....
+//                    case_string += format_else_if_statement(indent, conditional, body, pre_define, post_define);
+                    case_string += format_if_statement(indent, conditional,
+                                                       body, pre_define,
+                                                       post_define);
                 }
             }
         }
@@ -150,7 +157,10 @@ vul::CodeGen vul::generate_from_string_enum_class(const vul::EnumInfo &info,
                                                        body);
                     first_added = true;
                 }else{
-                    case_string += format_else_if_statement(indent, conditional, body);
+//                    had to change this because MSVC can only support 128 max else ifs....
+//                    case_string += format_else_if_statement(indent, conditional, body);
+                    case_string += format_if_statement(indent, conditional,
+                                                       body);
                 }
             }else{
                 std::string pre_define = fmt::format("\n#if defined( {} )\n", enum_value_info.define_string);
@@ -161,7 +171,11 @@ vul::CodeGen vul::generate_from_string_enum_class(const vul::EnumInfo &info,
                                                        post_define);
                     first_added = true;
                 }else{
-                    case_string += format_else_if_statement(indent, conditional, body, pre_define, post_define);
+//                    had to change this because MSVC can only support 128 max else ifs....
+//                    case_string += format_else_if_statement(indent, conditional, body, pre_define, post_define);
+                    case_string += format_if_statement(indent, conditional,
+                                                       body, pre_define,
+                                                       post_define);
                 }
             }
         }

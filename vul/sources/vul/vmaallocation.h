@@ -9,6 +9,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <cstdint>
+#include <cstddef>
 
 namespace vul {
     template<typename T>

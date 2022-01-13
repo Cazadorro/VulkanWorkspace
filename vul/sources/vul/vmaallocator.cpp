@@ -302,6 +302,7 @@ vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
                                      std::uint32_t mipLevel) const {
     auto expectedStageBuffer = createStagingBuffer(arrayList);
     if(!expectedStageBuffer.hasValue()){
+        fmt::print(stderr, "Couldn't create staging buffer\n");
         return {expectedStageBuffer.result, {}};
     }
     auto stagingBuffer = std::move(expectedStageBuffer.value);
@@ -309,10 +310,14 @@ vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
     tempImageInfo.usage |= vul::get(vul::ImageUsageFlagBits::TransferDstBit);
     auto expectedImage = createDeviceImage(tempImageInfo);
     if(!expectedImage.hasValue()){
+        fmt::print(stderr, "Couldn't create image\n");
         return {expectedImage.result, {}};
     }
     auto image = std::move(expectedImage.value);
     auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
+    if(result != Result::Success){
+        fmt::print(stderr, "Copy not successfull\n");
+    }
     return {result, std::move(image)};
 }
 

@@ -11,6 +11,7 @@
 #include <vulkan/vulkan.h>
 #include <gsl/span>
 #include <optional>
+#include <vector>
 
 namespace vul {
 

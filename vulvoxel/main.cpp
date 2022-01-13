@@ -251,6 +251,7 @@ int main() {
     features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
     features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
     features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
+    features.physicalDeviceVulkan12Features.bufferDeviceAddressCaptureReplay = VK_TRUE;
 
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;
@@ -349,6 +350,9 @@ int main() {
 //        swapchainBuilder.imageSharingMode(vul::SharingMode::Exclusive);
 //    }
 
+    char c;
+    std::cout << "Waiting" << std::endl;
+    std::cin >> c;
     surface.createSwapchain(swapchainBuilder);
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
                                                device,

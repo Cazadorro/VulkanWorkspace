@@ -10,7 +10,6 @@ FetchContent_Declare(
 
         URL https://raw.githubusercontent.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator/master/include/vk_mem_alloc.h
         DOWNLOAD_NO_EXTRACT TRUE
-        DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}
 )
 FetchContent_MakeAvailable(vmaheaderonly)
 find_package(Vulkan REQUIRED)
