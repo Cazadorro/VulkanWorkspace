@@ -8,6 +8,7 @@
 #include"vul/physicaldevice.h"
 #include "vul/bitmasks.h"
 #include"vul/debugutils.h"
+#include "vul/temparrayproxyfwd.h"
 #include<vulkan/vulkan.h>
 #include<vector>
 #include<optional>
@@ -43,9 +44,6 @@ namespace vul {
     class TimelineSemaphore;
 
     class CommandPool;
-
-    template<typename T>
-    class TempArrayProxy;
 
     struct QueueFamilyIndexMapping {
         std::uint32_t queueFamilyIndex;

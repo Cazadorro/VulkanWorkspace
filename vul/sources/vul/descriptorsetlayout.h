@@ -7,6 +7,7 @@
 
 #include "vul/enumsfwd.h"
 #include "vul/bitmasksfwd.h"
+#include "vul/temparrayproxyfwd.h"
 #include <vulkan/vulkan.h>
 #include <gsl/span>
 #include <cstdint>
@@ -212,8 +213,6 @@ namespace vul {
     };
 
     class DescriptorSetUpdateBuilder;
-    template<typename T>
-    class TempArrayProxy;
     class DescriptorSetLayoutBuilder {
     public:
         explicit DescriptorSetLayoutBuilder(const Device &device,

@@ -9,6 +9,7 @@
 #include "vul/enumsfwd.h"
 #include "vul/bitmasksfwd.h"
 #include "vul/commandutils.h"
+#include "vul/temparrayproxyfwd.h"
 
 #include <gsl/span>
 #include <vk_mem_alloc.h>
@@ -19,8 +20,6 @@ namespace vul {
     class Device;
     class VmaAllocation;
     class TempConstVoidArrayProxy;
-    template<typename T>
-    class TempArrayProxy;
     class Buffer {
     public:
         Buffer() = default;

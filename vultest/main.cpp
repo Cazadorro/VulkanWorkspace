@@ -60,7 +60,7 @@
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
 
-
+#define USE_IMGUI_OWN_RENDERPASS
 vul::ExpectedResult<vul::RenderPass>
 createImGuiRenderPass(const vul::Device &device, vul::Format surfaceFormat,
                       bool clearEnable) {
@@ -68,11 +68,11 @@ createImGuiRenderPass(const vul::Device &device, vul::Format surfaceFormat,
     attachment.format = vul::get(surfaceFormat);
     attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     attachment.loadOp = clearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR
-                                    : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+                                    : VK_ATTACHMENT_LOAD_OP_LOAD;
     attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     VkAttachmentReference color_attachment = {};
     color_attachment.attachment = 0;
@@ -295,7 +295,9 @@ int main() {
     vul::Device device; //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
     vul::Surface surface = window.createSurface(instance);
     //TODO will need to capitalize letters?
-    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
+//    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
+//                                                     vul::ColorSpaceKHR::SrgbNonlinear};
+    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Unorm,
                                                      vul::ColorSpaceKHR::SrgbNonlinear};
     const auto defaultPresentMode = vul::PresentModeKHR::Mailbox;
     auto physicalDeviceOpt = pickPhysicalDevice(instance, surface, features,
@@ -632,8 +634,8 @@ int main() {
     ImGui::CreateContext();
     ImGuiIO &io = ImGui::GetIO();
     (void) io;
-//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     ImGui::StyleColorsDark();
 
@@ -651,8 +653,8 @@ int main() {
     init_info.ImageCount = 3;
 //    init_info.CheckVkResultFn = check_vk_result;
 
-    ImGui_ImplVulkan_Init(&init_info, renderPass.get());
-#if 0
+
+#ifdef USE_IMGUI_OWN_RENDERPASS
     auto imguiRenderPass = createImGuiRenderPass(device, surface.getSwapchain()->getFormat(), false).assertValue();
     ImGui_ImplVulkan_Init(&init_info, imguiRenderPass.get());
 
@@ -665,10 +667,31 @@ int main() {
         vul::FramebufferBuilder framebufferBuilder(device);
         framebufferBuilder.setAttachments(imageViews);
         framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-        framebufferBuilder.setRenderPass(renderPass);
-        swapchainFramebuffers.push_back(
+        framebufferBuilder.setRenderPass(imguiRenderPass);
+        imguiFramebuffers.push_back(
                 framebufferBuilder.create().assertValue());
     }
+
+    auto resizeImGuiFramebuffers = [&device, &surface, &imguiRenderPass, &imguiFramebuffers](){
+        imguiFramebuffers.clear();
+        const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+        for (const auto &imageView: swapchainImageViews) {
+            std::array<const vul::ImageView *, 1> imageViews = {&imageView};
+            vul::FramebufferBuilder framebufferBuilder(device);
+            framebufferBuilder.setAttachments(imageViews);
+            framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
+            framebufferBuilder.setRenderPass(imguiRenderPass);
+            imguiFramebuffers.push_back(
+                    framebufferBuilder.create().assertValue());
+        }
+    };
+    auto resizeWindow = [&resizeSwapchain, &resizeImGuiFramebuffers](){
+        resizeSwapchain();
+        resizeImGuiFramebuffers();
+    };
+#elif
+    auto resizeWindow = resizeSwapchain;
+    ImGui_ImplVulkan_Init(&init_info, renderPass.get());
 #endif
 
     renderPass.setObjectName("MyActualRenderPass");
@@ -754,7 +777,7 @@ int main() {
 
         if (swapchainImageIndexResult.result ==
             vul::Result::ErrorOutOfDateKhr) {
-            resizeSwapchain();
+            resizeWindow();
             continue;
         }
         auto swapchainImageIndex = swapchainImageIndexResult.assertValue(
@@ -863,8 +886,8 @@ int main() {
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
                 auto extent = surface.getSwapchain()->getExtent();
-                commandBuffer.setViewport(vul::Viewport(extent).get());
-                commandBuffer.setScissor(vul::Rect2D(extent).get());
+                commandBuffer.setViewport(vul::Viewport(extent));
+                commandBuffer.setScissor(vul::Rect2D(extent));
 
 
                 std::array<VkClearValue, 2> clearValues{};
@@ -876,7 +899,7 @@ int main() {
                 auto renderPassBlock = commandBuffer.beginRenderPass(
                         renderPass,
                         swapchainFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
+                        vul::Rect2D(extent),
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
                 commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
@@ -888,13 +911,15 @@ int main() {
                 renderPassBlock.drawIndexed(indices.size());
 
 //                renderPassBlock.draw(36);
+#ifndef USE_IMGUI_OWN_RENDERPASS
                 ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                                 commandBuffer.get());
+#endif
             }
-#if 0
+#ifdef USE_IMGUI_OWN_RENDERPASS
             {
                 std::array<VkClearValue, 1> clearValues{};
-//                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
+                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
                 clearValues[0].color = {
                         {clear_color.x, clear_color.y, clear_color.z,
                          clear_color.w}};
@@ -949,7 +974,7 @@ int main() {
         if (presentResult == vul::Result::ErrorOutOfDateKhr ||
             presentResult == vul::Result::SuboptimalKhr || framebufferResized) {
             framebufferResized = false;
-            resizeSwapchain();
+            resizeWindow();
         } else if (presentResult != vul::Result::Success) {
             throw std::runtime_error("failed to present swapchain image");
         }

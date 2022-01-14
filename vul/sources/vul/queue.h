@@ -4,11 +4,10 @@
 
 #ifndef VULKANWORKSPACE_QUEUE_H
 #define VULKANWORKSPACE_QUEUE_H
+#include "vul/temparrayproxyfwd.h"
 #include<vulkan/vulkan.hpp>
 #include<vul/enumsfwd.h>
 namespace vul {
-    template<typename T>
-    class TempArrayProxy;
     class Device;
     class Queue {
     public:

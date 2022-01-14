@@ -5,6 +5,7 @@
 #ifndef VULKANWORKSPACE_VMAALLOCATOR_H
 #define VULKANWORKSPACE_VMAALLOCATOR_H
 
+
 #include "vul/device.h"
 #include "vul/physicaldevice.h"
 #include "vul/instance.h"
@@ -13,16 +14,13 @@
 #include "vul/buffer.h"
 #include "vul/image.h"
 #include "vul/commandutils.h"
-
+#include "vul/temparrayproxyfwd.h"
 #include <vk_mem_alloc.h>
 
 
 namespace vul {
 
     class TempConstVoidArrayProxy;
-    template<typename T>
-    class TempArrayProxy;
-
 
     class CommandPool;
 

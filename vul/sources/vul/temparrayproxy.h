@@ -8,14 +8,22 @@
 #include "vul/tempvoidarrayproxy.h"
 #include "vul/vkassert.h"
 #include "vul/traitutils.h"
+#include "vul/temparrayproxyfwd.h"
 #include <gsl/span>
+#include <fmt/core.h>
 
 namespace vul {
 //from https://raw.githubusercontent.com/KhronosGroup/Vulkan-Hpp/master/vulkan/vulkan.hpp
+//default provided by forward declaration.
     template<typename T>
     class TempArrayProxy {
     public:
         using value_type = T;
+//        using element_type = std::conditional_t<
+//                is_const_only,
+//                std::add_const_t<T>,
+//                T
+//        >;
         //want this to be implicit!
 
         template<
@@ -23,14 +31,43 @@ namespace vul {
                 // C++11 allows the use of SFINAE right here!
                 , typename = typename std::enable_if_t<!vul::is_container<B>::value>
         >
-        operator TempConstVoidArrayProxy() const{
+        operator TempConstVoidArrayProxy() const {
             return TempConstVoidArrayProxy(size_bytes(), m_ptr);
         }
 
-        explicit operator TempConstVoidArrayProxy() const{
+        explicit operator TempConstVoidArrayProxy() const {
             return TempConstVoidArrayProxy(size_bytes(), m_ptr);
         }
 
+        template<typename U>
+        TempArrayProxy<U> reinterpret_to() {
+            auto new_size = (m_size * sizeof(T)) / sizeof(U);
+            auto old_size_bytes = (m_size * sizeof(T));
+            auto new_size_bytes = (new_size * sizeof(U));
+            VUL_ASSERT(old_size_bytes == new_size_bytes,
+                       fmt::format(
+                               "Can't reinterpret non evenly divisible "
+                               "element {} bytes vs {} bytes with element "
+                               "sizes {} bytes vs {} bytes",
+                               old_size_bytes, new_size_bytes,
+                               sizeof(T), sizeof(U)).c_str());
+            return TempArrayProxy<U>{new_size, reinterpret_cast<U *>(m_ptr)};
+        }
+
+        template<typename U>
+        TempArrayProxy<const U> reinterpret_to() const {
+            auto new_size = (m_size * sizeof(T)) / sizeof(U);
+            auto old_size_bytes = (m_size * sizeof(T));
+            auto new_size_bytes = (new_size * sizeof(U));
+            VUL_ASSERT(old_size_bytes == new_size_bytes,
+                       fmt::format(
+                               "Can't reinterpret non evenly divisible "
+                               "element {} bytes vs {} bytes with element "
+                               "sizes {} bytes vs {} bytes",
+                               old_size_bytes, new_size_bytes,
+                               sizeof(T), sizeof(U)).c_str());
+            return TempArrayProxy<const U>{new_size, reinterpret_cast<const U *>(m_ptr)};
+        }
 //        template<
 //                typename B = T
 //                // C++11 allows the use of SFINAE right here!
@@ -207,7 +244,7 @@ namespace vul {
         }
 
         [[nodiscard]]
-        std::size_t size_bytes() const noexcept{
+        std::size_t size_bytes() const noexcept {
             return size() * sizeof(T);
         }
 
@@ -221,12 +258,14 @@ namespace vul {
             return m_ptr;
         }
 
-        const T& operator[](std::size_t i) const{
+        const T &operator[](std::size_t i) const {
             return m_ptr[i];
         }
-        T& operator[](std::size_t i) {
+
+        T &operator[](std::size_t i) {
             return m_ptr[i];
         }
+
     private:
         std::size_t m_size;
         T *m_ptr;

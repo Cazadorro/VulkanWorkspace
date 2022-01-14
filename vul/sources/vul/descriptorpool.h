@@ -5,6 +5,7 @@
 #ifndef VULKANWORKSPACE_DESCRIPTORPOOL_H
 #define VULKANWORKSPACE_DESCRIPTORPOOL_H
 #include "vul/enumsfwd.h"
+#include "vul/temparrayproxyfwd.h"
 #include <vulkan/vulkan.h>
 #include <string>
 #include <vector>
@@ -12,8 +13,6 @@
 namespace vul{
     template<typename T>
     class ExpectedResult;
-    template<typename T>
-    class TempArrayProxy;
     class Device;
 
     class DescriptorSetLayout;

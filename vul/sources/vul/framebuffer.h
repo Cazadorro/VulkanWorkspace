@@ -4,13 +4,16 @@
 
 #ifndef VULKANWORKSPACE_FRAMEBUFFER_H
 #define VULKANWORKSPACE_FRAMEBUFFER_H
+
+#include "vul/commandbuffer.h"
+#include "vul/enumsfwd.h"
+#include "vul/bitmasksfwd.h"
+#include "vul/temparrayproxyfwd.h"
 #include <vulkan/vulkan.h>
-#include <vul/enumsfwd.h>
-#include <vul/bitmasksfwd.h>
 #include <cstdint>
 #include <string>
 #include <vector>
-#include "commandbuffer.h"
+
 
 namespace vul {
     template<typename T>
@@ -51,9 +54,6 @@ namespace vul {
     class RenderPass;
 
     class ImageView;
-
-    template<typename T>
-    class TempArrayProxy;
 
     class FramebufferBuilder {
     public:

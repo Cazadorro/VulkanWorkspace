@@ -10,7 +10,7 @@ function(target_shader_postbuild SHADER_TARGET)
         set(SHADER_BINARY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/spirv")
         set(SHADER_BINARY_FILEPATH "${SHADER_BINARY_DIRECTORY}/${SHADER_SOURCE_FILENAME}.test.spv")
         set(SHADER_FINAL_BINARY_FILEPATH "${SHADER_BINARY_DIRECTORY}/${SHADER_SOURCE_FILENAME}.spv")
-        #        add_custom_target(${SHADER_TARGET_NAME} DEPENDS ${SHADER_FINAL_BINARY_FILEPATH})
+
         #        add_dependencies(${SHADER_TARGET} ${SHADER_TARGET_NAME})
         #        add_custom_command(
         #
@@ -24,7 +24,9 @@ function(target_shader_postbuild SHADER_TARGET)
         #                )
 
         add_custom_command(
-                TARGET ${SHADER_TARGET} POST_BUILD
+                #                TARGET ${SHADER_TARGET} POST_BUILD
+                OUTPUT ${SHADER_FINAL_BINARY_FILEPATH}
+                DEPENDS ${SHADER_SOURCE_FILEPATH}
                 COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIRECTORY}
                 #                COMMAND ${GLSL_VALIDATOR} -V ${SHADER_SOURCE_FILEPATH} -o ${SHADER_BINARY_FILEPATH}
                 COMMAND ${GLSLC}  ${SHADER_SOURCE_FILEPATH} -o ${SHADER_BINARY_FILEPATH} --target-env=vulkan1.2 -I ${CMAKE_SOURCE_DIR}/shaderutils
@@ -33,6 +35,9 @@ function(target_shader_postbuild SHADER_TARGET)
                 BYPRODUCTS ${SHADER_FINAL_BINARY_FILEPATH}
                 COMMENT "Compiling SPIRV for \nsource: \n\t${SHADER_SOURCE_FILEPATH} \nbinary: \n\t${SHADER_BINARY_FILEPATH} \n"
         )
+
+        add_custom_target(${SHADER_TARGET_NAME} DEPENDS ${SHADER_FINAL_BINARY_FILEPATH})
+        add_dependencies(${SHADER_TARGET} ${SHADER_TARGET_NAME})
         #        add_custom_command(
         #                #                TARGET ${SHADER_TARGET} PRE_LINK
         ##                COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIRECTORY}

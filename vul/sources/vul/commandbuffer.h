@@ -7,6 +7,8 @@
 
 #include "vul/enumsfwd.h"
 #include "vul/bitmasks.h"
+#include "vul/vkstructutils.h"
+#include "vul/temparrayproxyfwd.h"
 #include <vulkan/vulkan.h>
 #include <string>
 
@@ -28,8 +30,6 @@ namespace vul {
 
     class Image;
 
-    template<typename T>
-    class TempArrayProxy;
 
     [[nodiscard]]
     VkMemoryBarrier2KHR
@@ -179,6 +179,8 @@ namespace vul {
 
         void setScissor(const TempArrayProxy<const VkRect2D>& scissors, std::uint32_t firstScissor = 0);
         void setViewport(const TempArrayProxy<const VkViewport>& viewports, std::uint32_t firstViewport = 0);
+        void setScissor(const TempArrayProxy<const vul::Rect2D>& scissors, std::uint32_t firstScissor = 0);
+        void setViewport(const TempArrayProxy<const vul::Viewport>& viewports, std::uint32_t firstViewport = 0);
 
         void pushConstants(const PipelineLayout& pipelineLayout, vul::ShaderStageBitMask stageFlags, std::uint32_t offset, std::uint32_t size, const void* pValues);
         template<typename T>

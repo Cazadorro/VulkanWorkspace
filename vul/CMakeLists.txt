@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul sources/vul/unreachable.h)
+add_library(vul sources/vul/unreachable.h sources/vul/temparrayproxyfwd.h)
 target_sources(vul PRIVATE
         sources/vul/instance.cpp
         sources/vul/instance.h

@@ -260,6 +260,18 @@ vul::CommandBuffer::pushConstants(const vul::PipelineLayout &pipelineLayout,
     vkCmdPushConstants(m_handle, pipelineLayout.get(),stageFlags.to_underlying(), offset, size, pValues);
 }
 
+void vul::CommandBuffer::setScissor(
+        const vul::TempArrayProxy<const vul::Rect2D> &scissors,
+        std::uint32_t firstScissor) {
+    setScissor(scissors.reinterpret_to<const VkRect2D>(), firstScissor);
+}
+
+void vul::CommandBuffer::setViewport(
+        const vul::TempArrayProxy<const vul::Viewport> &viewports,
+        std::uint32_t firstViewport) {
+    setViewport(viewports.reinterpret_to<const VkViewport>(), firstViewport);
+}
+
 
 vul::Result
 vul::PrimaryCommandBuffer::begin(vul::CommandBufferUsageBitMask flags,
