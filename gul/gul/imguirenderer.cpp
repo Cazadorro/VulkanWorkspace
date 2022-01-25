@@ -56,7 +56,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
             queueFamilyIndex,
             vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
     commandPool.setObjectName("TemporaryImguiRendererCommandBuffer");
-    std::vector<VkDescriptorPoolSize> pool_sizes =
+    m_pool_sizes =
             {
                     {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
@@ -72,7 +72,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
             };
 
     auto imguiPool = device.createDescriptorPool(
-            pool_sizes, 1000,
+            m_pool_sizes, 1000,
             vul::DescriptorPoolCreateFlagBits::FreeDescriptorSetBit).assertValue();
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();

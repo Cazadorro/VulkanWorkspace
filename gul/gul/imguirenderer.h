@@ -54,7 +54,7 @@ namespace gul {
         const vul::Surface *m_pSurface = nullptr;
         vul::RenderPass m_renderPass;
         std::vector<vul::Framebuffer> m_framebuffers;
-
+        std::vector<VkDescriptorPoolSize> m_pool_sizes;
         [[nodiscard]]
         static vul::ExpectedResult<vul::RenderPass>
         createImGuiRenderPass(const vul::Device &device, vul::Format surfaceFormat);

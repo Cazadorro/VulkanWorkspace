@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include <gul/imguirenderer.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
@@ -59,8 +60,6 @@
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
-
-#define USE_IMGUI_OWN_RENDERPASS
 
 
 struct Vertex {
@@ -571,97 +570,14 @@ int main() {
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
 
+    gul::ImguiRenderer imguiRenderer(window, instance, device, surface, presentQueueIndex, presentationQueue, surface.getSwapchain()->getFormat());
 
-    std::vector<VkDescriptorPoolSize> pool_sizes =
-            {
-                    {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
-            };
-
-    auto imguiPool = device.createDescriptorPool(
-            pool_sizes, 1000,
-            vul::DescriptorPoolCreateFlagBits::FreeDescriptorSetBit).assertValue();
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void) io;
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-
-    ImGui::StyleColorsDark();
-
-    ImGui_ImplGlfw_InitForVulkan(window.getWindowPtr(), true);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance.get();
-    init_info.PhysicalDevice = physicalDevice.get();
-    init_info.Device = device.get();
-    init_info.QueueFamily = presentQueueIndex;
-    init_info.Queue = presentationQueue.get();
-//    init_info.PipelineCache = g_PipelineCache;
-    init_info.DescriptorPool = imguiPool.get();
-//    init_info.Allocator = g_Allocator;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
-//    init_info.CheckVkResultFn = check_vk_result;
-
-
-#ifdef USE_IMGUI_OWN_RENDERPASS
-    auto imguiRenderPass = createImGuiRenderPass(device, surface.getSwapchain()->getFormat(), false).assertValue();
-    ImGui_ImplVulkan_Init(&init_info, imguiRenderPass.get());
-
-    std::vector<vul::Framebuffer> imguiFramebuffers;
-//    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-//    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
-
-    for (const auto &imageView: swapchainImageViews) {
-        std::array<const vul::ImageView *, 1> imageViews = {&imageView};
-        vul::FramebufferBuilder framebufferBuilder(device);
-        framebufferBuilder.setAttachments(imageViews);
-        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-        framebufferBuilder.setRenderPass(imguiRenderPass);
-        imguiFramebuffers.push_back(
-                framebufferBuilder.create().assertValue());
-    }
-
-    auto resizeImGuiFramebuffers = [&device, &surface, &imguiRenderPass, &imguiFramebuffers](){
-        imguiFramebuffers.clear();
-        const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-        for (const auto &imageView: swapchainImageViews) {
-            std::array<const vul::ImageView *, 1> imageViews = {&imageView};
-            vul::FramebufferBuilder framebufferBuilder(device);
-            framebufferBuilder.setAttachments(imageViews);
-            framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-            framebufferBuilder.setRenderPass(imguiRenderPass);
-            imguiFramebuffers.push_back(
-                    framebufferBuilder.create().assertValue());
-        }
-    };
-    auto resizeWindow = [&resizeSwapchain, &resizeImGuiFramebuffers](){
+    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback()](){
         resizeSwapchain();
         resizeImGuiFramebuffers();
     };
-#elif
-    auto resizeWindow = resizeSwapchain;
-    ImGui_ImplVulkan_Init(&init_info, renderPass.get());
-#endif
 
     renderPass.setObjectName("MyActualRenderPass");
-
-    commandPool.singleTimeSubmit(presentationQueue,
-                                 [](vul::CommandBuffer &commandBuffer) {
-                                     ImGui_ImplVulkan_CreateFontsTexture(
-                                             commandBuffer.get());
-                                 });
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
 
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -676,9 +592,7 @@ int main() {
     while (!window.shouldClose()) {
 
         glfwPollEvents();
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        imguiRenderer.newFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
@@ -871,28 +785,8 @@ int main() {
                 renderPassBlock.drawIndexed(indices.size());
 
 //                renderPassBlock.draw(36);
-#ifndef USE_IMGUI_OWN_RENDERPASS
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
-#endif
             }
-#ifdef USE_IMGUI_OWN_RENDERPASS
-            {
-                std::array<VkClearValue, 1> clearValues{};
-                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
-                clearValues[0].color = {
-                        {clear_color.x, clear_color.y, clear_color.z,
-                         clear_color.w}};
-                auto extent = surface.getSwapchain()->getExtent();
-                auto renderPassBlock = commandBuffer.beginRenderPass(
-                        imguiRenderPass,
-                        imguiFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
-                        clearValues);
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
-            }
-#endif
+            imguiRenderer.recordCommands(commandBuffer, swapchainImageIndex);
             commandBuffer.end();
         }
 
@@ -922,11 +816,7 @@ int main() {
         presentationQueue.submit(submitInfo);
         //TODO do actual render here
 
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
-
+        imguiRenderer.postSubmit();
         auto presentResult = surface.getSwapchain()->present(presentationQueue,
                                                              binaryRenderFinishedSemaphore,
                                                              swapchainImageIndex);
@@ -943,10 +833,10 @@ int main() {
         frame_counter += 1;
 
     }
-    device.waitIdle();
+//    device.waitIdle();
 
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+//    ImGui_ImplVulkan_Shutdown();
+//    ImGui_ImplGlfw_Shutdown();
+//    ImGui::DestroyContext();
     return 0;
 }
