@@ -71,7 +71,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
                     {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
             };
 
-    auto imguiPool = device.createDescriptorPool(
+    m_descriptorPool = device.createDescriptorPool(
             m_pool_sizes, 1000,
             vul::DescriptorPoolCreateFlagBits::FreeDescriptorSetBit).assertValue();
     IMGUI_CHECKVERSION();
@@ -91,7 +91,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
     init_info.QueueFamily = queueFamilyIndex;
     init_info.Queue = queue.get();
 //    init_info.PipelineCache = g_PipelineCache;
-    init_info.DescriptorPool = imguiPool.get();
+    init_info.DescriptorPool = m_descriptorPool.get();
 //    init_info.Allocator = g_Allocator;
     init_info.MinImageCount = 3;
     init_info.ImageCount = 3;

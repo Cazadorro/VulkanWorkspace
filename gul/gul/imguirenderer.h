@@ -8,7 +8,7 @@
 #include <vul/renderpass.h>
 #include <vul/framebuffer.h>
 #include <vul/enumsfwd.h>
-
+#include <vul/descriptorpool.h>
 #include <vulkan/vulkan.h>
 #include <functional>
 #include <vector>
@@ -53,6 +53,7 @@ namespace gul {
         const vul::Device *m_pDevice = nullptr;
         const vul::Surface *m_pSurface = nullptr;
         vul::RenderPass m_renderPass;
+        vul::DescriptorPool m_descriptorPool;
         std::vector<vul::Framebuffer> m_framebuffers;
         std::vector<VkDescriptorPoolSize> m_pool_sizes;
         [[nodiscard]]
