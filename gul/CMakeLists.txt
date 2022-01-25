@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-add_library(gul STATIC gul/collision.cpp gul/collision.h)
+add_library(gul STATIC gul/imguirenderer.cpp gul/imguirenderer.h)
 target_sources(gul
         PRIVATE
         ./gul/glfwwindow.cpp
@@ -15,6 +15,8 @@ target_sources(gul
         ./gul/firstpersoncamera.h
         ./gul/bitmask.cpp
         ./gul/bitmask.h
+        ./gul/collision.cpp
+        ./gul/collision.h
         )
 target_include_directories(gul
         PUBLIC
@@ -29,7 +31,8 @@ target_link_libraries(gul
         glm
         glfw
         vul
-        stb::stb)
+        stb::stb
+        imgui)
 
 
 target_compile_options(gul PRIVATE

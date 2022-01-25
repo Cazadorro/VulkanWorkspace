@@ -154,6 +154,10 @@ GLFWwindow *gul::GlfwWindow::getWindowPtr() {
     return m_window;
 }
 
+const GLFWwindow *gul::GlfwWindow::getWindowPtr() const{
+    return m_window;
+}
+
 vul::Surface
 gul::GlfwWindow::createSurface(const vul::Instance &instance,
                             const VkAllocationCallbacks *pAllocator) {

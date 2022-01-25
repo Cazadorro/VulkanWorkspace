@@ -56,6 +56,8 @@ namespace gul {
 
         GLFWwindow *getWindowPtr();
 
+        const GLFWwindow *getWindowPtr() const;
+
         ~GlfwWindow();
 
         using WindowPosCallback = std::function<void(GlfwWindow &, int, int)>;
