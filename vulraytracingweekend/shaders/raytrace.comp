@@ -44,9 +44,9 @@ layout(push_constant) uniform PushConstantBlock{
 // 40 bytes;
 };
 
-vec4 calc_ray_background_color(const in Ray ray) {
+vec3 calc_ray_background_color(const in Ray ray) {
     float t = 0.5*(ray.dir.y + 1.0);
-    return (1.0-t)*vec4(1.0, 1.0, 1.0, 1.0) + t*vec4(0.5, 0.7, 1.0, 1.0);
+    return (1.0-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
 }
 
 uvec2 pixel_from_linear(uint linear_idx){
@@ -56,9 +56,9 @@ bool pixel_within_image(uvec2 pixel_idx){
     return (pixel_idx.x < u_image_width && pixel_idx.y < u_image_height);
 }
 
-float iqhashIII( uvec2 x ){
-    uvec2 q = 1103515245U * ( (x>>1U) ^ (x.yx   ) );
-    uint  n = 1103515245U * ( (q.x  ) ^ (q.y>>3U) );
+float iqhashIII(uvec2 x){
+    uvec2 q = 1103515245U * ((x>>1U) ^ (x.yx));
+    uint  n = 1103515245U * ((q.x) ^ (q.y>>3U));
     return float(n) * (1.0/float(0xffffffffU));
 }
 
@@ -68,12 +68,228 @@ vec2 hashwithoutsine23(vec3 p3){
     return fract((p3.xx+p3.yz)*p3.zy);
 }
 
+uvec3 iqint2(uvec3 x){
+    const uint k = 1103515245u;
+
+    x = ((x>>8U)^x.yzx)*k;
+    x = ((x>>8U)^x.yzx)*k;
+    x = ((x>>8U)^x.yzx)*k;
+
+    return x;
+}
+
+float iqconv(uint val){
+    return float(val) * (1.0/float(0xffffffffU));
+}
+
+vec3 iqint2(vec3 val){
+    uvec3 ux = uvec3(
+    floatBitsToUint(val.x),
+    floatBitsToUint(val.y),
+    floatBitsToUint(val.z)
+    );
+    uvec3 ures = iqint2(ux);
+    return vec3(
+    iqconv(ures.x),
+    iqconv(ures.y),
+    iqconv(ures.z)
+    );
+}
+
+uint iqint1(uint n)
+{
+    // integer hash copied from Hugo Elias
+    n = (n << 13U) ^ n;
+    n = n * (n * n * 15731U + 789221U) + 1376312589U;
+
+    return n;
+}
+
+uint iqint3(uvec2 x)
+{
+    uvec2 q = 1103515245U * ((x>>1U) ^ (x.yx));
+    uint  n = 1103515245U * ((q.x) ^ (q.y>>3U));
+
+    return n;
+}
+uvec2 iqtest(uvec3 val){
+    uvec2 res;
+    res.x = iqint3(val.xy);
+    res.y = iqint3(val.xz);
+    return res;
+}
+
+vec2 iqtest(vec3 val){
+    uvec3 ux = uvec3(
+    floatBitsToUint(val.x),
+    floatBitsToUint(val.y),
+    floatBitsToUint(val.z)
+    );
+    uvec2 ures = iqtest(ux);
+    return vec2(
+    iqconv(ures.x),
+    iqconv(ures.y)
+    );
+}
+
 vec2 jitter_frag_coord(vec2 frag_coord, float time){
     return frag_coord + hashwithoutsine23(vec3(frag_coord, time));
 }
 
+//3d point in, random value out.
+vec3 hashwithoutsine33(vec3 p3)
+{
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz+33.33);
+    return fract((p3.xxy + p3.yxx)*p3.zyx);
+}
+vec3 randomSpherePoint(vec3 rand) {
+    float ang1 = (rand.x + 1.0) * pi;// [-1..1) -> [0..2*PI)
+    float u = rand.y;// [-1..1), cos and acos(2v-1) cancel each other out, so we arrive at [-1..1)
+    float u2 = u * u;
+    float sqrt1MinusU2 = sqrt(1.0 - u2);
+    float x = sqrt1MinusU2 * cos(ang1);
+    float y = sqrt1MinusU2 * sin(ang1);
+    float z = u;
+    return vec3(x, y, z);
+}
+vec3 random_unit_vector(vec3 seed){
+    vec2 random = iqtest(seed);
+    float z = random.x;
+    float az = random.y * pi;
+    float el = asin(z / 1.0);
+    el = atan(z, sqrt(1.0 - z*z));
+    float x = cos(el) * cos(az);
+    float y = cos(el) * sin(az);
+    //    return normalize(randomSpherePoint(hashwithoutsine33(seed)));
+    return vec3(z, y, x);
+}
 
-const uint SAMPLES_PER_PIXEL = 32;
+vec3 random_in_unit_sphere(vec3 seed){
+    vec3 random = seed;
+    random = normalize(hashwithoutsine33(random));
+    //    while(true){
+    //
+    //        random = normalize(random);
+    //        if(length(random) <= 1.00001){
+    //            return random;
+    //        }
+    //    }
+    return random;
+}
+
+vec3 random_in_hemisphere(vec3 seed, vec3 normal){
+    vec3 in_unit_sphere = random_unit_vector(seed);
+    if (dot(in_unit_sphere, normal) > 0.0){
+        return in_unit_sphere;
+    } else {
+        return -in_unit_sphere;
+    }
+}
+const float NEAR_ZERO_EPSILON = 1e-8;
+bool near_zero(float val){
+    return abs(val) < NEAR_ZERO_EPSILON;
+}
+
+bool near_zero(vec2 val){
+    return near_zero(val.x) && near_zero(val.y);
+}
+
+bool near_zero(vec3 val){
+    return near_zero(val.x) && near_zero(val.y) && near_zero(val.z);
+}
+
+bool near_zero(vec4 val){
+    return near_zero(val.x) && near_zero(val.y) && near_zero(val.z) && near_zero(val.w);
+}
+struct LambertianMaterial{
+    vec3 albedo;
+};
+
+bool scatter(
+const in LambertianMaterial material,
+const in Ray ray,
+const in HitRecord hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    vec3 ray_endpoint = endpoint(ray, hit_record);
+    vec3 scatter_dir = hit_record.normal + random_unit_vector(ray_endpoint);
+    if(near_zero(scatter_dir)){
+        scatter_dir = hit_record.normal;
+    }
+    scatter_ray = Ray(ray_endpoint, scatter_dir);
+    color_attenuation = material.albedo;
+    return true;
+}
+struct MetalMaterial{
+    vec3 albedo;
+};
+bool scatter(
+const in MetalMaterial material,
+const in Ray ray,
+const in HitRecord hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    vec3 ray_endpoint = endpoint(ray, hit_record);
+    vec3 reflected_dir = reflect(ray.dir, hit_record.normal);
+    scatter_ray = Ray(ray_endpoint, reflected_dir);
+    color_attenuation = material.albedo;
+    return (dot(scatter_ray.dir, hit_record.normal) > 0);
+}
+
+
+
+
+const uint SPHERES_LEN = 2;
+const Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
+Sphere(vec3(0.0, 0.0, 1.0), 0.5),
+Sphere(vec3(0.0, -100.5, 1.0), 100)
+);
+bool world_hit(const in Ray ray, float t_min, float t_max, out HitRecord hit_record){
+    float closest_t = t_max;
+    bool hit_anything  = false;
+    for (int i = 0; i < SPHERES_LEN; ++i){
+        Sphere sphere = spheres[i];
+        HitRecord temp_record;
+        if (intersect(ray, sphere, temp_record) && temp_record.to_object < closest_t && temp_record.to_object > t_min){
+            hit_anything  = true;
+            closest_t =  temp_record.to_object;
+            hit_record = temp_record;
+        }
+    }
+    return hit_anything;
+}
+
+vec3 calc_ray_color(const in Ray start_ray){
+
+    bool hit = true;
+    vec3 final_color = vec3(0.0);
+    float coefficient = 1.0;
+    Ray ray = start_ray;
+    const uint MAX_ITR = 5;
+    uint iterations = 0;
+    while (hit && iterations < MAX_ITR){
+        iterations += 1;
+        hit = false;
+        HitRecord hit_record;
+        float closest_t = inf;
+        if (world_hit(ray, 0.001, inf, hit_record)){
+            hit = true;
+            coefficient *= 0.5;
+            vec3 hit_point = endpoint(ray, hit_record.to_object);
+            //            vec3 target = hit_point + hit_record.normal + random_unit_vector(hit_point * 1.0);
+            vec3 target = hit_point + hit_record.normal + random_in_hemisphere(hit_point, hit_record.normal);
+            vec3 new_dir = target - hit_point;
+            ray = Ray(hit_point, normalize(new_dir));
+        }
+    }
+    if (iterations >= MAX_ITR){
+        coefficient = 0.0;
+    }
+    return coefficient * calc_ray_background_color(ray);
+}
+
+const uint SAMPLES_PER_PIXEL = 50;
 
 void main(){
     uint tidx = gl_GlobalInvocationID.x;
@@ -82,42 +298,43 @@ void main(){
     ivec2 dims = ivec2(u_image_width, u_image_height);
 
     uvec2 resolution = uvec2(u_image_width, u_image_height);
-    if(!pixel_within_image(frag_coord)){
+    if (!pixel_within_image(frag_coord)){
         return;
     }
 
 
     vec3 camera_rotation = u_camera_rotation;
     camera_rotation.x *= -1.0;
-    vec4 total_color = vec4(0.0);
-    for(int sample_idx = 0; sample_idx < SAMPLES_PER_PIXEL; ++sample_idx){
+    vec3 total_color = vec3(0.0);
+    for (int sample_idx = 0; sample_idx < SAMPLES_PER_PIXEL; ++sample_idx){
         //jitter_frag_coord(frag_coord, float(sample_idx))
         Ray ray = create_Ray(jitter_frag_coord(vec2(frag_coord), float(sample_idx)), resolution, u_camera_origin, camera_rotation, u_fov);
-//        Ray ray = create_Ray(vec2(frag_coord), resolution, u_camera_origin, camera_rotation, u_fov);
-        vec4 color = calc_ray_background_color(ray);
-        const uint SPHERES_LEN = 2;
-        Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
-        Sphere(vec3(0.0,0.0,4.0), 0.5),
-        Sphere(vec3(0.0,-100.5,1.0), 100)
-        );
-        //    Sphere sphere = Sphere(vec3(0.0,0.0,4.0), 0.5);
-
-        HitRecord hit_record;
-        float closest_t = inf;
-        for(int i = 0; i < SPHERES_LEN; ++i){
-            Sphere sphere = spheres[i];
-            if( intersect(ray, sphere, hit_record) && hit_record.to_object < closest_t){
-                //        float t = get_first_surface(hit_record);
-                float t = (hit_record.to_object);
-                vec3 N = hit_record.normal;
-                color.rgb = 0.5*(N + 1);
-                closest_t = hit_record.to_object;
-            }
-        }
+        //        Ray ray = create_Ray(vec2(frag_coord), resolution, u_camera_origin, camera_rotation, u_fov);
+        //        vec4 color = calc_ray_background_color(ray);
+        //        const uint SPHERES_LEN = 2;
+        //        Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
+        //        Sphere(vec3(0.0,0.0,4.0), 0.5),
+        //        Sphere(vec3(0.0,-100.5,1.0), 100)
+        //        );
+        //        //    Sphere sphere = Sphere(vec3(0.0,0.0,4.0), 0.5);
+        //
+        //        HitRecord hit_record;
+        //        float closest_t = inf;
+        //        for(int i = 0; i < SPHERES_LEN; ++i){
+        //            Sphere sphere = spheres[i];
+        //            if( intersect(ray, sphere, hit_record) && hit_record.to_object < closest_t){
+        //                //        float t = get_first_surface(hit_record);
+        //                float t = (hit_record.to_object);
+        //                vec3 N = hit_record.normal;
+        //                color.rgb = 0.5*(N + 1);
+        //                closest_t = hit_record.to_object;
+        //            }
+        //        }
+        vec3 color = calc_ray_color(ray);
         total_color += color;
     }
-   total_color /= SAMPLES_PER_PIXEL;
+    total_color /= SAMPLES_PER_PIXEL;
+    total_color = sqrt(total_color);
 
-
-    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, total_color);
+    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, vec4(total_color, 1.0));
 }

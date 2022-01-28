@@ -186,6 +186,11 @@ vec3 calc_front_normal(const in HitRecord hit_record){
 float get_first_surface(const in HitRecord hit_record){
     return is_outside(hit_record) ? hit_record.to_object : hit_record.to_end;
 }
+
+vec3 endpoint(const in Ray ray, const in HitRecord hit_record){
+    return endpoint(ray,hit_record.to_object);
+}
+
 bool intersect(const in Ray ray, const in Sphere obj, out HitRecord hit_record){
     vec3 oc = ray.pos - obj.pos;
     float a = dot(ray.dir, ray.dir);
