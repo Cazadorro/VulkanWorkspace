@@ -1,13 +1,13 @@
 #version 450
 ////https://www.khronos.org/blog/vulkan-subgroup-tutorial
-//#extension GL_ARB_separate_shader_objects : enable
-//#extension GL_KHR_shader_subgroup_vote: enable
-//#extension GL_KHR_shader_subgroup_ballot: enable
-//#extension GL_KHR_shader_subgroup_arithmetic: enable
-//#extension GL_KHR_shader_subgroup_shuffle: enable
-//#extension GL_KHR_shader_subgroup_shuffle_relative: enable
-//#extension GL_KHR_shader_subgroup_clustered
-//#extension GL_KHR_shader_subgroup_quad
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+#extension GL_KHR_shader_subgroup_shuffle: enable
+#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+#extension GL_KHR_shader_subgroup_clustered: enable
+#extension GL_KHR_shader_subgroup_quad: enable
 #extension GL_EXT_scalar_block_layout: enable
 //#extension GL_EXT_buffer_reference : require
 //#extension GL_EXT_buffer_reference_uvec2 : require
@@ -22,61 +22,62 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+//#extension GL_GOOGLE_include_directive :enable
 
-#include "mathutils.glsl"
-#include "basicreftypes.glsl"
-#include "bitmask.glsl"
+#include "raytracingutils.glsl"
 
 
 #define WORKGROUP_SIZE 1024
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
-
-//TODO addspec const, push const, and dynamic uniform arrays on host side.
 layout (constant_id = 0) const int IMAGE_COUNT = 3;
-struct RayTracingParameters{
-    vec3 offset;
-    uint width;
-    vec3 roll_pitch_yaw;
-    uint height;
-    float fov;
-    vec3 m_padding;
+layout(set = 0, binding=0, rgba8) uniform image2D output_image[];
+//128 bytes max.
+layout(push_constant) uniform PushConstantBlock{
+    vec3 u_camera_origin;
+    uint u_image_width;
+//    16bytes
+    vec3 u_camera_rotation;
+    uint u_image_height;
+//    32bytes
+    float u_fov;
+    uint u_frame_idx;
+// 40 bytes;
 };
 
-//should be 8 + 8 + 8 aligned?
-layout(set = 0, binding = 0, std430) uniform RayTracingParameters{
-    RayTracingParameters u_rt_parameters;
-} raytracingParameters[];
+vec4 calc_ray_background_color(const in Ray ray) {
+    float t = 0.5*(ray.dir.y + 1.0);
+    return (1.0-t)*vec4(1.0, 1.0, 1.0, 1.0) + t*vec4(0.5, 0.7, 1.0, 1.0);
+}
 
 uvec2 pixel_from_linear(uint linear_idx){
-    return uvec2(
-    linear_idx % raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width,
-    x_idx / raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width);
+    return uvec2(linear_idx % u_image_width, linear_idx / u_image_width);
 }
 bool pixel_within_image(uvec2 pixel_idx){
-    return (pixel_idx.x < raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.width && pixel_idx.y < raytracingParameters[u_frame_idx % IMAGE_COUNT].u_rt_parameters.height);
+    return (pixel_idx.x < u_image_width && pixel_idx.y < u_image_height);
 }
 
-layout(set = 0, binding=1, rgba8) uniform image2D output_image[];
-
-layout(push_constant) uniform PushConstantBlock{
-    uint u_frame_idx;
-
-};
 
 
 void main(){
     uint tidx = gl_GlobalInvocationID.x;
-    uvec2 pixel_idx = pixel_from_linear(tidx);
-    ivec2 pos = ivec2(pixel_idx);
-    ivec2 dims = ivec2(u_width, u_height);
-    if(!pixel_within_image(pixel_idx)){
+    uvec2 frag_coord = pixel_from_linear(tidx);
+    ivec2 pos = ivec2(frag_coord);
+    ivec2 dims = ivec2(u_image_width, u_image_height);
+
+    uvec2 resolution = uvec2(u_image_width, u_image_height);
+    if(!pixel_within_image(frag_coord)){
         return;
     }
-    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, vec4(1.0));
-//    if (pixel_idx.x > u_width || pixel_idx.y > u_height || get(u_bitmask, pos, dims)){
-//        if(!(x > u_width || y > u_height) && get(u_bitmask, pos, dims)){
-//            imageStore(output_visualization[u_imageoutput_idx], pos, vec4(1.0));
-//        }
-//        return;
-//    }
+
+    Ray ray = create_Ray(frag_coord, resolution, u_camera_origin, u_camera_rotation, u_fov);
+    vec4 color = calc_ray_background_color(ray);
+    Sphere sphere = Sphere(vec3(0.0,0.0,4.0), 0.5);
+    IntersectPair intersection;
+    if(intersect(ray, sphere, intersection)){
+        float t = intersection.to_object;
+        vec3 N = normalize(endpoint(ray,t) - vec3(0,0,-1));
+        color.rgb = 0.5*(N + 1);
+    }
+
+    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, color);
 }

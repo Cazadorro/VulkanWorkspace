@@ -126,6 +126,8 @@ namespace vul {
 
         [[nodiscard]]
         const std::vector<ImageView>& getImageViews() const;
+        [[nodiscard]]
+        const std::vector<VkImage>& getImages() const;
 
     private:
         const Device *m_pDevice = nullptr;

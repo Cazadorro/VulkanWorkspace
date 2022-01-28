@@ -42,12 +42,13 @@ namespace gul {
 
         void newFrame() const;
         void postSubmit() const;
+        void render() const;
 
         void recordCommands(vul::PrimaryCommandBuffer& commandBuffer, std::uint32_t swapchainImageIndex) const;
 
 
         [[nodiscard]]
-        std::function<void()> createResizeCallback();
+        std::function<void()> createResizeCallback(const vul::Queue& renderQueue);
 
     private:
         const vul::Device *m_pDevice = nullptr;

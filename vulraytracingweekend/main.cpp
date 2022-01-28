@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include <gul/imguirenderer.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
@@ -53,6 +54,7 @@
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
+#include <misc/cpp/imgui_stdlib.h>
 
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
@@ -60,48 +62,6 @@
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
 
-
-vul::ExpectedResult<vul::RenderPass>
-createImGuiRenderPass(const vul::Device &device, vul::Format surfaceFormat,
-                      bool clearEnable) {
-    VkAttachmentDescription attachment = {};
-    attachment.format = vul::get(surfaceFormat);
-    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment.loadOp = clearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR
-                                    : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    VkAttachmentReference color_attachment = {};
-    color_attachment.attachment = 0;
-    color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment;
-    VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    VkRenderPassCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    info.attachmentCount = 1;
-    info.pAttachments = &attachment;
-    info.subpassCount = 1;
-    info.pSubpasses = &subpass;
-    info.dependencyCount = 1;
-    info.pDependencies = &dependency;
-    VkRenderPass renderPass;
-    auto result = static_cast<vul::Result>(vkCreateRenderPass(device.get(),
-                                                              &info, nullptr,
-                                                              &renderPass));
-    return {result, vul::RenderPass(device, renderPass, 1, nullptr)};
-}
 
 struct Vertex {
     glm::vec3 pos;
@@ -113,16 +73,6 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
     alignas(16) glm::mat4 proj;
-};
-
-struct alignas(16) RayTracingParameters{
-    glm::vec3 offset;
-    std::uint32_t width;
-    glm::vec3 roll_pitch_yaw;
-    std::uint32_t height;
-    float fov;
-    std::uint32_t image_count;
-    glm::vec2 m_padding;
 };
 
 const std::vector<Vertex> vertices = {
@@ -146,8 +96,7 @@ const std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        ,
+        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
 
         {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
@@ -157,8 +106,7 @@ const std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        ,
+        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
         {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
@@ -167,8 +115,7 @@ const std::vector<Vertex> vertices = {
         {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        ,
+        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
         {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
         {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
         {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
@@ -283,14 +230,24 @@ int main() {
     features.physicalDeviceVulkan12Features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
     features.physicalDeviceVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
     features.physicalDeviceVulkan12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing  = VK_TRUE;
+    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+
+//    features.physicalDeviceVulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+
+//    features.physicalDeviceVulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE;
+//    features.physicalDeviceVulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
+
     features.physicalDeviceVulkan12Features.runtimeDescriptorArray = VK_TRUE;
 
     features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
     features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
     features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
+    features.physicalDeviceVulkan12Features.bufferDeviceAddressCaptureReplay = VK_TRUE;
 
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
     features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;
@@ -304,7 +261,9 @@ int main() {
     vul::Device device; //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
     vul::Surface surface = window.createSurface(instance);
     //TODO will need to capitalize letters?
-    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
+//    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
+//                                                     vul::ColorSpaceKHR::SrgbNonlinear};
+    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Unorm,
                                                      vul::ColorSpaceKHR::SrgbNonlinear};
     const auto defaultPresentMode = vul::PresentModeKHR::Mailbox;
     auto physicalDeviceOpt = pickPhysicalDevice(instance, surface, features,
@@ -370,7 +329,7 @@ int main() {
             .surfaceFormat(defaultSurfaceFormat)
             .imageExtent(surfaceCapabilities.calcSwapchainExtent(
                     window.getFramebufferExtent()))
-            .imageUsage(vul::ImageUsageFlagBits::ColorAttachmentBit | vul::ImageUsageFlagBits::StorageBit)
+            .imageUsage(vul::ImageUsageFlagBits::ColorAttachmentBit)
             .preTransform(surfaceCapabilities.currentTransform)
             .presentMode(defaultPresentMode)
             .imageSharingMode(vul::SharingMode::Exclusive);
@@ -424,29 +383,43 @@ int main() {
                     vul::AccessFlagBits::ColorAttachmentWriteBit |
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
     auto renderPass = subpassBuilder.createRenderPass(device).assertValue();
+    renderPass.setObjectName("MyActualRenderPass");
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
-    descriptorSetLayoutBuilder.setBindings({vul::UniformBufferBinding(0,
-                                                                      vul::ShaderStageFlagBits::VertexBit).get(),
-                                            vul::CombinedSamplerBinding(1,
-
-                                                                        vul::ShaderStageFlagBits::FragmentBit).get()});
+    descriptorSetLayoutBuilder.setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
+    descriptorSetLayoutBuilder.setBindings(
+            {vul::CombinedSamplerBinding(0,
+                                         vul::ShaderStageFlagBits::FragmentBit, 3).get()
+            },
+            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
     vul::GraphicsPipeline graphicsPipeline;
+//    auto pipelineLayout = device.createPipelineLayout(
+//            descriptorLayout).assertValue();
+
+
+
     auto pipelineLayout = device.createPipelineLayout(
-            descriptorLayout).assertValue();
+            descriptorLayout,
+            VkPushConstantRange{
+                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::FragmentBit),
+                    0,
+                    sizeof(std::uint32_t)
+            }).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
 
 
-    pipelineBuilder.setVertexBinding<Vertex>(0);
+//    pipelineBuilder.setVertexBinding<Vertex>(0);
+
     pipelineBuilder.setPrimitiveStateInfo(
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
             surface.getSwapchain()->getExtent());
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
-    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
+    pipelineBuilder.setDefaultRasterizationState(
+            vul::CullModeFlagBits::FrontBit); //TODO turn triangle around...? why did they make it front culling...
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
     VkPipelineColorBlendAttachmentState blendState = {};
@@ -463,9 +436,9 @@ int main() {
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
         auto vertexShader = device.createShaderModule(
-                vul::readSPIRV("spirv/shader_depth.vert.spv")).assertValue();
+                vul::readSPIRV("spirv/fullscreen.vert.spv")).assertValue();
         auto fragmentShader = device.createShaderModule(
-                vul::readSPIRV("spirv/shader_depth.frag.spv")).assertValue();
+                vul::readSPIRV("spirv/fullscreen.frag.spv")).assertValue();
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
@@ -595,99 +568,189 @@ int main() {
                                                      vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
     }
 
-    auto descriptorPool = device.createDescriptorPool(
-            {{descriptorSetLayoutBuilder,
-              swapchainSize}}).assertValue();
-
-    auto descriptorSets = descriptorPool.createDescriptorSets(
-            {{descriptorLayout, swapchainSize}}).assertValue();
-
-    for (const auto&[i, descriptorSet]: descriptorSets |
-                                        ranges::views::enumerate) {
-        auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
-                {uniformBuffers[i].createDescriptorInfo()});
-        //TODO potentially could keep as layout general?
-        updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
-                {textureImageView.createDescriptorInfo(sampler,
-                                                       vul::ImageLayout::ShaderReadOnlyOptimal)});
-        auto updates = updateBuilder.create(descriptorSet);
-        device.updateDescriptorSets(updates);
-    }
 
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
 
+    gul::ImguiRenderer imguiRenderer(window, instance, device, surface,
+                                     presentQueueIndex, presentationQueue,
+                                     surface.getSwapchain()->getFormat());
 
-    std::vector<VkDescriptorPoolSize> pool_sizes =
-            {
-                    {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
-            };
 
-    auto imguiPool = device.createDescriptorPool(
-            pool_sizes, 1000,
-            vul::DescriptorPoolCreateFlagBits::FreeDescriptorSetBit).assertValue();
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void) io;
-//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    ImGui::StyleColorsDark();
 
-    ImGui_ImplGlfw_InitForVulkan(window.getWindowPtr(), true);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance.get();
-    init_info.PhysicalDevice = physicalDevice.get();
-    init_info.Device = device.get();
-    init_info.QueueFamily = presentQueueIndex;
-    init_info.Queue = presentationQueue.get();
-//    init_info.PipelineCache = g_PipelineCache;
-    init_info.DescriptorPool = imguiPool.get();
-//    init_info.Allocator = g_Allocator;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
-//    init_info.CheckVkResultFn = check_vk_result;
+    struct alignas(4) RayTracingPushConstant {
+        glm::vec3 u_camera_position;
+        std::uint32_t u_image_width;
+//    16bytes
+        glm::vec3 u_camera_orientation;
+        std::uint32_t u_image_height;
+//    32bytes
+        float u_fov;
+        std::uint32_t u_frame_idx;
+// 40 bytes;
+    };
+    static_assert(sizeof(RayTracingPushConstant) == 40);
 
-    ImGui_ImplVulkan_Init(&init_info, renderPass.get());
-#if 0
-    auto imguiRenderPass = createImGuiRenderPass(device, surface.getSwapchain()->getFormat(), false).assertValue();
-    ImGui_ImplVulkan_Init(&init_info, imguiRenderPass.get());
+    vul::SamplerBuilder raytracedImageSamplerBuilder(device);
+    raytracedImageSamplerBuilder.setFilter(vul::Filter::Linear);
+    raytracedImageSamplerBuilder.setAddressMode(
+            vul::SamplerAddressMode::MirroredRepeat);
+    raytracedImageSamplerBuilder.enableAnisotropy();
+    raytracedImageSamplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
-    std::vector<vul::Framebuffer> imguiFramebuffers;
-//    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-//    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
+    auto raytracedImageSampler = raytracedImageSamplerBuilder.create().assertValue();
+    //TODO use spec consts for storage image size.
+    auto raytraceDescriptorLayoutBuilder = vul::DescriptorSetLayoutBuilder(
+            device);
+    raytraceDescriptorLayoutBuilder.setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
+    raytraceDescriptorLayoutBuilder.setBindings(
+            {vul::StorageImageBinding(0,
+                                      vul::ShaderStageFlagBits::ComputeBit,
+                                      3).get()},
+            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
 
-    for (const auto &imageView: swapchainImageViews) {
-        std::array<const vul::ImageView *, 1> imageViews = {&imageView};
-        vul::FramebufferBuilder framebufferBuilder(device);
-        framebufferBuilder.setAttachments(imageViews);
-        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-        framebufferBuilder.setRenderPass(renderPass);
-        swapchainFramebuffers.push_back(
-                framebufferBuilder.create().assertValue());
+
+    auto raytraceDescriptorLayout = raytraceDescriptorLayoutBuilder.create().assertValue();
+    auto raytracePipelineLayout = device.createPipelineLayout(
+            raytraceDescriptorLayout,
+            VkPushConstantRange{
+                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::ComputeBit),
+                    0,
+                    sizeof(RayTracingPushConstant)
+            }).assertValue();
+    auto computeBuilder = vul::ComputePipelineBuilder(device);
+    vul::ComputePipeline raytracePipeline;
+    {
+        auto computeShader = device.createShaderModule(
+                vul::readSPIRV("spirv/raytrace.comp.spv")).assertValue();
+        computeBuilder.setShaderCreateInfo(
+                computeShader.createComputeStageInfo());
+        computeBuilder.setPipelineLayout(raytracePipelineLayout);
+        raytracePipeline = computeBuilder.create().assertValue();
     }
-#endif
 
-    renderPass.setObjectName("MyActualRenderPass");
 
-    commandPool.singleTimeSubmit(presentationQueue,
-                                 [](vul::CommandBuffer &commandBuffer) {
-                                     ImGui_ImplVulkan_CreateFontsTexture(
-                                             commandBuffer.get());
-                                 });
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
+    auto descriptorPool = device.createDescriptorPool(
+            {{descriptorSetLayoutBuilder,      swapchainSize},
+             {raytraceDescriptorLayoutBuilder, 1}},
+             vul::DescriptorPoolCreateFlagBits::UpdateAfterBindBit).assertValue();
+
+    auto descriptorSets = descriptorPool.createDescriptorSets(
+            {{descriptorLayout, swapchainSize}}).assertValue();
+    auto raytraceDescriptorSet = descriptorPool.createDescriptorSet(
+            raytraceDescriptorLayout).assertValue();
+    device.setObjectName(raytraceDescriptorSet, "raytraceDescriptorSet");
+
+    std::vector<vul::Image> raytracedImages;
+    std::vector<vul::ImageView> raytracedImagesViews;
+
+    auto resizeDescriptorSets = [&](){
+        raytracedImages.clear();
+        raytracedImagesViews.clear();
+        for (std::size_t i = 0; i < swapchainSize; ++i) {
+            raytracedImages.push_back(allocator.createDeviceImage(
+                    vul::createSimple2DImageInfo(
+                            vul::Format::R8g8b8a8Unorm,
+                            surface.getSwapchain()->getExtent(),
+                            vul::ImageUsageFlagBits::SampledBit |
+                            vul::ImageUsageFlagBits::StorageBit)).assertValue());
+            vul::transition(raytracedImages.back(), commandPool, presentationQueue,
+                            vul::ImageAspectFlagBits::ColorBit,
+                            vul::PipelineStageFlagBits2KHR::AllCommandsBit,
+                            vul::AccessFlagBits2KHR::ShaderWriteBit,
+                            vul::ImageLayout::General);
+            raytracedImagesViews.push_back(
+                    raytracedImages.back().createImageView(
+                            vul::ImageSubresourceRange(
+                                    vul::ImageAspectFlagBits::ColorBit)).assertValue());
+        }
+
+
+        for (const auto&[i, descriptorSet]: descriptorSets |
+                                            ranges::views::enumerate) {
+            auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
+            updateBuilder.getDescriptorElementAt(0).setCombinedImageSampler(
+                    raytracedImagesViews | ranges::views::transform(
+                            [&raytracedImageSampler](auto &value) {
+                                return value.createDescriptorInfo(
+                                        raytracedImageSampler,
+                                        vul::ImageLayout::General);
+                            }) |
+                    ranges::to<std::vector>());
+            auto updates = updateBuilder.create(descriptorSet);
+            device.updateDescriptorSets(updates);
+        }
+
+        {
+
+            using namespace ranges;
+            auto updateBuilder = raytraceDescriptorLayoutBuilder.createUpdateBuilder();
+            updateBuilder.getDescriptorElementAt(0).setStorageImage(
+                    raytracedImagesViews | views::transform(
+                            [](auto &value) { return value.createStorageWriteInfo(); }) |
+                    ranges::to<std::vector>());
+            auto updates = updateBuilder.create(raytraceDescriptorSet);
+            device.updateDescriptorSets(updates);
+        }
+
+    };
+//    raytracedImages.clear();
+//    raytracedImagesViews.clear();
+//    for (std::size_t i = 0; i < swapchainSize; ++i) {
+//        raytracedImages.push_back(allocator.createDeviceImage(
+//                vul::createSimple2DImageInfo(
+//                        vul::Format::R8g8b8a8Unorm,
+//                        surface.getSwapchain()->getExtent(),
+//                        vul::ImageUsageFlagBits::SampledBit |
+//                        vul::ImageUsageFlagBits::StorageBit)).assertValue());
+//        vul::transition(raytracedImages.back(), commandPool, presentationQueue,
+//                        vul::ImageAspectFlagBits::ColorBit,
+//                        vul::PipelineStageFlagBits2KHR::AllCommandsBit,
+//                        vul::AccessFlagBits2KHR::ShaderWriteBit,
+//                        vul::ImageLayout::General);
+//        raytracedImagesViews.push_back(
+//                raytracedImages.back().createImageView(
+//                        vul::ImageSubresourceRange(
+//                                vul::ImageAspectFlagBits::ColorBit)).assertValue());
+//    }
+//
+//
+//    for (const auto&[i, descriptorSet]: descriptorSets |
+//                                        ranges::views::enumerate) {
+//        auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
+//        updateBuilder.getDescriptorElementAt(0).setCombinedImageSampler(
+//                raytracedImagesViews | ranges::views::transform(
+//                        [&raytracedImageSampler](auto &value) {
+//                            return value.createDescriptorInfo(
+//                                    raytracedImageSampler,
+//                                    vul::ImageLayout::General);
+//                        }) |
+//                ranges::to<std::vector>());
+//        auto updates = updateBuilder.create(descriptorSet);
+//        device.updateDescriptorSets(updates);
+//    }
+//
+//    {
+//
+//        using namespace ranges;
+//        auto updateBuilder = raytraceDescriptorLayoutBuilder.createUpdateBuilder();
+//        updateBuilder.getDescriptorElementAt(0).setStorageImage(
+//                raytracedImagesViews | views::transform(
+//                        [](auto &value) { return value.createStorageWriteInfo(); }) |
+//                ranges::to<std::vector>());
+//        auto updates = updateBuilder.create(raytraceDescriptorSet);
+//        device.updateDescriptorSets(updates);
+//    }
+    resizeDescriptorSets();
+
+
+
+    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback(presentationQueue), &resizeDescriptorSets]() {
+        resizeSwapchain();
+        resizeImGuiFramebuffers();
+        resizeDescriptorSets();
+    };
 
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -696,81 +759,14 @@ int main() {
     std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(),
                                              0);
 
-    auto raytracingLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
-    raytracingLayoutBuilder.setBindings(
-            {vul::UniformBufferBinding(0,
-                                       vul::ShaderStageFlagBits::ComputeBit).get(),
-             vul::StorageImageBinding(1,
-                                      vul::ShaderStageFlagBits::ComputeBit,
-                                      swapchainSize).get()});
 
-    auto raytracingLayout = raytracingLayoutBuilder.create().assertValue();
-    auto raytracingPipelineLayout = device.createPipelineLayout(raytracingLayout).assertValue();
-    auto computeBuilder = vul::ComputePipelineBuilder(device);
-    vul::ComputePipeline raytracingPipeline;
-    {
-        auto computeShader = device.createShaderModule(
-                vul::readSPIRV("spirv/raytrace.comp.spv")).assertValue();
-        computeBuilder.setShaderCreateInfo(
-                computeShader.createComputeStageInfo());
-        computeBuilder.setPipelineLayout(raytracingPipelineLayout);
-        raytracingPipeline = computeBuilder.create().assertValue();
-    }
-
-
-
-
-//    RayTracingParameters raytracingParameters = {};
-//    {
-//        auto extent = surface.getSwapchain()->getExtent();
-//        raytracingParameters.fov = glm::radians(90.0f);
-//        raytracingParameters.offset = camera.getPosition();
-//        raytracingParameters.roll_pitch_yaw = camera.getRotation();
-//        raytracingParameters.width = extent.width;
-//        raytracingParameters.height = extent.height;
-//    }
-
-    std::vector<vul::Buffer> raytracingParameterBuffers;
-    for (std::size_t i = 0; i < swapchainSize; ++i) {
-        VkDeviceSize bufferSize = sizeof(RayTracingParameters);
-        uniformBuffers.push_back(
-                allocator.createMappedCoherentBuffer(bufferSize,
-                                                     vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
-    }
-//
-//    auto raytracingParameterBuffer = allocator.createDeviceBuffer(
-//            commandPool, presentationQueue, raytracingParameters,
-//            vul::BufferUsageFlagBits::UniformBufferBit).assertValue();
-
-
-    auto lbmDescriptorPool = device.createDescriptorPool(
-            {{raytracingLayoutBuilder, 1}}).assertValue();
-
-    auto lbmDescriptorSet = lbmDescriptorPool.createDescriptorSet(
-            raytracingLayout).assertValue();
-
-    {
-        device.setObjectName(lbmDescriptorSet, "raytracingDescriptorSet");
-        using namespace ranges;
-        auto updateBuilder = raytracingLayoutBuilder.createUpdateBuilder();
-
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
-                {raytracingParameterBuffer.createDescriptorInfo()});
-        updateBuilder.getDescriptorElementAt(1).setStorageImage(
-                swapchainImageViews | views::transform(
-                        [](auto &value) { return value.createStorageWriteInfo(); }) |
-                ranges::to<std::vector>());
-        auto updates = updateBuilder.create(lbmDescriptorSet);
-        device.updateDescriptorSets(updates);
-    }
+//    computeBuilder.set
 
     while (!window.shouldClose()) {
 
         glfwPollEvents();
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
-
+        imguiRenderer.newFrame();
+        auto windowExtent = surface.getSwapchain()->getExtent();
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
@@ -788,6 +784,15 @@ int main() {
             ImGui::Checkbox("Demo Window",
                             &show_demo_window);      // Edit bools storing our window open/close state
             ImGui::Checkbox("Another Window", &show_another_window);
+
+            ImGui::Text(fmt::format("camera pos : x:{},y:{},z:{}",
+                                    camera.getPosition().x,
+                                    camera.getPosition().y,
+                                    camera.getPosition().z).c_str());
+            ImGui::Text(fmt::format("camera rot : r:{},p:{},y:{}",
+                                    glm::degrees(camera.getRotation().x),
+                                    glm::degrees(camera.getRotation().y),
+                                    glm::degrees(camera.getRotation().z)).c_str());
 
             ImGui::SliderFloat("float", &f, 0.0f,
                                1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
@@ -828,11 +833,12 @@ int main() {
 
         if (swapchainImageIndexResult.result ==
             vul::Result::ErrorOutOfDateKhr) {
-            resizeSwapchain();
+            resizeWindow();
             continue;
         }
         auto swapchainImageIndex = swapchainImageIndexResult.assertValue(
                 validSwapchainResults);
+
 
         {
             static auto startTime = std::chrono::high_resolution_clock::now();
@@ -905,11 +911,10 @@ int main() {
             }
 
 
-            auto extent = surface.getSwapchain()->getExtent();
             UniformBufferObject ubo = {};
             ubo.model = glm::identity<glm::mat4x4>();
             ubo.model = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f),
-                        glm::vec3(1.0f, 0.0f, 0.0f));
+                                    glm::vec3(1.0f, 0.0f, 0.0f));
 //            ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f),
 //                                    glm::vec3(0.0f, 1.0f, 0.0f));
 //            ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f),
@@ -917,25 +922,23 @@ int main() {
 //                                   glm::vec3(0.0f, 1.0f, 0.0f));
             ubo.view = camera.calcViewMatrix();
             ubo.proj = glm::perspective(glm::radians(45.0f),
-                                        extent.width /
-                                        (float) extent.height,
+                                        surface.getSwapchain()->getExtent().width /
+                                        (float) surface.getSwapchain()->getExtent().height,
                                         0.1f,
                                         10.0f);
             ubo.proj[1][1] *= -1;
             uniformBuffers[swapchainImageIndex].mappedCopyFrom(
                     ubo);
-            RayTracingParameters raytracingParameters = {};
-            raytracingParameters.image_count = swapchainSize;
-            raytracingParameters.fov = glm::radians(90.0f);
-            raytracingParameters.offset = camera.getPosition();
-            raytracingParameters.roll_pitch_yaw = camera.getRotation();
-            raytracingParameters.width = extent.width;
-            raytracingParameters.height = extent.height;
-
         }
+        RayTracingPushConstant rayTracingPushConstant = {};
+        rayTracingPushConstant.u_camera_position = camera.getPosition();
+        rayTracingPushConstant.u_camera_orientation = camera.getRotation();
+        rayTracingPushConstant.u_image_width = windowExtent.width;
+        rayTracingPushConstant.u_image_height = windowExtent.height;
+        rayTracingPushConstant.u_fov = glm::radians(45.0f);
+        rayTracingPushConstant.u_frame_idx = swapchainImageIndex % swapchainSize; //TODO
 
-
-        ImGui::Render();
+        imguiRenderer.render();
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
 //        std::this_thread::sleep_for(16ms);
@@ -945,9 +948,44 @@ int main() {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
+                commandBuffer.bindPipeline(raytracePipeline);
+                commandBuffer.bindDescriptorSets(
+                        vul::PipelineBindPoint::Compute, raytracePipelineLayout,
+                        raytraceDescriptorSet);
+                auto computeComputeBarrier = vul::createMemoryBarrier(
+                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit |
+                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
+                        vul::AccessFlagBits2KHR::ShaderWriteBit |
+                        vul::AccessFlagBits2KHR::ShaderReadBit,
+                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
+                        vul::AccessFlagBits2KHR::ShaderWriteBit |
+                        vul::AccessFlagBits2KHR::ShaderReadBit);
+                auto computeComputeDepInfo = vul::createDependencyInfo(
+                        computeComputeBarrier, {}, {});
+                {
+                    commandBuffer.pipelineBarrier(computeComputeDepInfo);
+                    commandBuffer.pushConstants(raytracePipelineLayout,
+                                                vul::ShaderStageFlagBits::ComputeBit,
+                                                rayTracingPushConstant);
+                    commandBuffer.dispatch(
+                            static_cast<std::uint32_t>(std::ceil(
+                                    (windowExtent.width * windowExtent.height) /
+                                    1024.0)));
+
+                }
+                auto computeGraphicsBarrier = vul::createMemoryBarrier(
+                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
+                        vul::AccessFlagBits2KHR::ShaderWriteBit,
+                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
+                        vul::AccessFlagBits2KHR::ShaderReadBit);
+                auto dependencyInfo = vul::createDependencyInfo(
+                        computeGraphicsBarrier, {}, {});
+                commandBuffer.pipelineBarrier(dependencyInfo);
+            }
+            {
                 auto extent = surface.getSwapchain()->getExtent();
-                commandBuffer.setViewport(vul::Viewport(extent).get());
-                commandBuffer.setScissor(vul::Rect2D(extent).get());
+                commandBuffer.setViewport(vul::Viewport(extent));
+                commandBuffer.setScissor(vul::Rect2D(extent));
 
 
                 std::array<VkClearValue, 2> clearValues{};
@@ -959,38 +997,19 @@ int main() {
                 auto renderPassBlock = commandBuffer.beginRenderPass(
                         renderPass,
                         swapchainFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
+                        vul::Rect2D(extent),
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
-                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
-                commandBuffer.bindIndexBuffer(indexBuffer,
-                                              vul::IndexType::Uint16);
+
                 commandBuffer.bindDescriptorSets(
                         vul::PipelineBindPoint::Graphics, pipelineLayout,
                         descriptorSets[swapchainImageIndex]);
-                renderPassBlock.drawIndexed(indices.size());
-
-//                renderPassBlock.draw(36);
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
+                commandBuffer.pushConstants(pipelineLayout,
+                                            vul::ShaderStageFlagBits::FragmentBit,
+                                            static_cast<std::uint32_t>(frame_counter%swapchainSize));
+                renderPassBlock.draw(3);
             }
-#if 0
-            {
-                std::array<VkClearValue, 1> clearValues{};
-//                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
-                clearValues[0].color = {
-                        {clear_color.x, clear_color.y, clear_color.z,
-                         clear_color.w}};
-                auto extent = surface.getSwapchain()->getExtent();
-                auto renderPassBlock = commandBuffer.beginRenderPass(
-                        imguiRenderPass,
-                        imguiFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
-                        clearValues);
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
-            }
-#endif
+            imguiRenderer.recordCommands(commandBuffer, swapchainImageIndex);
             commandBuffer.end();
         }
 
@@ -1020,11 +1039,7 @@ int main() {
         presentationQueue.submit(submitInfo);
         //TODO do actual render here
 
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
-
+        imguiRenderer.postSubmit();
         auto presentResult = surface.getSwapchain()->present(presentationQueue,
                                                              binaryRenderFinishedSemaphore,
                                                              swapchainImageIndex);
@@ -1032,7 +1047,7 @@ int main() {
         if (presentResult == vul::Result::ErrorOutOfDateKhr ||
             presentResult == vul::Result::SuboptimalKhr || framebufferResized) {
             framebufferResized = false;
-            resizeSwapchain();
+            resizeWindow();
         } else if (presentResult != vul::Result::Success) {
             throw std::runtime_error("failed to present swapchain image");
         }
@@ -1042,9 +1057,5 @@ int main() {
 
     }
     device.waitIdle();
-
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
     return 0;
 }

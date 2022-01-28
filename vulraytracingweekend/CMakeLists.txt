@@ -12,5 +12,7 @@ target_compile_options(vulraytracingweekend PRIVATE
 
 target_shader_postbuild(vulraytracingweekend
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/raytrace.comp
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/fullscreen.frag
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/fullscreen.vert
         )
 

@@ -240,13 +240,41 @@ void vul::DescriptorSetLayoutBuilder::setFlags(
 }
 
 void vul::DescriptorSetLayoutBuilder::setBindings(
-        const TempArrayProxy<const VkDescriptorSetLayoutBinding> &descriptorSetBindings) {
+        const TempArrayProxy<const VkDescriptorSetLayoutBinding> &descriptorSetBindings,
+        const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags) {
+
+    // first, figure out key order.
+    std::vector<std::uint32_t> idxs(descriptorSetBindings.size());
+    std::iota(idxs.begin(), idxs.end(), 0);
+
+    std::sort(idxs.begin(), idxs.end(),
+              [&descriptorSetBindings](auto lhs_idx, auto rhs_idx) {
+                  auto lhs = descriptorSetBindings[lhs_idx];
+                  auto rhs = descriptorSetBindings[rhs_idx];
+                  return lhs.binding < rhs.binding;
+              });
+    //now we know what the order of elements should be, fill in elements from this order.
     m_bindings.clear();
-    m_bindings.insert(m_bindings.end(), descriptorSetBindings.begin(),
-                      descriptorSetBindings.end());
-    std::sort(m_bindings.begin(), m_bindings.end(), [](auto lhs, auto rhs) {
-        return lhs.binding < rhs.binding;
-    });
+    m_bindings.reserve(descriptorSetBindings.size());
+    m_bindingFlags.clear();
+    VUL_ASSERT(bindingFlags.size() == descriptorSetBindings.size() || bindingFlags.size() <= 1, fmt::format(
+            "Expected binding flags size to be 0,1 or the same size as descriptorSetBindings: flags {} vs {}",
+            bindingFlags.size(), descriptorSetBindings.size()).c_str());
+    if(bindingFlags.size() == descriptorSetBindings.size()){
+        m_bindingFlags.reserve(descriptorSetBindings.size());
+        for (const auto &idx : idxs) {
+            m_bindings.push_back(descriptorSetBindings[idx]);
+            m_bindingFlags.push_back(bindingFlags[idx]);
+        }
+    }else{ //if (bindingFlags.size() >= 1){  not needed because of assert.
+        if(bindingFlags.size() == 1){
+            m_bindingFlags = std::vector<vul::DescriptorBindingBitMask>(descriptorSetBindings.size(), bindingFlags[0]);
+        }
+        for (const auto &idx : idxs) {
+            m_bindings.push_back(descriptorSetBindings[idx]);
+        }
+    }
+
     auto max_value = *std::max_element(m_bindings.begin(), m_bindings.end(),
                                        [](auto lhs, auto rhs) {
                                            return lhs.binding < rhs.binding;
@@ -258,7 +286,8 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
 
 void vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<const VkDescriptorSetLayoutBinding> &descriptorSetBindings,
-        const TempArrayProxy<const std::string> &bindingName) {
+        const TempArrayProxy<const std::string> &bindingName,
+        const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags) {
 
     VUL_ASSERT(descriptorSetBindings.size() == bindingName.size(),
                fmt::format(
@@ -266,7 +295,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
                        "descriptorSetBindings {} vs bindingName {}",
                        descriptorSetBindings.size(),
                        bindingName.size()).c_str());
-    std::vector<std::uint32_t> idxs;
+    std::vector<std::uint32_t> idxs(descriptorSetBindings.size());
     std::iota(idxs.begin(), idxs.end(), 0);
 
     std::sort(idxs.begin(), idxs.end(),
@@ -275,12 +304,31 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
                   auto rhs = descriptorSetBindings[rhs_idx];
                   return lhs.binding < rhs.binding;
               });
-
+    m_bindings.clear();
     m_bindings.reserve(descriptorSetBindings.size());
+    m_bindingFlags.clear();
+
+    m_nameBindingMap.clear();
     m_nameBindingMap.reserve(descriptorSetBindings.size());
-    for (const auto &idx : idxs) {
-        m_nameBindingMap[bindingName[idx]] = static_cast<std::uint32_t>(m_bindings.size());
-        m_bindings.push_back(descriptorSetBindings[idx]);
+    VUL_ASSERT(bindingFlags.size() == descriptorSetBindings.size() || bindingFlags.size() <= 1, fmt::format(
+            "Expected binding flags size to be 0,1 or the same size as descriptorSetBindings: flags {} vs {}",
+            bindingFlags.size(), descriptorSetBindings.size()).c_str());
+
+    if(bindingFlags.size() == descriptorSetBindings.size()){
+        m_bindingFlags.reserve(bindingFlags.size());
+        for (const auto &idx : idxs) {
+            m_nameBindingMap[bindingName[idx]] = static_cast<std::uint32_t>(m_bindings.size());
+            m_bindings.push_back(descriptorSetBindings[idx]);
+            m_bindingFlags.push_back(bindingFlags[idx]);
+        }
+    }else{ //if (bindingFlags.size() >= 1){  not needed because of assert.
+        if(bindingFlags.size() == 1){
+            m_bindingFlags = std::vector<vul::DescriptorBindingBitMask>(descriptorSetBindings.size(), bindingFlags[0]);
+        }
+        for (const auto &idx : idxs) {
+            m_nameBindingMap[bindingName[idx]] = static_cast<std::uint32_t>(m_bindings.size());
+            m_bindings.push_back(descriptorSetBindings[idx]);
+        }
     }
     auto max_value = *std::max_element(m_bindings.begin(), m_bindings.end(),
                                        [](auto lhs, auto rhs) {
@@ -293,6 +341,8 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
 
 vul::ExpectedResult<vul::DescriptorSetLayout>
 vul::DescriptorSetLayoutBuilder::create() const{
+
+
     VkDescriptorSetLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     //TODO figure out what to do with this nullptr
@@ -300,12 +350,30 @@ vul::DescriptorSetLayoutBuilder::create() const{
     layoutInfo.flags = m_flags;
     layoutInfo.bindingCount = static_cast<uint32_t>(m_bindings.size());
     layoutInfo.pBindings = m_bindings.data();
-    VkDescriptorSetLayout descriptorSetLayout;
-    auto result = static_cast<Result>(vkCreateDescriptorSetLayout(
-            m_pDevice->get(), &layoutInfo,
-            m_pAllocator, &descriptorSetLayout));
-    return {result,
-            DescriptorSetLayout(*m_pDevice, descriptorSetLayout, m_pAllocator)};
+
+    if(!m_bindingFlags.empty()){
+        VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsCreateInfo={};
+        bindingFlagsCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+        bindingFlagsCreateInfo.pNext = nullptr;
+        bindingFlagsCreateInfo.bindingCount = static_cast<uint32_t>(m_bindings.size());
+        bindingFlagsCreateInfo.pBindingFlags = reinterpret_cast<const VkDescriptorBindingFlags*>(m_bindingFlags.data());
+        layoutInfo.pNext = &bindingFlagsCreateInfo;
+
+        VkDescriptorSetLayout descriptorSetLayout;
+        auto result = static_cast<Result>(vkCreateDescriptorSetLayout(
+                m_pDevice->get(), &layoutInfo,
+                m_pAllocator, &descriptorSetLayout));
+        return {result,
+                DescriptorSetLayout(*m_pDevice, descriptorSetLayout, m_pAllocator)};
+    }else{
+
+        VkDescriptorSetLayout descriptorSetLayout;
+        auto result = static_cast<Result>(vkCreateDescriptorSetLayout(
+                m_pDevice->get(), &layoutInfo,
+                m_pAllocator, &descriptorSetLayout));
+        return {result,
+                DescriptorSetLayout(*m_pDevice, descriptorSetLayout, m_pAllocator)};
+    }
 }
 
 std::vector<VkDescriptorPoolSize>
@@ -360,4 +428,14 @@ void vul::DescriptorSetLayoutBuilder::setStageFlags(
 vul::DescriptorSetUpdateBuilder
 vul::DescriptorSetLayoutBuilder::createUpdateBuilder() const{
     return DescriptorSetUpdateBuilder(m_bindings, m_nameBindingMap);
+}
+
+void vul::DescriptorSetLayoutBuilder::setBindings(
+        const vul::TempArrayProxy<const VkDescriptorSetLayoutBinding> &descriptorSetBindings) {
+    setBindings(descriptorSetBindings, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
+}
+
+void vul::DescriptorSetLayoutBuilder::setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
+                 const TempArrayProxy<std::string const>& bindingName){
+    setBindings(descriptorSetBindings, bindingName, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
 }

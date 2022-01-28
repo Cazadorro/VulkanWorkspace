@@ -253,3 +253,7 @@ vul::Result vul::Swapchain::present(const vul::Queue &presentQueue,
 const std::vector<vul::ImageView>& vul::Swapchain::getImageViews() const {
     return m_imageViews;
 }
+
+const std::vector<VkImage> &vul::Swapchain::getImages() const {
+    return m_images;
+}

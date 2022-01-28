@@ -46,10 +46,13 @@ add_subdirectory(gul)
 add_subdirectory(vultest)
 add_subdirectory(vullbm2d)
 add_subdirectory(vulvoxel)
+
 #add_subdirectory(vulparsetest)
+
 add_subdirectory(vullbmtesting)
 add_subdirectory(vullbm2dcpu)
 add_subdirectory(vulraytracingweekend)
+
 add_executable(testmain testmain.cpp)
 target_link_libraries(testmain PRIVATE fmt::fmt)
 #add_subdirectory(external/enkiMI)

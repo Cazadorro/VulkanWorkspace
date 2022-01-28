@@ -219,10 +219,16 @@ namespace vul {
         const VkAllocationCallbacks *pAllocator = nullptr);
         void setFlags(vul::DescriptorSetLayoutCreateBitMask flags);
         void setStageFlags(vul::ShaderStageBitMask stageFlags);
+
         void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings);
         void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
-                         const TempArrayProxy<std::string const>& bindingName);
+                         const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags);
 
+        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
+                         const TempArrayProxy<std::string const>& bindingName);
+        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
+                         const TempArrayProxy<std::string const>& bindingName,
+                         const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags);
 
         [[nodiscard]]
         DescriptorSetLayoutBinding& getBinding(std::uint32_t i);
@@ -247,6 +253,7 @@ namespace vul {
         VkDescriptorSetLayoutCreateFlags m_flags = {};
         std::vector<VkDescriptorSetLayoutBinding> m_bindings;
         std::unordered_map<std::string, std::uint32_t> m_nameBindingMap;
+        std::vector<vul::DescriptorBindingBitMask> m_bindingFlags;
     };
 
     struct LayoutBuilderCount {

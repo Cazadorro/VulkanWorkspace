@@ -181,8 +181,9 @@ void gul::ImguiRenderer::newFrame() const {
     ImGui::NewFrame();
 }
 
-std::function<void()> gul::ImguiRenderer::createResizeCallback() {
-    auto resizeImGuiFramebuffers = [&device = *m_pDevice, &surface = *m_pSurface, &renderpass = m_renderPass, &framebuffers = m_framebuffers]() {
+std::function<void()> gul::ImguiRenderer::createResizeCallback(const vul::Queue& renderQueue) {
+    auto resizeImGuiFramebuffers = [&device = *m_pDevice, &surface = *m_pSurface, &renderpass = m_renderPass, &framebuffers = m_framebuffers, &renderQueue]() {
+        renderQueue.waitIdle();
         framebuffers.clear();
         const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
         for (const auto &imageView: swapchainImageViews) {
@@ -225,4 +226,8 @@ gul::ImguiRenderer::recordCommands(vul::PrimaryCommandBuffer &commandBuffer,
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                     commandBuffer.get());
 
+}
+
+void gul::ImguiRenderer::render() const {
+    ImGui::Render();
 }
