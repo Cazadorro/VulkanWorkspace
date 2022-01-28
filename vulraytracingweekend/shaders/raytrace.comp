@@ -25,7 +25,7 @@
 //#extension GL_GOOGLE_include_directive :enable
 
 #include "raytracingutils.glsl"
-
+#include "mathconstants.glsl"
 
 #define WORKGROUP_SIZE 1024
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
@@ -56,7 +56,24 @@ bool pixel_within_image(uvec2 pixel_idx){
     return (pixel_idx.x < u_image_width && pixel_idx.y < u_image_height);
 }
 
+float iqhashIII( uvec2 x ){
+    uvec2 q = 1103515245U * ( (x>>1U) ^ (x.yx   ) );
+    uint  n = 1103515245U * ( (q.x  ) ^ (q.y>>3U) );
+    return float(n) * (1.0/float(0xffffffffU));
+}
 
+vec2 hashwithoutsine23(vec3 p3){
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yzx+33.33);
+    return fract((p3.xx+p3.yz)*p3.zy);
+}
+
+vec2 jitter_frag_coord(vec2 frag_coord, float time){
+    return frag_coord + hashwithoutsine23(vec3(frag_coord, time));
+}
+
+
+const uint SAMPLES_PER_PIXEL = 32;
 
 void main(){
     uint tidx = gl_GlobalInvocationID.x;
@@ -69,15 +86,38 @@ void main(){
         return;
     }
 
-    Ray ray = create_Ray(frag_coord, resolution, u_camera_origin, u_camera_rotation, u_fov);
-    vec4 color = calc_ray_background_color(ray);
-    Sphere sphere = Sphere(vec3(0.0,0.0,4.0), 0.5);
-    IntersectPair intersection;
-    if(intersect(ray, sphere, intersection)){
-        float t = intersection.to_object;
-        vec3 N = normalize(endpoint(ray,t) - vec3(0,0,-1));
-        color.rgb = 0.5*(N + 1);
-    }
 
-    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, color);
+    vec3 camera_rotation = u_camera_rotation;
+    camera_rotation.x *= -1.0;
+    vec4 total_color = vec4(0.0);
+    for(int sample_idx = 0; sample_idx < SAMPLES_PER_PIXEL; ++sample_idx){
+        //jitter_frag_coord(frag_coord, float(sample_idx))
+        Ray ray = create_Ray(jitter_frag_coord(vec2(frag_coord), float(sample_idx)), resolution, u_camera_origin, camera_rotation, u_fov);
+//        Ray ray = create_Ray(vec2(frag_coord), resolution, u_camera_origin, camera_rotation, u_fov);
+        vec4 color = calc_ray_background_color(ray);
+        const uint SPHERES_LEN = 2;
+        Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
+        Sphere(vec3(0.0,0.0,4.0), 0.5),
+        Sphere(vec3(0.0,-100.5,1.0), 100)
+        );
+        //    Sphere sphere = Sphere(vec3(0.0,0.0,4.0), 0.5);
+
+        HitRecord hit_record;
+        float closest_t = inf;
+        for(int i = 0; i < SPHERES_LEN; ++i){
+            Sphere sphere = spheres[i];
+            if( intersect(ray, sphere, hit_record) && hit_record.to_object < closest_t){
+                //        float t = get_first_surface(hit_record);
+                float t = (hit_record.to_object);
+                vec3 N = hit_record.normal;
+                color.rgb = 0.5*(N + 1);
+                closest_t = hit_record.to_object;
+            }
+        }
+        total_color += color;
+    }
+   total_color /= SAMPLES_PER_PIXEL;
+
+
+    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, total_color);
 }

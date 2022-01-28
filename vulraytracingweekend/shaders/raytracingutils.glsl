@@ -12,33 +12,20 @@ vec3 endpoint(const in Ray ray, float t){
 }
 
 vec3 calc_frag_dir(
-    const in uvec2 fragCoord,
+    const in vec2 fragCoord,
     const in uvec2 resolution,
     const in float fov){
     vec2 uv = vec2(fragCoord) / resolution.xy;
     uv.x = (uv.x * 2.0) - 1.0;
     uv.y = (2.0 * uv.y) - 1.0;
+    uv.y *= -1.0;
     if(resolution.x >= resolution.y){
-        uv.x *= resolution.x/resolution.y;
+        uv.x *= float(resolution.x)/resolution.y;
     }else{
-        uv.y *= resolution.y/resolution.x;
+        uv.y *= float(resolution.y)/resolution.x;
     }
+//    uv.x *= 2.0;
     float tan_fov = tan(fov/2.0);
-    vec2 pxy = uv * tan_fov;
-    vec3 ray_dir = normalize(vec3(pxy, 1));
-    return ray_dir;
-}
-
-vec3 calc_frag_dir2(
-const in uvec2 fragCoord,
-const in uvec2 resolution,
-const in float fov){
-    float tan_fov = tan(fov/2.0);
-    float aspect_ratio = resolution.x/resolution.y;
-
-    float x = (2 * (fragCoord.x + 0.5) / float(resolution.x) - 1) * aspect_ratio;
-    float y = (1 - 2 * (fragCoord.y + 0.5) / float(resolution.y));
-    vec2 uv = vec2(x,y);
     vec2 pxy = uv * tan_fov;
     vec3 ray_dir = normalize(vec3(pxy, 1));
     return ray_dir;
@@ -73,13 +60,13 @@ vec3 rotate_dir(in vec3 ray_dir, in vec3 rotation){
 
 
 Ray create_Ray(
-    const in uvec2 frag_coord,
+    const in vec2 frag_coord,
     const in uvec2 resolution,
     const in vec3 camera_origin,
     const in vec3 camera_rotation,
     const in float fov){
 
-    vec3 ray_dir = calc_frag_dir2(frag_coord, resolution, fov);
+    vec3 ray_dir = calc_frag_dir(frag_coord, resolution, fov);
     vec3 rot_ray_dir = rotate_dir(ray_dir, camera_rotation);
     vec3 ray_origin = camera_origin;
     float cosA = ray_dir.z;// needed for depth calculation.
@@ -182,7 +169,46 @@ bool intersect(const in Ray ray, const in Sphere obj, out IntersectPair intersec
     return true;
 }
 
+struct HitRecord{
+    float to_object;
+    float to_end;
+    vec3 normal;
+};
+bool is_inside(const in HitRecord hit_record){
+   return hit_record.to_object == 0.0;
+}
+bool is_outside(const in HitRecord hit_record){
+    return !is_inside(hit_record);
+}
+vec3 calc_front_normal(const in HitRecord hit_record){
+    return is_outside(hit_record) ? hit_record.normal : -hit_record.normal;
+}
+float get_first_surface(const in HitRecord hit_record){
+    return is_outside(hit_record) ? hit_record.to_object : hit_record.to_end;
+}
+bool intersect(const in Ray ray, const in Sphere obj, out HitRecord hit_record){
+    vec3 oc = ray.pos - obj.pos;
+    float a = dot(ray.dir, ray.dir);
+    float half_b = dot(oc, ray.dir);
+    float c = dot(oc, oc) - obj.r*obj.r;
+    float t0,t1;
+    if(!solveQuadratic(a,2.0*half_b,c,t0,t1)){
+        return false;
+    }
+    if(t0 < 0.0 && t1 < 0.0){
+        return false;
+    }
 
+    hit_record.to_end = t1;
+    if(t0 < 0.0){
+        hit_record.to_object = 0.0;
+    }else {
+        hit_record.to_object = t0;
+    }
+    hit_record.normal = (endpoint(ray, hit_record.to_object) - obj.pos) / obj.r;
+    hit_record.normal = calc_front_normal(hit_record);
+    return true;
+}
 
 
 
