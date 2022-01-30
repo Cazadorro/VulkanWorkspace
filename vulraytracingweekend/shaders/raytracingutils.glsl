@@ -13,7 +13,7 @@ vec3 endpoint(const in Ray ray, float t){
 
 vec3 calc_frag_dir(
     const in vec2 fragCoord,
-    const in uvec2 resolution,
+    const in vec2 resolution,
     const in float fov){
     vec2 uv = vec2(fragCoord) / resolution.xy;
     uv.x = (uv.x * 2.0) - 1.0;
@@ -61,7 +61,7 @@ vec3 rotate_dir(in vec3 ray_dir, in vec3 rotation){
 
 Ray create_Ray(
     const in vec2 frag_coord,
-    const in uvec2 resolution,
+    const in vec2 resolution,
     const in vec3 camera_origin,
     const in vec3 camera_rotation,
     const in float fov){
@@ -173,15 +173,20 @@ struct HitRecord{
     float to_object;
     float to_end;
     vec3 normal;
+    bool front_face; //TODO DON'T LIKE THIS AT ALL!!!
 };
 bool is_inside(const in HitRecord hit_record){
-   return hit_record.to_object == 0.0;
+   return hit_record.to_end == 0.0;
 }
 bool is_outside(const in HitRecord hit_record){
     return !is_inside(hit_record);
 }
 vec3 calc_front_normal(const in HitRecord hit_record){
     return is_outside(hit_record) ? hit_record.normal : -hit_record.normal;
+}
+
+vec3 calc_front_normal(const in HitRecord hit_record, vec3 normal){
+    return hit_record.front_face ? normal : -normal;
 }
 float get_first_surface(const in HitRecord hit_record){
     return is_outside(hit_record) ? hit_record.to_object : hit_record.to_end;
@@ -190,8 +195,17 @@ float get_first_surface(const in HitRecord hit_record){
 vec3 endpoint(const in Ray ray, const in HitRecord hit_record){
     return endpoint(ray,hit_record.to_object);
 }
+vec3 scatter_endpoint(const in Ray ray, const in HitRecord hit_record){
+    vec3 ray_endpoint = endpoint(ray,hit_record);
+    return ray_endpoint;
+    return ray_endpoint + hit_record.normal * 0.001;
+}
 
-bool intersect(const in Ray ray, const in Sphere obj, out HitRecord hit_record){
+bool calc_front_face(const in Ray ray, const in vec3 outward_normal){
+    return dot(ray.dir, outward_normal) < 0.0;
+}
+
+bool intersect(const in Ray ray, const in Sphere obj, out HitRecord hit_record, float t_min){
     vec3 oc = ray.pos - obj.pos;
     float a = dot(ray.dir, ray.dir);
     float half_b = dot(oc, ray.dir);
@@ -200,21 +214,50 @@ bool intersect(const in Ray ray, const in Sphere obj, out HitRecord hit_record){
     if(!solveQuadratic(a,2.0*half_b,c,t0,t1)){
         return false;
     }
-    if(t0 < 0.0 && t1 < 0.0){
+    if(t0 < t_min && t1 < t_min){
         return false;
     }
-
-    hit_record.to_end = t1;
-    if(t0 < 0.0){
-        hit_record.to_object = 0.0;
+    if(t0 < t_min){
+        hit_record.to_object = t1;
+        hit_record.to_end = 0.0;
     }else {
         hit_record.to_object = t0;
+        hit_record.to_end = t1;
     }
-    hit_record.normal = (endpoint(ray, hit_record.to_object) - obj.pos) / obj.r;
-    hit_record.normal = calc_front_normal(hit_record);
+    vec3 normal = (endpoint(ray, hit_record.to_object) - obj.pos) / obj.r;
+    hit_record.front_face = calc_front_face(ray, normal);
+    hit_record.normal = calc_front_normal(hit_record, normal);
     return true;
 }
 
+bool intersect(const in Ray ray, float t_min, float t_max, const in Sphere obj, out HitRecord hit_record) {
+    float radius = obj.r;
+    vec3 center = obj.pos;
+    vec3 oc = ray.pos - center;
+    float a = length2(ray.dir);
+    float half_b = dot(oc, ray.dir);
+    float c = length2(oc) - radius*radius;
+
+    float discriminant = half_b*half_b - a*c;
+    if (discriminant < 0) return false;
+    float sqrtd = sqrt(discriminant);
+
+    // Find the nearest root that lies in the acceptable range.
+    float root = (-half_b - sqrtd) / a;
+    if (root < t_min || t_max < root) {
+        root = (-half_b + sqrtd) / a;
+        if (root < t_min || t_max < root)
+        return false;
+    }
+
+    hit_record.to_object = root;
+//    rec.p = r.at(rec.t);
+    vec3 outward_normal = (endpoint(ray, hit_record.to_object)  - center) / radius;
+    hit_record.front_face = calc_front_face(ray, outward_normal);
+    hit_record.normal = calc_front_normal(hit_record, outward_normal);
+
+    return true;
+}
 
 
 #endif //RAYTRACINGUTILS_GLSL

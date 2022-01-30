@@ -174,7 +174,7 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
 int main() {
     gul::GlfwWindow window(800, 600, "ExampleWindow");
     gul::FirstPersonCamera camera;
-    camera.setPosition(glm::vec3(0.0, 0.0, -1.0));
+    camera.setPosition(glm::vec3(0.0, 0.0, 0.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
     camera.setRotation(glm::vec3(0, 0, 0.0));
 
@@ -935,8 +935,8 @@ int main() {
         rayTracingPushConstant.u_camera_orientation = camera.getRotation();
         rayTracingPushConstant.u_image_width = windowExtent.width;
         rayTracingPushConstant.u_image_height = windowExtent.height;
-        rayTracingPushConstant.u_fov = glm::radians(45.0f);
-        rayTracingPushConstant.u_frame_idx = swapchainImageIndex % swapchainSize; //TODO
+        rayTracingPushConstant.u_fov = glm::radians(90.0f);
+        rayTracingPushConstant.u_frame_idx = static_cast<std::uint32_t>(swapchainImageIndex); //TODO swapchain_size;
 
         imguiRenderer.render();
         using namespace std::chrono_literals;

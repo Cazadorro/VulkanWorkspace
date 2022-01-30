@@ -44,9 +44,34 @@ layout(push_constant) uniform PushConstantBlock{
 // 40 bytes;
 };
 
+const uint SAMPLES_PER_PIXEL = 32;
+const uint MAX_ITR = 8;
+
+
 vec3 calc_ray_background_color(const in Ray ray) {
     float t = 0.5*(ray.dir.y + 1.0);
+    vec3 dir = ray.dir;
+
+    if(false){
+        if (dir.z < 0.0){
+            dir.xy *= -1.0;
+        }
+
+        if (dir.x >= 0.0 && dir.y >= 0.0){
+            return vec3(1.0, 0.0, 0.0);
+        }
+        if (dir.x >= 0.0 && dir.y < 0.0){
+            return vec3(0.0, 1.0, 0.0);
+        }
+        if (dir.x < 0.0 && dir.y >= 0.0){
+            return vec3(0.0, 0.0, 1.0);
+        }
+        if (dir.x < 0.0 && dir.y < 0.0){
+            return vec3(1.0, 1.0, 0.0);
+        }
+    }
     return (1.0-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+
 }
 
 uvec2 pixel_from_linear(uint linear_idx){
@@ -65,8 +90,30 @@ float iqhashIII(uvec2 x){
 vec2 hashwithoutsine23(vec3 p3){
     p3 = fract(p3 * vec3(.1031, .1030, .0973));
     p3 += dot(p3, p3.yzx+33.33);
-    return fract((p3.xx+p3.yz)*p3.zy);
+    return (fract((p3.xx+p3.yz)*p3.zy));
 }
+vec2 hashwithoutsine23_11(vec3 p3){
+    return (hashwithoutsine23(p3) * 2.0) - 1.0;
+}
+
+//3d point in, random value out.
+vec3 hashwithoutsine33(vec3 p3)
+{
+    p3 = fract(p3 * vec3(.1031, .1030, .0973));
+    p3 += dot(p3, p3.yxz+33.33);
+    return fract((p3.xxy + p3.yxx)*p3.zyx);
+}
+
+//I think these functions ranges are 0->1.
+float hashwithoutsine13(vec3 p3)
+{
+    p3  = fract(p3 * .1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.x + p3.y) * p3.z);
+}
+
+
+
 
 uvec3 iqint2(uvec3 x){
     const uint k = 1103515245u;
@@ -133,16 +180,10 @@ vec2 iqtest(vec3 val){
 }
 
 vec2 jitter_frag_coord(vec2 frag_coord, float time){
-    return frag_coord + hashwithoutsine23(vec3(frag_coord, time));
+    return frag_coord + hashwithoutsine23_11(vec3(frag_coord, time));
 }
 
-//3d point in, random value out.
-vec3 hashwithoutsine33(vec3 p3)
-{
-    p3 = fract(p3 * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yxz+33.33);
-    return fract((p3.xxy + p3.yxx)*p3.zyx);
-}
+
 vec3 randomSpherePoint(vec3 rand) {
     float ang1 = (rand.x + 1.0) * pi;// [-1..1) -> [0..2*PI)
     float u = rand.y;// [-1..1), cos and acos(2v-1) cancel each other out, so we arrive at [-1..1)
@@ -166,16 +207,17 @@ vec3 random_unit_vector(vec3 seed){
 }
 
 vec3 random_in_unit_sphere(vec3 seed){
-    vec3 random = seed;
-    random = normalize(hashwithoutsine33(random));
-    //    while(true){
-    //
-    //        random = normalize(random);
-    //        if(length(random) <= 1.00001){
-    //            return random;
-    //        }
-    //    }
-    return random;
+    return random_unit_vector(seed);
+//    vec3 random = seed;
+//    random = normalize(hashwithoutsine33(random));
+//    //    while(true){
+//    //
+//    //        random = normalize(random);
+//    //        if(length(random) <= 1.00001){
+//    //            return random;
+//    //        }
+//    //    }
+//    return random;
 }
 
 vec3 random_in_hemisphere(vec3 seed, vec3 normal){
@@ -186,6 +228,25 @@ vec3 random_in_hemisphere(vec3 seed, vec3 normal){
         return -in_unit_sphere;
     }
 }
+float random_float_01(vec3 seed){
+    //    return iqtest(seed).x;
+    return hashwithoutsine13(seed);
+}
+float random_float_11(vec3 seed){
+    //    return iqtest(seed).x;
+    return (2.0 * random_float_01(seed)) - 1.0;
+}
+//https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
+vec2 random_in_unit_disk(vec3 seed){
+    vec2 rand = hashwithoutsine23(seed);
+    float r = sqrt(rand.x);
+    float theta = rand.y * tau;
+    float x = r * cos(theta);
+    float y = r * sin(theta);
+    return vec2(x,y);
+}
+
+
 const float NEAR_ZERO_EPSILON = 1e-8;
 bool near_zero(float val){
     return abs(val) < NEAR_ZERO_EPSILON;
@@ -202,6 +263,8 @@ bool near_zero(vec3 val){
 bool near_zero(vec4 val){
     return near_zero(val.x) && near_zero(val.y) && near_zero(val.z) && near_zero(val.w);
 }
+
+
 struct LambertianMaterial{
     vec3 albedo;
 };
@@ -212,8 +275,8 @@ const in Ray ray,
 const in HitRecord hit_record,
 out vec3 color_attenuation,
 out Ray scatter_ray){
-    vec3 ray_endpoint = endpoint(ray, hit_record);
-    vec3 scatter_dir = hit_record.normal + random_unit_vector(ray_endpoint);
+    vec3 ray_endpoint = scatter_endpoint(ray, hit_record);
+    vec3 scatter_dir = normalize(hit_record.normal + random_unit_vector(ray_endpoint));
     if(near_zero(scatter_dir)){
         scatter_dir = hit_record.normal;
     }
@@ -223,6 +286,7 @@ out Ray scatter_ray){
 }
 struct MetalMaterial{
     vec3 albedo;
+    float fuzz;
 };
 bool scatter(
 const in MetalMaterial material,
@@ -230,32 +294,165 @@ const in Ray ray,
 const in HitRecord hit_record,
 out vec3 color_attenuation,
 out Ray scatter_ray){
-    vec3 ray_endpoint = endpoint(ray, hit_record);
+    vec3 ray_endpoint = scatter_endpoint(ray, hit_record);
     vec3 reflected_dir = reflect(ray.dir, hit_record.normal);
-    scatter_ray = Ray(ray_endpoint, reflected_dir);
+    scatter_ray = Ray(ray_endpoint, normalize(reflected_dir + material.fuzz*random_in_unit_sphere(ray_endpoint)));
     color_attenuation = material.albedo;
     return (dot(scatter_ray.dir, hit_record.normal) > 0);
+}
+
+struct DielectricMaterial{
+  vec3 albedo;
+  float ir; //index of refraction.
+};
+
+vec3 refract2(const in vec3 direction, const in vec3 normal, float refraction_ratio){
+    float cos_theta = min(dot(-direction, normal), 1.0);
+    //perpendicular
+    vec3 r_out_perp = refraction_ratio * (direction + cos_theta * normal);
+    //parallel
+    vec3 r_out_para = -sqrt(abs(1.0 - length2(r_out_perp))) * normal;
+    return r_out_perp + r_out_para;
+}
+
+float reflectance(float cosine, float ref_idx) {
+    // Use Schlick's approximation for reflectance.
+    float r0 = (1-ref_idx) / (1+ref_idx);
+    r0 = r0*r0;
+    return r0 + (1-r0)*pow5((1 - cosine));
+}
+
+bool scatter(
+const in DielectricMaterial material,
+const in Ray old_ray,
+const in HitRecord hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    Ray ray = old_ray;
+    ray.dir = normalize(ray.dir);
+    vec3 ray_endpoint = scatter_endpoint(ray, hit_record);
+    float refraction_ratio = hit_record.front_face ? (1.0 / material.ir) : material.ir;
+    float cos_theta = min(dot(-(ray.dir), hit_record.normal), 1.0);
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    bool cannot_refract = (refraction_ratio * sin_theta) > 1.0;
+    vec3 dir;
+    if(cannot_refract || (true && (reflectance(cos_theta, refraction_ratio) > random_float_01(ray_endpoint)))){
+        vec3 reflected_dir = reflect(ray.dir, hit_record.normal);
+        dir = reflected_dir;
+    }else{
+        vec3 refracted_dir = refract(ray.dir, hit_record.normal, refraction_ratio);
+        dir = refracted_dir;
+    }
+
+    color_attenuation = material.albedo;
+    scatter_ray = Ray(ray_endpoint, dir);
+    return true;
+}
+
+
+const uint MATERIAL_NONE = 0;
+const uint MATERIAL_LAMBERTIAN = MATERIAL_NONE + 1;
+const uint MATERIAL_METAL = MATERIAL_LAMBERTIAN + 1;
+const uint MATERIAL_DIELECTRIC = MATERIAL_METAL + 1;
+
+struct Material{
+    uint type;
+    vec3 albedo;
+    float f;
+};
+
+bool scatter(
+const in Material material,
+const in Ray ray,
+const in HitRecord old_hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    HitRecord hit_record = old_hit_record;
+//    hit_record.to_object -= 0.0001;
+    switch(material.type){
+        case MATERIAL_LAMBERTIAN:{
+            LambertianMaterial material_instance = LambertianMaterial(material.albedo);
+            return scatter(material_instance, ray, hit_record, color_attenuation, scatter_ray);
+        }
+        case MATERIAL_METAL:{
+            MetalMaterial material_instance = MetalMaterial(material.albedo, min(material.f, 1.0));
+            return scatter(material_instance, ray, hit_record, color_attenuation, scatter_ray);
+        }
+        case MATERIAL_DIELECTRIC:{
+            DielectricMaterial material_instance = DielectricMaterial(material.albedo, material.f);
+            return scatter(material_instance, ray, hit_record, color_attenuation, scatter_ray);
+        }
+    }
+    return false;
 }
 
 
 
 
-const uint SPHERES_LEN = 2;
+const uint SPHERES_LEN = 5;
 const Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
+Sphere(vec3(0.0, -100.5, 1.0), 100),
 Sphere(vec3(0.0, 0.0, 1.0), 0.5),
-Sphere(vec3(0.0, -100.5, 1.0), 100)
+Sphere(vec3(-1.0, 0.0, 1.0), 0.5),
+Sphere(vec3(-1.0, 0.0, 1.0), -0.4),
+Sphere(vec3(1.0, 0.0, 1.0), 0.5)
 );
-bool world_hit(const in Ray ray, float t_min, float t_max, out HitRecord hit_record){
+
+
+const Material materials[SPHERES_LEN] = Material[SPHERES_LEN](
+Material(MATERIAL_LAMBERTIAN, vec3(0.8,0.8,0.0), 0.0),
+Material(MATERIAL_LAMBERTIAN, vec3(0.1, 0.2, 0.5), 1.5),
+Material(MATERIAL_DIELECTRIC, vec3(1.0), 1.5),
+Material(MATERIAL_DIELECTRIC, vec3(1.0), 1.5),
+Material(MATERIAL_METAL, vec3(0.8,0.6,0.2), 0.0)
+);
+
+
+//const float cos_pi_4 = 0.70710678118;
+//const uint SPHERES_LEN = 2;
+//const Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
+//Sphere(vec3(-cos_pi_4, 0.0, 1.0), cos_pi_4),
+//Sphere(vec3(cos_pi_4, 0.0, 1.0), cos_pi_4)
+//);
+//
+//const Material materials[SPHERES_LEN] = Material[SPHERES_LEN](
+//Material(MATERIAL_LAMBERTIAN, vec3(0.0,0.0,1.0), 0.0),
+//Material(MATERIAL_LAMBERTIAN, vec3(1.0, 0.0, 0.0), 0.0)
+//);
+
+//const Material materials[SPHERES_LEN] = Material[SPHERES_LEN](
+//Material(MATERIAL_LAMBERTIAN, vec3(0.8,0.8,0.0), 0.0),
+//Material(MATERIAL_LAMBERTIAN, vec3(0.7,0.3,0.3), 0.0),
+//Material(MATERIAL_METAL, vec3(0.8,0.8,0.8), 0.3),
+//Material(MATERIAL_METAL, vec3(0.8,0.6,0.2), 1.0)
+//);
+
+
+
+bool world_hit(const in Ray ray, float t_min, float t_max, out HitRecord hit_record, out uint object_id){
     float closest_t = t_max;
     bool hit_anything  = false;
     for (int i = 0; i < SPHERES_LEN; ++i){
         Sphere sphere = spheres[i];
         HitRecord temp_record;
-        if (intersect(ray, sphere, temp_record) && temp_record.to_object < closest_t && temp_record.to_object > t_min){
+//        if(intersect(ray, t_min, t_max, sphere, temp_record) && temp_record.to_object < closest_t){
+//            hit_anything  = true;
+//            closest_t =  temp_record.to_object;
+//            hit_record = temp_record;
+//            object_id = i;
+//        }
+        if (intersect(ray, sphere, temp_record, t_min) && temp_record.to_object < closest_t){
             hit_anything  = true;
             closest_t =  temp_record.to_object;
             hit_record = temp_record;
+            object_id = i;
         }
+//        if (intersect(ray, sphere, temp_record) && temp_record.to_object < closest_t && temp_record.to_object > t_min){
+//            hit_anything  = true;
+//            closest_t =  temp_record.to_object;
+//            hit_record = temp_record;
+//            object_id = i;
+//        }
     }
     return hit_anything;
 }
@@ -264,34 +461,71 @@ vec3 calc_ray_color(const in Ray start_ray){
 
     bool hit = true;
     vec3 final_color = vec3(0.0);
-    float coefficient = 1.0;
+    vec3 total_attenuation = vec3(1.0,1.0,1.0);
     Ray ray = start_ray;
-    const uint MAX_ITR = 5;
     uint iterations = 0;
     while (hit && iterations < MAX_ITR){
+        if (iterations >= MAX_ITR){
+            return vec3(0.0,0.0,0.0);
+        }
         iterations += 1;
         hit = false;
         HitRecord hit_record;
         float closest_t = inf;
-        if (world_hit(ray, 0.001, inf, hit_record)){
-            hit = true;
-            coefficient *= 0.5;
-            vec3 hit_point = endpoint(ray, hit_record.to_object);
-            //            vec3 target = hit_point + hit_record.normal + random_unit_vector(hit_point * 1.0);
-            vec3 target = hit_point + hit_record.normal + random_in_hemisphere(hit_point, hit_record.normal);
-            vec3 new_dir = target - hit_point;
-            ray = Ray(hit_point, normalize(new_dir));
+        uint object_id;
+
+        if (world_hit(ray, 0.0001, inf, hit_record, object_id)){
+            Ray scatter_ray;
+            vec3 color_attenuation;
+            if(scatter(materials[object_id], ray, hit_record, color_attenuation, scatter_ray)){
+                hit = true;
+                total_attenuation *= color_attenuation;
+                ray = scatter_ray;
+            }else{
+                return vec3(0.0,0.0,0.0);
+            }
+//            hit = true;
+//            coefficient *= 0.5;
+//            vec3 hit_point = endpoint(ray, hit_record.to_object);
+//            //            vec3 target = hit_point + hit_record.normal + random_unit_vector(hit_point * 1.0);
+//            vec3 target = hit_point + hit_record.normal + random_in_hemisphere(hit_point, hit_record.normal);
+//            vec3 new_dir = target - hit_point;
+//            ray = Ray(hit_point, normalize(new_dir));
         }
+
     }
-    if (iterations >= MAX_ITR){
-        coefficient = 0.0;
-    }
-    return coefficient * calc_ray_background_color(ray);
+
+    return total_attenuation * calc_ray_background_color(ray);
 }
 
-const uint SAMPLES_PER_PIXEL = 50;
+Ray calc_Ray2(vec3 camera_origin, vec3 camera_rotation, float fov, float apeture, float focus_dist, uvec2 resolution, vec2 uv, float sample_idx){
+    vec3 camera_up = rotate_dir(vec3(0.0,-1.0,0.0), camera_rotation);
+    vec3 camera_side =  rotate_dir(vec3(1.0,0.0,0.0), camera_rotation);
+    vec3 camera_forward = rotate_dir(vec3(0.0,0.0,-1.0),camera_rotation);
 
+    float h = tan(fov/2.0);
+    float aspect_ratio = float(resolution.x) / resolution.y;
+    float viewport_height = 2.0 * h;
+    float viewport_width = aspect_ratio * viewport_height;
+    vec3 origin = camera_origin;
+    vec3 horizontal = focus_dist * viewport_width * camera_side;
+    vec3 vertical = focus_dist * viewport_height * camera_up;
+    vec3 lower_left_origin = origin - horizontal / 2.0 - vertical / 2.0 - focus_dist * camera_forward;
+    float lens_radius = apeture / 2.0;
+
+    vec2 disk_offset = lens_radius *  clamp(random_in_unit_disk(vec3(vec2(uv*resolution),float(sample_idx))), -1.0,1.0);
+    vec3 offset = camera_side * disk_offset.x + camera_up * disk_offset.y;
+
+    return Ray(origin + offset, lower_left_origin + uv.x * horizontal + uv.y * vertical - origin - offset);
+}
+
+
+const float u_focus_dist = 4.0;
+const float u_aperture = 2.0;
 void main(){
+    float focus_dist = u_focus_dist;//max(u_focus_dist + cos(2.0 * (float(u_frame_idx % 1000) / 1000.0) - 1.0) * 10.0, 0.1);
+    float aperture = u_aperture;
+    float lens_radius = aperture / 2.0;
     uint tidx = gl_GlobalInvocationID.x;
     uvec2 frag_coord = pixel_from_linear(tidx);
     ivec2 pos = ivec2(frag_coord);
@@ -306,9 +540,21 @@ void main(){
     vec3 camera_rotation = u_camera_rotation;
     camera_rotation.x *= -1.0;
     vec3 total_color = vec3(0.0);
+
+    vec3 camera_up = rotate_dir(vec3(0.0,1.0,0.0), camera_rotation);
+    vec3 camera_side =  rotate_dir(vec3(1.0,0.0,0.0), camera_rotation);
     for (int sample_idx = 0; sample_idx < SAMPLES_PER_PIXEL; ++sample_idx){
         //jitter_frag_coord(frag_coord, float(sample_idx))
-        Ray ray = create_Ray(jitter_frag_coord(vec2(frag_coord), float(sample_idx)), resolution, u_camera_origin, camera_rotation, u_fov);
+        vec2 temp_coord = frag_coord;
+        temp_coord = jitter_frag_coord(vec2(temp_coord), float(sample_idx));
+//        temp_coord *= focus_dist;
+        vec2 disk_offset = lens_radius * 0.1* clamp(random_in_unit_disk(vec3(vec2(temp_coord),float(sample_idx))), -1.0,1.0);
+//        temp_coord -= disk_offset;
+//        disk_offset = vec2(0.0);
+        vec3 other_offset = camera_side * disk_offset.x + camera_up * disk_offset.y;
+        Ray ray = calc_Ray2(u_camera_origin, camera_rotation, u_fov, aperture, focus_dist, resolution, temp_coord / (resolution), sample_idx);
+//        Ray ray = create_Ray(temp_coord, resolution * focus_dist, u_camera_origin + other_offset, camera_rotation, u_fov);
+
         //        Ray ray = create_Ray(vec2(frag_coord), resolution, u_camera_origin, camera_rotation, u_fov);
         //        vec4 color = calc_ray_background_color(ray);
         //        const uint SPHERES_LEN = 2;

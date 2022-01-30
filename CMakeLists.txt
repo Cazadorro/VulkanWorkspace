@@ -38,7 +38,7 @@ add_subdirectory(external/range)
 add_subdirectory(external/vma)
 add_subdirectory(external/stb)
 
-add_subdirectory(external/glslang)
+#add_subdirectory(external/glslang)
 
 add_subdirectory(vulgenerated)
 add_subdirectory(vul)
@@ -53,8 +53,8 @@ add_subdirectory(vullbmtesting)
 add_subdirectory(vullbm2dcpu)
 add_subdirectory(vulraytracingweekend)
 
-add_executable(testmain testmain.cpp)
-target_link_libraries(testmain PRIVATE fmt::fmt)
+#add_executable(testmain testmain.cpp)
+#target_link_libraries(testmain PRIVATE fmt::fmt)
 #add_subdirectory(external/enkiMI)
 #add_subdirectory(chunk_compression_testing)
 
