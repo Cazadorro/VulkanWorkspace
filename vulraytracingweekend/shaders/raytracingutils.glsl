@@ -14,8 +14,10 @@ vec3 endpoint(const in Ray ray, float t){
 vec3 calc_frag_dir(
     const in vec2 fragCoord,
     const in vec2 resolution,
-    const in float fov){
-    vec2 uv = vec2(fragCoord) / resolution.xy;
+    const in float fov,
+    const in vec2 disk_offset,
+    const in float focus_dist){
+    vec2 uv = vec2(fragCoord); // resolution.xy;
     uv.x = (uv.x * 2.0) - 1.0;
     uv.y = (2.0 * uv.y) - 1.0;
     uv.y *= -1.0;
@@ -27,7 +29,7 @@ vec3 calc_frag_dir(
 //    uv.x *= 2.0;
     float tan_fov = tan(fov/2.0);
     vec2 pxy = uv * tan_fov;
-    vec3 ray_dir = normalize(vec3(pxy, 1));
+    vec3 ray_dir = normalize(vec3(pxy - disk_offset, focus_dist));
     return ray_dir;
 }
 
@@ -64,9 +66,11 @@ Ray create_Ray(
     const in vec2 resolution,
     const in vec3 camera_origin,
     const in vec3 camera_rotation,
-    const in float fov){
+    const in float fov,
+    const in vec2 disk_offset,
+    const in float focus_dist){
 
-    vec3 ray_dir = calc_frag_dir(frag_coord, resolution, fov);
+    vec3 ray_dir = calc_frag_dir(frag_coord, resolution, fov, disk_offset, focus_dist);
     vec3 rot_ray_dir = rotate_dir(ray_dir, camera_rotation);
     vec3 ray_origin = camera_origin;
     float cosA = ray_dir.z;// needed for depth calculation.
