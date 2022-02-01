@@ -168,11 +168,44 @@ glm::mat4 gul::FirstPersonCamera::calcTranslationMatrix() const {
     return glm::translate(glm::mat4(1.0f), m_position);
 }
 
+glm::quat safeQuatLookAt(
+        glm::vec3 const& lookFrom,
+        glm::vec3 const& lookTo,
+        glm::vec3 const& up,
+        glm::vec3 const& alternativeUp)
+{
+    glm::vec3  direction       = lookTo - lookFrom;
+    float      directionLength = glm::length(direction);
+
+    // Check if the direction is valid; Also deals with NaN
+    if(!(directionLength > 0.0001))
+        return glm::quat(1, 0, 0, 0); // Just return identity
+
+    // Normalize direction
+    direction /= directionLength;
+
+    // Is the normal up (nearly) parallel to direction?
+    if(glm::abs(glm::dot(direction, up)) > .9999f) {
+        // Use alternative up
+        return glm::quatLookAt(direction, alternativeUp);
+    }
+    else {
+        return glm::quatLookAt(direction, up);
+    }
+}
+
 void gul::FirstPersonCamera::lookAt(const glm::vec3 &center) {
-    glm::mat4x4 look_at_matrix = glm::lookAt(m_position, center, m_world_up);
-    glm::vec3 euler_angles = glm::eulerAngles(glm::quat_cast(look_at_matrix));
-    //   euler_angles.x *= -1;
-    //   euler_angles.y *= -1;
+    auto quat_lookat = safeQuatLookAt(m_position, center, m_up, m_world_up);
+    glm::vec3 euler_angles = glm::eulerAngles(quat_lookat);
+    euler_angles.x *= -1;
+//    euler_angles.y *= -1;
 //    euler_angles.z *= -1;
     setRotation(euler_angles);
+
+//    glm::mat4x4 look_at_matrix = glm::lookAt(m_position, center, m_world_up);
+//    glm::vec3 euler_angles = glm::eulerAngles(glm::quat_cast(look_at_matrix));
+//    euler_angles.x *= -1;
+//       euler_angles.y *= -1;
+//    euler_angles.z *= -1;
+//    setRotation(euler_angles);
 }

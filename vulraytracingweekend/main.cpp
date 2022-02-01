@@ -140,8 +140,8 @@ int main() {
 //    camera.setPosition(glm::vec3(0.0, 0.0, 0.0));
     camera.setPosition(glm::vec3(13.0,2.0,-3.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
-    camera.setRotation(glm::vec3(0, 0, 0.0));
-//    camera.lookAt(glm::vec3(0.0,0.0,0.0));
+//    camera.setRotation(glm::vec3(0, 0, 0.0));
+    camera.lookAt(glm::vec3(0.0,0.0,0.0));
 
     bool framebufferResized = false;
     auto framebuffer_callback = [&framebufferResized](
