@@ -347,8 +347,8 @@ int main() {
 
     surface.createSwapchain(swapchainBuilder);
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
-                                               device/*,
-                                               VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT*/).assertValue();
+                                               device,
+                                               VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT).assertValue();
 
     const std::int32_t maxFramesInFlight = 2;
     std::uint64_t currentFrameIndex = 0;
@@ -386,10 +386,12 @@ int main() {
     renderPass.setObjectName("MyActualRenderPass");
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
-    descriptorSetLayoutBuilder.setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
+    descriptorSetLayoutBuilder.setFlags(
+            vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
     descriptorSetLayoutBuilder.setBindings(
             {vul::CombinedSamplerBinding(0,
-                                         vul::ShaderStageFlagBits::FragmentBit, 3).get()
+                                         vul::ShaderStageFlagBits::FragmentBit,
+                                         3).get()
             },
             {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
@@ -577,17 +579,23 @@ int main() {
                                      surface.getSwapchain()->getFormat());
 
 
-
-
-    struct alignas(4) RayTracingPushConstant {
-        glm::vec3 u_camera_position;
-        std::uint32_t u_image_width;
-//    16bytes
-        glm::vec3 u_camera_orientation;
-        std::uint32_t u_image_height;
-//    32bytes
-        float u_fov;
+//    struct alignas(4) RayTracingPushConstant {
+//        glm::vec3 u_camera_position;
+//        std::uint32_t u_image_width;
+////    16bytes
+//        glm::vec3 u_camera_orientation;
+//        std::uint32_t u_image_height;
+////    32bytes
+//        float u_fov;
+//        std::uint32_t u_frame_idx;
+//// 40 bytes;
+//    };
+//    static_assert(sizeof(RayTracingPushConstant) == 40);
+    struct alignas(8) RayTracingPushConstant {
+        std::uint64_t u_view_state;
+        glm::vec3 u_camera_origin;
         std::uint32_t u_frame_idx;
+        glm::vec3 u_camera_rotation;
 // 40 bytes;
     };
     static_assert(sizeof(RayTracingPushConstant) == 40);
@@ -603,7 +611,8 @@ int main() {
     //TODO use spec consts for storage image size.
     auto raytraceDescriptorLayoutBuilder = vul::DescriptorSetLayoutBuilder(
             device);
-    raytraceDescriptorLayoutBuilder.setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
+    raytraceDescriptorLayoutBuilder.setFlags(
+            vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
     raytraceDescriptorLayoutBuilder.setBindings(
             {vul::StorageImageBinding(0,
                                       vul::ShaderStageFlagBits::ComputeBit,
@@ -634,7 +643,7 @@ int main() {
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,      swapchainSize},
              {raytraceDescriptorLayoutBuilder, 1}},
-             vul::DescriptorPoolCreateFlagBits::UpdateAfterBindBit).assertValue();
+            vul::DescriptorPoolCreateFlagBits::UpdateAfterBindBit).assertValue();
 
     auto descriptorSets = descriptorPool.createDescriptorSets(
             {{descriptorLayout, swapchainSize}}).assertValue();
@@ -645,7 +654,7 @@ int main() {
     std::vector<vul::Image> raytracedImages;
     std::vector<vul::ImageView> raytracedImagesViews;
 
-    auto resizeDescriptorSets = [&](){
+    auto resizeDescriptorSets = [&]() {
         raytracedImages.clear();
         raytracedImagesViews.clear();
         for (std::size_t i = 0; i < swapchainSize; ++i) {
@@ -655,7 +664,8 @@ int main() {
                             surface.getSwapchain()->getExtent(),
                             vul::ImageUsageFlagBits::SampledBit |
                             vul::ImageUsageFlagBits::StorageBit)).assertValue());
-            vul::transition(raytracedImages.back(), commandPool, presentationQueue,
+            vul::transition(raytracedImages.back(), commandPool,
+                            presentationQueue,
                             vul::ImageAspectFlagBits::ColorBit,
                             vul::PipelineStageFlagBits2KHR::AllCommandsBit,
                             vul::AccessFlagBits2KHR::ShaderWriteBit,
@@ -695,61 +705,112 @@ int main() {
         }
 
     };
-//    raytracedImages.clear();
-//    raytracedImagesViews.clear();
-//    for (std::size_t i = 0; i < swapchainSize; ++i) {
-//        raytracedImages.push_back(allocator.createDeviceImage(
-//                vul::createSimple2DImageInfo(
-//                        vul::Format::R8g8b8a8Unorm,
-//                        surface.getSwapchain()->getExtent(),
-//                        vul::ImageUsageFlagBits::SampledBit |
-//                        vul::ImageUsageFlagBits::StorageBit)).assertValue());
-//        vul::transition(raytracedImages.back(), commandPool, presentationQueue,
-//                        vul::ImageAspectFlagBits::ColorBit,
-//                        vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-//                        vul::AccessFlagBits2KHR::ShaderWriteBit,
-//                        vul::ImageLayout::General);
-//        raytracedImagesViews.push_back(
-//                raytracedImages.back().createImageView(
-//                        vul::ImageSubresourceRange(
-//                                vul::ImageAspectFlagBits::ColorBit)).assertValue());
-//    }
-//
-//
-//    for (const auto&[i, descriptorSet]: descriptorSets |
-//                                        ranges::views::enumerate) {
-//        auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
-//        updateBuilder.getDescriptorElementAt(0).setCombinedImageSampler(
-//                raytracedImagesViews | ranges::views::transform(
-//                        [&raytracedImageSampler](auto &value) {
-//                            return value.createDescriptorInfo(
-//                                    raytracedImageSampler,
-//                                    vul::ImageLayout::General);
-//                        }) |
-//                ranges::to<std::vector>());
-//        auto updates = updateBuilder.create(descriptorSet);
-//        device.updateDescriptorSets(updates);
-//    }
-//
-//    {
-//
-//        using namespace ranges;
-//        auto updateBuilder = raytraceDescriptorLayoutBuilder.createUpdateBuilder();
-//        updateBuilder.getDescriptorElementAt(0).setStorageImage(
-//                raytracedImagesViews | views::transform(
-//                        [](auto &value) { return value.createStorageWriteInfo(); }) |
-//                ranges::to<std::vector>());
-//        auto updates = updateBuilder.create(raytraceDescriptorSet);
-//        device.updateDescriptorSets(updates);
-//    }
+
     resizeDescriptorSets();
 
+    enum class MaterialType : std::uint8_t {
+        None = 0u,
+        Lambertian = 1u,
+        Metal = 2u,
+        Dielectric = 3u
+    };
+
+    struct alignas(16) Sphere {
+        glm::vec3 pos;
+        float r;
+    };
+    static_assert(sizeof(Sphere) == 16);
+
+    std::vector host_material_ids = {
+            MaterialType::Lambertian,
+            MaterialType::Lambertian,
+            MaterialType::Dielectric,
+            MaterialType::Dielectric,
+            MaterialType::Metal
+    };
+    std::vector host_material_data = {
+            glm::vec4(0.8, 0.8, 0.0, 0.0),
+            glm::vec4(0.1, 0.2, 0.5, 1.5),
+            glm::vec4(1.0, 1.0, 1.0, 1.5),
+            glm::vec4(1.0, 1.0, 1.0, 1.5),
+            glm::vec4(0.8, 0.6, 0.2, 0.0)
+    };
+    std::vector host_sphere_data = {
+            Sphere{glm::vec3(0.0, -100.5, 1.0), 100},
+            Sphere{glm::vec3(0.0, 0.0, 1.0), 0.5},
+            Sphere{glm::vec3(-1.0, 0.0, 1.0), 0.5},
+            Sphere{glm::vec3(-1.0, 0.0, 1.0), -0.4},
+            Sphere{glm::vec3(1.0, 0.0, 1.0), 0.5}
+    };
 
 
-    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback(presentationQueue), &resizeDescriptorSets]() {
+    auto device_material_ids = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            host_material_ids,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_material_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            host_material_data,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_sphere_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            host_sphere_data,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    struct alignas(8) ViewState {
+        std::uint64_t material_ids;
+        std::uint64_t material_data;
+        std::uint64_t sphere_data;
+        std::uint32_t element_count;
+        std::uint32_t image_width;
+        std::uint32_t image_height;
+        float focus_dist;
+        float aperture;
+        float fov;
+
+    };
+    static_assert(sizeof(ViewState) == 48);
+    ViewState view_state = {};
+    view_state.material_ids = device_material_ids.getDeviceAddress();
+    view_state.material_data = device_material_data.getDeviceAddress();
+    view_state.sphere_data = device_sphere_data.getDeviceAddress();
+    view_state.element_count = static_cast<std::uint32_t>(host_material_ids.size());
+    view_state.image_width = surface.getSwapchain()->getExtent().width;
+    view_state.image_height = surface.getSwapchain()->getExtent().height;
+    view_state.focus_dist = 1.0;
+    view_state.aperture = 0.1;
+    view_state.fov = glm::radians(90.0);
+
+    std::vector<vul::Buffer> device_view_states;
+    for (std::size_t i = 0; i < swapchainSize; ++i) {
+        device_view_states.push_back(
+                allocator.createMappedCoherentBuffer(
+                        view_state,
+                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue());
+    }
+
+    std::uint64_t view_state_update_version = 0;
+    std::vector<std::uint64_t> inflight_view_state_update_versions(swapchainSize,view_state_update_version);
+
+    auto resizeDataBuffers= [&](){
+        auto extent =surface.getSwapchain()->getExtent();
+        view_state.image_width = extent.width;
+        view_state.image_height = extent.height;
+        for(auto& device_view_state : device_view_states){
+            device_view_state.mappedCopyFrom(view_state);
+        }
+    };
+
+
+    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback(
+            presentationQueue), &resizeDescriptorSets, &resizeDataBuffers]() {
         resizeSwapchain();
         resizeImGuiFramebuffers();
         resizeDescriptorSets();
+        resizeDataBuffers();
     };
 
     bool show_demo_window = true;
@@ -759,14 +820,13 @@ int main() {
     std::vector<std::uint64_t> frameCounters(renderFinishedSemaphores.size(),
                                              0);
 
-
 //    computeBuilder.set
-
     while (!window.shouldClose()) {
 
         glfwPollEvents();
         imguiRenderer.newFrame();
         auto windowExtent = surface.getSwapchain()->getExtent();
+        bool view_state_updated = false;
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
@@ -792,7 +852,22 @@ int main() {
             ImGui::Text(fmt::format("camera rot : r:{},p:{},y:{}",
                                     glm::degrees(camera.getRotation().x),
                                     glm::degrees(camera.getRotation().y),
-                                    glm::degrees(camera.getRotation().z)).c_str());
+                                    glm::degrees(
+                                            camera.getRotation().z)).c_str());
+
+
+            if(ImGui::SliderFloat("focus_dist", &view_state.focus_dist, 0.0f,10.0f)){
+                view_state_updated = true;
+            }
+            if(ImGui::SliderFloat("aperture", &view_state.aperture, 0.0f,10.0f)){
+                view_state_updated = true;
+            }
+            float fov = glm::degrees(view_state.fov);
+            if(ImGui::SliderFloat("fov", &fov,0.0f,180.0f)){
+                view_state.fov = glm::radians(fov);
+                view_state_updated = true;
+            }
+
 
             ImGui::SliderFloat("float", &f, 0.0f,
                                1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
@@ -821,6 +896,10 @@ int main() {
             ImGui::End();
         }
 
+        if(view_state_updated){
+            view_state_update_version +=1;
+//            view_state_update_version %= swapchainSize;
+        }
 
 
         //TODO do actual timeline semaphore update here. use framecounter, not sure how, will need to make sure value is <= actual signal value.
@@ -929,13 +1008,17 @@ int main() {
             ubo.proj[1][1] *= -1;
             uniformBuffers[swapchainImageIndex].mappedCopyFrom(
                     ubo);
+
+            if(inflight_view_state_update_versions[swapchainImageIndex] != view_state_update_version){
+                inflight_view_state_update_versions[swapchainImageIndex] = view_state_update_version;
+                device_view_states[swapchainImageIndex].mappedCopyFrom(view_state);
+            }
+
         }
         RayTracingPushConstant rayTracingPushConstant = {};
-        rayTracingPushConstant.u_camera_position = camera.getPosition();
-        rayTracingPushConstant.u_camera_orientation = camera.getRotation();
-        rayTracingPushConstant.u_image_width = windowExtent.width;
-        rayTracingPushConstant.u_image_height = windowExtent.height;
-        rayTracingPushConstant.u_fov = glm::radians(90.0f);
+        rayTracingPushConstant.u_view_state = device_view_states[swapchainImageIndex].getDeviceAddress();
+        rayTracingPushConstant.u_camera_origin = camera.getPosition();
+        rayTracingPushConstant.u_camera_rotation = camera.getRotation();
         rayTracingPushConstant.u_frame_idx = static_cast<std::uint32_t>(swapchainImageIndex); //TODO swapchain_size;
 
         imguiRenderer.render();
@@ -1006,7 +1089,9 @@ int main() {
                         descriptorSets[swapchainImageIndex]);
                 commandBuffer.pushConstants(pipelineLayout,
                                             vul::ShaderStageFlagBits::FragmentBit,
-                                            static_cast<std::uint32_t>(frame_counter%swapchainSize));
+                                            static_cast<std::uint32_t>(
+                                                    frame_counter %
+                                                    swapchainSize));
                 renderPassBlock.draw(3);
             }
             imguiRenderer.recordCommands(commandBuffer, swapchainImageIndex);
