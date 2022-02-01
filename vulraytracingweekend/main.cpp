@@ -50,6 +50,7 @@
 #include <optional>
 #include <chrono>
 #include <thread>
+#include <random>
 
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -75,64 +76,26 @@ struct UniformBufferObject {
     alignas(16) glm::mat4 proj;
 };
 
-const std::vector<Vertex> vertices = {
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-        //not needed below
-        ,
-
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-};
-
-
-const std::vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-};
-
+inline double random_double() {
+    static std::uniform_real_distribution<double> distribution(0.0, 1.0);
+    static std::mt19937 generator;
+    return distribution(generator);
+}
+inline double random_float() {
+    static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+    static std::mt19937 generator;
+    return distribution(generator);
+}
+inline double random_float(float min, float max) {
+    // Returns a random real in [min,max).
+    return min + (max-min)*random_float();
+}
+inline glm::vec3 random_color(){
+    return {random_float(),random_float(),random_float()};
+}
+inline glm::vec3 random_color(float min, float max){
+    return {random_float(min,max),random_float(min,max),random_float(min,max)};
+}
 std::optional<vul::PhysicalDevice>
 pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
                    const vul::Features &features,
@@ -549,18 +512,6 @@ int main() {
 
     auto sampler = samplerBuilder.create().assertValue();
 
-    //TODO enable non const vector/array to convert to TempArrayProxy automatically.
-    auto vertexBuffer = allocator.createDeviceBuffer(
-            commandPool, presentationQueue,
-            vul::TempArrayProxy(vertices.size(), vertices.data()),
-            vul::BufferUsageFlagBits::TransferDstBit |
-            vul::BufferUsageFlagBits::VertexBufferBit).assertValue();
-
-    auto indexBuffer = allocator.createDeviceBuffer(
-            commandPool, presentationQueue,
-            vul::TempArrayProxy(indices.size(), indices.data()),
-            vul::BufferUsageFlagBits::TransferDstBit |
-            vul::BufferUsageFlagBits::IndexBufferBit).assertValue();
 
     std::vector<vul::Buffer> uniformBuffers;
     for (std::size_t i = 0; i < swapchainSize; ++i) {
@@ -721,28 +672,82 @@ int main() {
     };
     static_assert(sizeof(Sphere) == 16);
 
-    std::vector host_material_ids = {
-            MaterialType::Lambertian,
-            MaterialType::Lambertian,
-            MaterialType::Dielectric,
-            MaterialType::Dielectric,
-            MaterialType::Metal
-    };
-    std::vector host_material_data = {
-            glm::vec4(0.8, 0.8, 0.0, 0.0),
-            glm::vec4(0.1, 0.2, 0.5, 1.5),
-            glm::vec4(1.0, 1.0, 1.0, 1.5),
-            glm::vec4(1.0, 1.0, 1.0, 1.5),
-            glm::vec4(0.8, 0.6, 0.2, 0.0)
-    };
-    std::vector host_sphere_data = {
-            Sphere{glm::vec3(0.0, -100.5, 1.0), 100},
-            Sphere{glm::vec3(0.0, 0.0, 1.0), 0.5},
-            Sphere{glm::vec3(-1.0, 0.0, 1.0), 0.5},
-            Sphere{glm::vec3(-1.0, 0.0, 1.0), -0.4},
-            Sphere{glm::vec3(1.0, 0.0, 1.0), 0.5}
-    };
+//    std::vector host_material_ids = {
+//            MaterialType::Lambertian,
+//            MaterialType::Lambertian,
+//            MaterialType::Dielectric,
+//            MaterialType::Dielectric,
+//            MaterialType::Metal
+//    };
+//    std::vector host_material_data = {
+//            glm::vec4(0.8, 0.8, 0.0, 0.0),
+//            glm::vec4(0.1, 0.2, 0.5, 1.5),
+//            glm::vec4(1.0, 1.0, 1.0, 1.5),
+//            glm::vec4(1.0, 1.0, 1.0, 1.5),
+//            glm::vec4(0.8, 0.6, 0.2, 0.0)
+//    };
+//    std::vector host_sphere_data = {
+//            Sphere{glm::vec3(0.0, -100.5, 1.0), 100},
+//            Sphere{glm::vec3(0.0, 0.0, 1.0), 0.5},
+//            Sphere{glm::vec3(-1.0, 0.0, 1.0), 0.5},
+//            Sphere{glm::vec3(-1.0, 0.0, 1.0), -0.4},
+//            Sphere{glm::vec3(1.0, 0.0, 1.0), 0.5}
+//    };
 
+    std::vector<MaterialType> host_material_ids;
+    std::vector<glm::vec4> host_material_data;
+    std::vector<Sphere> host_sphere_data;
+
+
+    auto ground_material = glm::vec4(0.5f, 0.5f, 0.5f, 0.0f);
+    auto ground_type = MaterialType::Lambertian;
+    host_material_ids.push_back(ground_type);
+    host_material_data.push_back(ground_material);
+    host_sphere_data.push_back({glm::vec3(0.0f,-1000.0f,0.0f), 1000.0f});
+
+    for (int a = -11; a < 11; a++) {
+        for (int b = -11; b < 11; b++) {
+            auto choose_mat = random_double();
+            glm::vec3 center(a + (0.9f*random_float()), 0.2f, b + (0.9f*random_float()));
+
+            if ((center - glm::vec3(4.0f, 0.2f, 0.0f)).length() > 0.9f) {
+
+
+                if (choose_mat < 0.8) {
+                    // diffuse
+                    auto albedo = random_color() * random_color();
+                    host_material_ids.push_back(MaterialType::Lambertian);
+                    host_material_data.push_back(glm::vec4(albedo,0.0f));
+                    host_sphere_data.push_back({center,  0.2f});
+                } else if (choose_mat < 0.95) {
+                    //material
+                    auto albedo = random_color(0.5f, 1.0f);
+                    auto fuzz = random_float(0.0f, 0.5f);
+                    host_material_ids.push_back(MaterialType::Metal);
+                    host_material_data.push_back(glm::vec4(albedo,fuzz));
+                    host_sphere_data.push_back({center,  0.2f});
+                } else {
+                    // glass
+                    auto albedo = glm::vec3(1.0f);
+                    auto ir = 1.5f;
+                    host_material_ids.push_back(MaterialType::Dielectric);
+                    host_material_data.push_back(glm::vec4(albedo,ir));
+                    host_sphere_data.push_back({center,  0.2f});
+                }
+            }
+        }
+    }
+    host_material_ids.push_back(MaterialType::Dielectric);
+    host_material_data.push_back(glm::vec4(glm::vec3(1.0f),1.5f));
+    host_sphere_data.push_back({glm::vec3(0.0f,1.0f,0.0f),  1.0f});
+
+    host_material_ids.push_back(MaterialType::Lambertian);
+    host_material_data.push_back(glm::vec4(glm::vec3(0.4f, 0.2f, 0.1f),0.0f));
+    host_sphere_data.push_back({glm::vec3(-4.0f, 1.0f, 0.0f),  1.0f});
+
+    host_material_ids.push_back(MaterialType::Metal);
+    host_material_data.push_back(glm::vec4(glm::vec3(0.7f, 0.6f, 0.5f),0.0f));
+    host_sphere_data.push_back({glm::vec3(4.0f, 1.0f, 0.0f),  1.0f});
 
     auto device_material_ids = allocator.createDeviceBuffer(
             commandPool,
@@ -780,7 +785,7 @@ int main() {
     view_state.element_count = static_cast<std::uint32_t>(host_material_ids.size());
     view_state.image_width = surface.getSwapchain()->getExtent().width;
     view_state.image_height = surface.getSwapchain()->getExtent().height;
-    view_state.focus_dist = 1.0;
+    view_state.focus_dist = 10.0;
     view_state.aperture = 0.1;
     view_state.fov = glm::radians(90.0);
 
@@ -856,10 +861,10 @@ int main() {
                                             camera.getRotation().z)).c_str());
 
 
-            if(ImGui::SliderFloat("focus_dist", &view_state.focus_dist, 0.0f,10.0f)){
+            if(ImGui::InputFloat("focus_dist", &view_state.focus_dist, 0.01f, 1.0f)){
                 view_state_updated = true;
             }
-            if(ImGui::SliderFloat("aperture", &view_state.aperture, 0.0f,10.0f)){
+            if(ImGui::InputFloat("aperture", &view_state.aperture, 0.01f, 1.0f)){
                 view_state_updated = true;
             }
             float fov = glm::degrees(view_state.fov);

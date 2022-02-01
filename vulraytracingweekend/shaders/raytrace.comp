@@ -69,8 +69,8 @@ layout(push_constant, scalar) uniform PushConstantBlock{
 // 40 bytes;
 };
 
-const uint SAMPLES_PER_PIXEL = 32;
-const uint MAX_ITR = 8;
+const uint SAMPLES_PER_PIXEL = 16;
+const uint MAX_ITR = 3;
 
 
 vec3 calc_ray_background_color(const in Ray ray) {
