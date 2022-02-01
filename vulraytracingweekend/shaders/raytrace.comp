@@ -26,6 +26,8 @@
 
 #include "raytracingutils.glsl"
 #include "mathconstants.glsl"
+#include "murmurhash.glsl"
+#include "random.glsl"
 
 #define WORKGROUP_SIZE 1024
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
@@ -44,18 +46,38 @@ layout(buffer_reference, buffer_reference_align = 16, scalar) buffer MaterialDat
 layout(buffer_reference, buffer_reference_align = 16, scalar) buffer SphereArray{
     Sphere data[];
 };
+struct PathEnd{
+    vec3 pos;
+    float speed;
+};
+layout(buffer_reference, buffer_reference_align = 16, scalar) buffer PathEndArray{
+    PathEnd data[];
+};
 
+Sphere calc_moved_sphere(const in Sphere begin, const in PathEnd end, float time){
+    vec3 begin_pos = begin.pos;
+    vec3 end_pos = end.pos;
+    float speed = end.speed;
+    float dist = distance(begin_pos, end_pos);
+    float dist_traveled = speed * time;
+    float current_pos_along_dist = mod(dist_traveled,2*dist); //divide by dist to get 0->2
+    float current_fract = 1.0 - abs((current_pos_along_dist / dist) - 1.0); // get -1 -> 0 -> 1 to 1 -> 0 -> 1 to 0 -> 1 -> 0
+    vec3 current_pos = mix(begin_pos, end_pos, current_fract);
+    return Sphere(current_pos, begin.r);
+}
 
 layout(buffer_reference, buffer_reference_align = 1, scalar) buffer ViewState{
     MaterialIDArray material_ids;
     MaterialDataArray material_data;
     SphereArray sphere_data;
+    PathEndArray path_data;
     uint element_count;
     uint image_width;
     uint image_height;
     float focus_dist;
     float aperture;
     float fov;
+    float exposure_time;
 };
 
 
@@ -65,12 +87,12 @@ layout(push_constant, scalar) uniform PushConstantBlock{
     vec3 u_camera_origin;
     uint u_frame_idx;
     vec3 u_camera_rotation;
-
+    float u_time;
 // 40 bytes;
 };
 
 const uint SAMPLES_PER_PIXEL = 16;
-const uint MAX_ITR = 3;
+const uint MAX_ITR = 8;
 
 
 vec3 calc_ray_background_color(const in Ray ray) {
@@ -106,108 +128,9 @@ bool pixel_within_image(uvec2 pixel_idx){
     return (pixel_idx.x < u_view_state.image_width && pixel_idx.y < u_view_state.image_height);
 }
 
-float iqhashIII(uvec2 x){
-    uvec2 q = 1103515245U * ((x>>1U) ^ (x.yx));
-    uint  n = 1103515245U * ((q.x) ^ (q.y>>3U));
-    return float(n) * (1.0/float(0xffffffffU));
-}
-
-vec2 hashwithoutsine23(vec3 p3){
-    p3 = fract(p3 * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yzx+33.33);
-    return (fract((p3.xx+p3.yz)*p3.zy));
-}
-vec2 hashwithoutsine23_11(vec3 p3){
-    return (hashwithoutsine23(p3) * 2.0) - 1.0;
-}
-
-//3d point in, random value out.
-vec3 hashwithoutsine33(vec3 p3)
-{
-    p3 = fract(p3 * vec3(.1031, .1030, .0973));
-    p3 += dot(p3, p3.yxz+33.33);
-    return fract((p3.xxy + p3.yxx)*p3.zyx);
-}
-
-//I think these functions ranges are 0->1.
-float hashwithoutsine13(vec3 p3)
-{
-    p3  = fract(p3 * .1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
-
-
-
-
-uvec3 iqint2(uvec3 x){
-    const uint k = 1103515245u;
-
-    x = ((x>>8U)^x.yzx)*k;
-    x = ((x>>8U)^x.yzx)*k;
-    x = ((x>>8U)^x.yzx)*k;
-
-    return x;
-}
-
-float iqconv(uint val){
-    return float(val) * (1.0/float(0xffffffffU));
-}
-
-vec3 iqint2(vec3 val){
-    uvec3 ux = uvec3(
-    floatBitsToUint(val.x),
-    floatBitsToUint(val.y),
-    floatBitsToUint(val.z)
-    );
-    uvec3 ures = iqint2(ux);
-    return vec3(
-    iqconv(ures.x),
-    iqconv(ures.y),
-    iqconv(ures.z)
-    );
-}
-
-uint iqint1(uint n)
-{
-    // integer hash copied from Hugo Elias
-    n = (n << 13U) ^ n;
-    n = n * (n * n * 15731U + 789221U) + 1376312589U;
-
-    return n;
-}
-
-uint iqint3(uvec2 x)
-{
-    uvec2 q = 1103515245U * ((x>>1U) ^ (x.yx));
-    uint  n = 1103515245U * ((q.x) ^ (q.y>>3U));
-
-    return n;
-}
-uvec2 iqtest(uvec3 val){
-    uvec2 res;
-    res.x = iqint3(val.xy);
-    res.y = iqint3(val.xz);
-    return res;
-}
-
-vec2 iqtest(vec3 val){
-    uvec3 ux = uvec3(
-    floatBitsToUint(val.x),
-    floatBitsToUint(val.y),
-    floatBitsToUint(val.z)
-    );
-    uvec2 ures = iqtest(ux);
-    return vec2(
-    iqconv(ures.x),
-    iqconv(ures.y)
-    );
-}
-
 vec2 jitter_frag_coord(vec2 frag_coord, float time){
     return frag_coord + hashwithoutsine23_11(vec3(frag_coord, time));
 }
-
 
 vec3 randomSpherePoint(vec3 rand) {
     float ang1 = (rand.x + 1.0) * pi;// [-1..1) -> [0..2*PI)
@@ -233,16 +156,6 @@ vec3 random_unit_vector(vec3 seed){
 
 vec3 random_in_unit_sphere(vec3 seed){
     return random_unit_vector(seed);
-//    vec3 random = seed;
-//    random = normalize(hashwithoutsine33(random));
-//    //    while(true){
-//    //
-//    //        random = normalize(random);
-//    //        if(length(random) <= 1.00001){
-//    //            return random;
-//    //        }
-//    //    }
-//    return random;
 }
 
 vec3 random_in_hemisphere(vec3 seed, vec3 normal){
@@ -253,10 +166,14 @@ vec3 random_in_hemisphere(vec3 seed, vec3 normal){
         return -in_unit_sphere;
     }
 }
+
+
 float random_float_01(vec3 seed){
     //    return iqtest(seed).x;
-    return hashwithoutsine13(seed);
+//    return hashwithoutsine13(seed);
+    return hash13(seed);
 }
+
 float random_float_11(vec3 seed){
     //    return iqtest(seed).x;
     return (2.0 * random_float_01(seed)) - 1.0;
@@ -413,52 +330,19 @@ out Ray scatter_ray){
 
 
 
-
-const uint SPHERES_LEN = 5;
-const Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
-Sphere(vec3(0.0, -100.5, 1.0), 100),
-Sphere(vec3(0.0, 0.0, 1.0), 0.5),
-Sphere(vec3(-1.0, 0.0, 1.0), 0.5),
-Sphere(vec3(-1.0, 0.0, 1.0), -0.4),
-Sphere(vec3(1.0, 0.0, 1.0), 0.5)
-);
-
-
-const Material materials[SPHERES_LEN] = Material[SPHERES_LEN](
-Material(MATERIAL_LAMBERTIAN, vec3(0.8,0.8,0.0), 0.0),
-Material(MATERIAL_LAMBERTIAN, vec3(0.1, 0.2, 0.5), 1.5),
-Material(MATERIAL_DIELECTRIC, vec3(1.0), 1.5),
-Material(MATERIAL_DIELECTRIC, vec3(1.0), 1.5),
-Material(MATERIAL_METAL, vec3(0.8,0.6,0.2), 0.0)
-);
-
-
-//const float cos_pi_4 = 0.70710678118;
-//const uint SPHERES_LEN = 2;
-//const Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
-//Sphere(vec3(-cos_pi_4, 0.0, 1.0), cos_pi_4),
-//Sphere(vec3(cos_pi_4, 0.0, 1.0), cos_pi_4)
-//);
-//
-//const Material materials[SPHERES_LEN] = Material[SPHERES_LEN](
-//Material(MATERIAL_LAMBERTIAN, vec3(0.0,0.0,1.0), 0.0),
-//Material(MATERIAL_LAMBERTIAN, vec3(1.0, 0.0, 0.0), 0.0)
-//);
-
-//const Material materials[SPHERES_LEN] = Material[SPHERES_LEN](
-//Material(MATERIAL_LAMBERTIAN, vec3(0.8,0.8,0.0), 0.0),
-//Material(MATERIAL_LAMBERTIAN, vec3(0.7,0.3,0.3), 0.0),
-//Material(MATERIAL_METAL, vec3(0.8,0.8,0.8), 0.3),
-//Material(MATERIAL_METAL, vec3(0.8,0.6,0.2), 1.0)
-//);
-
-
-
-bool world_hit(const in Ray ray, float t_min, float t_max, out HitRecord hit_record, out uint object_id){
+bool world_hit(const in Ray ray, float t_min, float t_max, float time, out HitRecord hit_record, out uint object_id){
     float closest_t = t_max;
     bool hit_anything  = false;
     for (int i = 0; i < u_view_state.element_count; ++i){
-        Sphere sphere = u_view_state.sphere_data.data[i];
+        Sphere sphere_begin = u_view_state.sphere_data.data[i];
+        PathEnd path_end = u_view_state.path_data.data[i];
+        Sphere sphere;
+        if(path_end.speed == 0.0){
+            sphere = sphere_begin;
+        }else{
+            sphere = calc_moved_sphere(sphere_begin, path_end, time);
+        }
+
         HitRecord temp_record;
 //        if(intersect(ray, t_min, t_max, sphere, temp_record) && temp_record.to_object < closest_t){
 //            hit_anything  = true;
@@ -472,17 +356,11 @@ bool world_hit(const in Ray ray, float t_min, float t_max, out HitRecord hit_rec
             hit_record = temp_record;
             object_id = i;
         }
-//        if (intersect(ray, sphere, temp_record) && temp_record.to_object < closest_t && temp_record.to_object > t_min){
-//            hit_anything  = true;
-//            closest_t =  temp_record.to_object;
-//            hit_record = temp_record;
-//            object_id = i;
-//        }
     }
     return hit_anything;
 }
 
-vec3 calc_ray_color(const in Ray start_ray){
+vec3 calc_ray_color(const in Ray start_ray, float time){
 
     bool hit = true;
     vec3 final_color = vec3(0.0);
@@ -499,7 +377,7 @@ vec3 calc_ray_color(const in Ray start_ray){
         float closest_t = inf;
         uint object_id;
 
-        if (world_hit(ray, 0.0001, inf, hit_record, object_id)){
+        if (world_hit(ray, 0.001, inf, time, hit_record, object_id)){
             Ray scatter_ray;
             vec3 color_attenuation;
             Material material;
@@ -514,17 +392,8 @@ vec3 calc_ray_color(const in Ray start_ray){
             }else{
                 return vec3(0.0,0.0,0.0);
             }
-//            hit = true;
-//            coefficient *= 0.5;
-//            vec3 hit_point = endpoint(ray, hit_record.to_object);
-//            //            vec3 target = hit_point + hit_record.normal + random_unit_vector(hit_point * 1.0);
-//            vec3 target = hit_point + hit_record.normal + random_in_hemisphere(hit_point, hit_record.normal);
-//            vec3 new_dir = target - hit_point;
-//            ray = Ray(hit_point, normalize(new_dir));
         }
-
     }
-
     return total_attenuation * calc_ray_background_color(ray);
 }
 
@@ -613,7 +482,9 @@ void main(){
         //                closest_t = hit_record.to_object;
         //            }
         //        }
-        vec3 color = calc_ray_color(ray);
+        vec3 ray_endpoint = endpoint(ray, 1.0);
+        float time = u_time + u_view_state.exposure_time * random_float_01(ray_endpoint);
+        vec3 color = calc_ray_color(ray, time);
         total_color += color;
     }
     total_color /= SAMPLES_PER_PIXEL;

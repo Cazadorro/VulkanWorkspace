@@ -200,9 +200,9 @@ vec3 endpoint(const in Ray ray, const in HitRecord hit_record){
     return endpoint(ray,hit_record.to_object);
 }
 vec3 scatter_endpoint(const in Ray ray, const in HitRecord hit_record){
-    vec3 ray_endpoint = endpoint(ray,hit_record);
+    vec3 ray_endpoint = endpoint(ray,hit_record.to_object);
     return ray_endpoint;
-    return ray_endpoint + hit_record.normal * 0.001;
+//    return ray_endpoint + hit_record.normal * 0.0000001;
 }
 
 bool calc_front_face(const in Ray ray, const in vec3 outward_normal){

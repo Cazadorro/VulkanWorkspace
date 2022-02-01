@@ -137,9 +137,11 @@ pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
 int main() {
     gul::GlfwWindow window(800, 600, "ExampleWindow");
     gul::FirstPersonCamera camera;
-    camera.setPosition(glm::vec3(0.0, 0.0, 0.0));
+//    camera.setPosition(glm::vec3(0.0, 0.0, 0.0));
+    camera.setPosition(glm::vec3(13.0,2.0,-3.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
     camera.setRotation(glm::vec3(0, 0, 0.0));
+//    camera.lookAt(glm::vec3(0.0,0.0,0.0));
 
     bool framebufferResized = false;
     auto framebuffer_callback = [&framebufferResized](
@@ -547,6 +549,7 @@ int main() {
         glm::vec3 u_camera_origin;
         std::uint32_t u_frame_idx;
         glm::vec3 u_camera_rotation;
+        float u_time;
 // 40 bytes;
     };
     static_assert(sizeof(RayTracingPushConstant) == 40);
@@ -672,6 +675,12 @@ int main() {
     };
     static_assert(sizeof(Sphere) == 16);
 
+    struct alignas(16) PathEnd {
+        glm::vec3 pos;
+        float speed;
+    };
+    static_assert(sizeof(PathEnd) == 16);
+
 //    std::vector host_material_ids = {
 //            MaterialType::Lambertian,
 //            MaterialType::Lambertian,
@@ -697,6 +706,7 @@ int main() {
     std::vector<MaterialType> host_material_ids;
     std::vector<glm::vec4> host_material_data;
     std::vector<Sphere> host_sphere_data;
+    std::vector<PathEnd> host_path_data;
 
 
     auto ground_material = glm::vec4(0.5f, 0.5f, 0.5f, 0.0f);
@@ -704,9 +714,10 @@ int main() {
     host_material_ids.push_back(ground_type);
     host_material_data.push_back(ground_material);
     host_sphere_data.push_back({glm::vec3(0.0f,-1000.0f,0.0f), 1000.0f});
-
-    for (int a = -11; a < 11; a++) {
-        for (int b = -11; b < 11; b++) {
+    host_path_data.push_back({glm::vec3(0.0), 0.0});
+    int max_rad = 3;
+    for (int a = -max_rad; a < max_rad; a++) {
+        for (int b = -max_rad; b < max_rad; b++) {
             auto choose_mat = random_double();
             glm::vec3 center(a + (0.9f*random_float()), 0.2f, b + (0.9f*random_float()));
 
@@ -719,6 +730,9 @@ int main() {
                     host_material_ids.push_back(MaterialType::Lambertian);
                     host_material_data.push_back(glm::vec4(albedo,0.0f));
                     host_sphere_data.push_back({center,  0.2f});
+                    auto center2 = center + glm::vec3(0.0f, random_float(0.0f, 0.5f), 0.0f);
+                    float speed = glm::distance(center, center2) / 1.0;
+                    host_path_data.push_back({center2, speed});
                 } else if (choose_mat < 0.95) {
                     //material
                     auto albedo = random_color(0.5f, 1.0f);
@@ -726,6 +740,7 @@ int main() {
                     host_material_ids.push_back(MaterialType::Metal);
                     host_material_data.push_back(glm::vec4(albedo,fuzz));
                     host_sphere_data.push_back({center,  0.2f});
+                    host_path_data.push_back({glm::vec3(0.0), 0.0});
                 } else {
                     // glass
                     auto albedo = glm::vec3(1.0f);
@@ -733,6 +748,7 @@ int main() {
                     host_material_ids.push_back(MaterialType::Dielectric);
                     host_material_data.push_back(glm::vec4(albedo,ir));
                     host_sphere_data.push_back({center,  0.2f});
+                    host_path_data.push_back({glm::vec3(0.0), 0.0});
                 }
             }
         }
@@ -740,14 +756,17 @@ int main() {
     host_material_ids.push_back(MaterialType::Dielectric);
     host_material_data.push_back(glm::vec4(glm::vec3(1.0f),1.5f));
     host_sphere_data.push_back({glm::vec3(0.0f,1.0f,0.0f),  1.0f});
+    host_path_data.push_back({glm::vec3(0.0), 0.0});
 
     host_material_ids.push_back(MaterialType::Lambertian);
     host_material_data.push_back(glm::vec4(glm::vec3(0.4f, 0.2f, 0.1f),0.0f));
     host_sphere_data.push_back({glm::vec3(-4.0f, 1.0f, 0.0f),  1.0f});
+    host_path_data.push_back({glm::vec3(0.0), 0.0});
 
     host_material_ids.push_back(MaterialType::Metal);
     host_material_data.push_back(glm::vec4(glm::vec3(0.7f, 0.6f, 0.5f),0.0f));
     host_sphere_data.push_back({glm::vec3(4.0f, 1.0f, 0.0f),  1.0f});
+    host_path_data.push_back({glm::vec3(0.0), 0.0});
 
     auto device_material_ids = allocator.createDeviceBuffer(
             commandPool,
@@ -765,29 +784,42 @@ int main() {
             host_sphere_data,
             vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
+    auto device_path_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            host_path_data,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
     struct alignas(8) ViewState {
         std::uint64_t material_ids;
         std::uint64_t material_data;
         std::uint64_t sphere_data;
+        std::uint64_t path_data;
+
         std::uint32_t element_count;
         std::uint32_t image_width;
+
         std::uint32_t image_height;
         float focus_dist;
+
         float aperture;
         float fov;
 
+        float exposure_time;
     };
-    static_assert(sizeof(ViewState) == 48);
+    static_assert(sizeof(ViewState) == 64);
     ViewState view_state = {};
     view_state.material_ids = device_material_ids.getDeviceAddress();
     view_state.material_data = device_material_data.getDeviceAddress();
     view_state.sphere_data = device_sphere_data.getDeviceAddress();
+    view_state.path_data = device_path_data.getDeviceAddress();
     view_state.element_count = static_cast<std::uint32_t>(host_material_ids.size());
     view_state.image_width = surface.getSwapchain()->getExtent().width;
     view_state.image_height = surface.getSwapchain()->getExtent().height;
-    view_state.focus_dist = 10.0;
-    view_state.aperture = 0.1;
-    view_state.fov = glm::radians(90.0);
+    view_state.focus_dist = 10.0f;
+    view_state.aperture = 0.1f;
+    view_state.fov = glm::radians(90.0f);
+    view_state.exposure_time = 1.0f;
 
     std::vector<vul::Buffer> device_view_states;
     for (std::size_t i = 0; i < swapchainSize; ++i) {
@@ -826,6 +858,7 @@ int main() {
                                              0);
 
 //    computeBuilder.set
+    auto start = std::chrono::high_resolution_clock::now();
     while (!window.shouldClose()) {
 
         glfwPollEvents();
@@ -870,6 +903,9 @@ int main() {
             float fov = glm::degrees(view_state.fov);
             if(ImGui::SliderFloat("fov", &fov,0.0f,180.0f)){
                 view_state.fov = glm::radians(fov);
+                view_state_updated = true;
+            }
+            if(ImGui::InputFloat("exposure_time", &view_state.exposure_time, 0.01f, 1.0f)){
                 view_state_updated = true;
             }
 
@@ -1020,12 +1056,16 @@ int main() {
             }
 
         }
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> ds = finish - start;
+        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(ds);
+        double time = elapsed.count() /(1000.0);
         RayTracingPushConstant rayTracingPushConstant = {};
         rayTracingPushConstant.u_view_state = device_view_states[swapchainImageIndex].getDeviceAddress();
         rayTracingPushConstant.u_camera_origin = camera.getPosition();
         rayTracingPushConstant.u_camera_rotation = camera.getRotation();
         rayTracingPushConstant.u_frame_idx = static_cast<std::uint32_t>(swapchainImageIndex); //TODO swapchain_size;
-
+        rayTracingPushConstant.u_time = static_cast<float>(time);
         imguiRenderer.render();
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
