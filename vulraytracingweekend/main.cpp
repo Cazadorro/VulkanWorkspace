@@ -6,7 +6,7 @@
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
-#include "bitmask.h"
+#include "bvh.h"
 #include <vul/commandutils.h>
 #include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
@@ -81,12 +81,12 @@ inline double random_double() {
     static std::mt19937 generator;
     return distribution(generator);
 }
-inline double random_float() {
+inline float random_float() {
     static std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
     static std::mt19937 generator;
     return distribution(generator);
 }
-inline double random_float(float min, float max) {
+inline float random_float(float min, float max) {
     // Returns a random real in [min,max).
     return min + (max-min)*random_float();
 }
@@ -669,17 +669,7 @@ int main() {
         Dielectric = 3u
     };
 
-    struct alignas(16) Sphere {
-        glm::vec3 pos;
-        float r;
-    };
-    static_assert(sizeof(Sphere) == 16);
 
-    struct alignas(16) PathEnd {
-        glm::vec3 pos;
-        float speed;
-    };
-    static_assert(sizeof(PathEnd) == 16);
 
 //    std::vector host_material_ids = {
 //            MaterialType::Lambertian,
@@ -705,8 +695,8 @@ int main() {
 
     std::vector<MaterialType> host_material_ids;
     std::vector<glm::vec4> host_material_data;
-    std::vector<Sphere> host_sphere_data;
-    std::vector<PathEnd> host_path_data;
+    std::vector<vul::Sphere> host_sphere_data;
+    std::vector<vul::PathEnd> host_path_data;
 
 
     auto ground_material = glm::vec4(0.5f, 0.5f, 0.5f, 0.0f);
@@ -715,7 +705,7 @@ int main() {
     host_material_data.push_back(ground_material);
     host_sphere_data.push_back({glm::vec3(0.0f,-1000.0f,0.0f), 1000.0f});
     host_path_data.push_back({glm::vec3(0.0), 0.0});
-    int max_rad = 3;
+    int max_rad = 11;
     for (int a = -max_rad; a < max_rad; a++) {
         for (int b = -max_rad; b < max_rad; b++) {
             auto choose_mat = random_double();
@@ -732,6 +722,8 @@ int main() {
                     host_sphere_data.push_back({center,  0.2f});
                     auto center2 = center + glm::vec3(0.0f, random_float(0.0f, 0.5f), 0.0f);
                     float speed = glm::distance(center, center2) / 1.0;
+//                    speed = 0.0;
+//                    center2 = center;
                     host_path_data.push_back({center2, speed});
                 } else if (choose_mat < 0.95) {
                     //material
@@ -768,6 +760,10 @@ int main() {
     host_sphere_data.push_back({glm::vec3(4.0f, 1.0f, 0.0f),  1.0f});
     host_path_data.push_back({glm::vec3(0.0), 0.0});
 
+    auto bvh = vul::create_bvh(host_sphere_data, host_path_data);
+
+
+
     auto device_material_ids = allocator.createDeviceBuffer(
             commandPool,
             presentationQueue,
@@ -790,12 +786,31 @@ int main() {
             host_path_data,
             vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
+    auto device_bvh_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            bvh.nodes,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_leaf_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            bvh.leaves,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    auto device_parent_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            bvh.parents,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
     struct alignas(8) ViewState {
         std::uint64_t material_ids;
         std::uint64_t material_data;
         std::uint64_t sphere_data;
         std::uint64_t path_data;
-
+        std::uint64_t bvh_data;
+        std::uint64_t leaf_data;
+        std::uint64_t parent_data;
         std::uint32_t element_count;
         std::uint32_t image_width;
 
@@ -807,12 +822,15 @@ int main() {
 
         float exposure_time;
     };
-    static_assert(sizeof(ViewState) == 64);
+    static_assert(sizeof(ViewState) == 64 + 16 + 8);
     ViewState view_state = {};
     view_state.material_ids = device_material_ids.getDeviceAddress();
     view_state.material_data = device_material_data.getDeviceAddress();
     view_state.sphere_data = device_sphere_data.getDeviceAddress();
     view_state.path_data = device_path_data.getDeviceAddress();
+    view_state.bvh_data = device_bvh_data.getDeviceAddress();
+    view_state.leaf_data = device_leaf_data.getDeviceAddress();
+    view_state.parent_data = device_parent_data.getDeviceAddress();
     view_state.element_count = static_cast<std::uint32_t>(host_material_ids.size());
     view_state.image_width = surface.getSwapchain()->getExtent().width;
     view_state.image_height = surface.getSwapchain()->getExtent().height;
