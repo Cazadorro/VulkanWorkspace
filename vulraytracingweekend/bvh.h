@@ -69,7 +69,12 @@ namespace vul{
     };
     static_assert(sizeof(BVHChildren) == 8);
 
+    [[nodiscard]]
     int random_int(int min, int max);
+    [[nodiscard]]
+    Axis random_axis();
+    [[nodiscard]]
+    Axis random_xz();
 
     struct FlatBVH{
 //        std::vector<BVHNode> nodes;

@@ -705,7 +705,7 @@ int main() {
     host_material_data.push_back(ground_material);
     host_sphere_data.push_back({glm::vec3(0.0f,-1000.0f,0.0f), 1000.0f});
     host_path_data.push_back({glm::vec3(0.0), 0.0});
-    int max_rad = 6;
+    int max_rad = 7;
     for (int a = -max_rad; a < max_rad; a++) {
         for (int b = -max_rad; b < max_rad; b++) {
             auto choose_mat = random_double();

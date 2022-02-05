@@ -133,6 +133,7 @@ void vul::fill_nodes(
     Box total_bbox = Box::from_corners(min_corner, max_corner);
     auto spitting_axis = total_bbox.min_axis();
     spitting_axis = static_cast<vul::Axis>(random_int(0,2));
+    spitting_axis = random_xz();
     std::sort(idxs.begin(), idxs.end(), [&](const auto& lhs, const auto& rhs){
         auto lhs_bbox = Box(host_sphere_data[lhs], host_path_data[lhs]);
         auto rhs_bbox = Box(host_sphere_data[rhs], host_path_data[rhs]);
@@ -141,7 +142,7 @@ void vul::fill_nodes(
 
 
 
-    const std::uint32_t min_size = 8;
+    const std::uint32_t min_size = 16;
     if(idxs.size() > min_size) {
         auto result_itr = std::max_element(idxs.begin(), idxs.end(), [&](const auto& lhs, const auto& rhs){
             auto lhs_bbox = Box(host_sphere_data[lhs], host_path_data[lhs]);
@@ -193,6 +194,15 @@ vul::FlatBVH vul::create_bvh(const gsl::span<Sphere> &host_sphere_data,
     fill_nodes(host_sphere_data, host_path_data, idxs,bvh.bboxes, bvh.children, bvh.leaves, bvh.parents, 0xFFFFFFFFu);
 
     return bvh;
+}
+
+vul::Axis vul::random_axis() {
+    return static_cast<vul::Axis>(random_int(0,2));
+}
+
+vul::Axis vul::random_xz() {
+    auto value = (random_int(0,1));
+    return value == 0 ? Axis::x : Axis::z;
 }
 
 

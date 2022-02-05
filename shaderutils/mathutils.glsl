@@ -40,25 +40,25 @@ float length2(vec4 value){
     return dot(value,value);
 }
     
-float max_v(vec2 value){
-    return max(value.x, value.y);
-}
-float max_v(vec3 value){
-    return max(max_v(value.xy),value.z);
-}
-float max_v(vec4 value){
-    return max(max_v(value.xy), max_v(value.zw));
-}
-
-float min_v(vec2 value){
-    return min(value.x, value.y);
-}
-float min_v(vec3 value){
-    return min(min_v(value.xy),value.z);
-}
-float min_v(vec4 value){
-    return min(min_v(value.xy), min_v(value.zw));
-}
+//float max_v(vec2 value){
+//    return max(value.x, value.y);
+//}
+//float max_v(vec3 value){
+//    return max(max_v(value.xy),value.z);
+//}
+//float max_v(vec4 value){
+//    return max(max_v(value.xy), max_v(value.zw));
+//}
+//
+//float min_v(vec2 value){
+//    return min(value.x, value.y);
+//}
+//float min_v(vec3 value){
+//    return min(min_v(value.xy),value.z);
+//}
+//float min_v(vec4 value){
+//    return min(min_v(value.xy), min_v(value.zw));
+//}
 
 
     #endif //MATHUTILS_GLSL
