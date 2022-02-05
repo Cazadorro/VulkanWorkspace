@@ -705,7 +705,7 @@ int main() {
     host_material_data.push_back(ground_material);
     host_sphere_data.push_back({glm::vec3(0.0f,-1000.0f,0.0f), 1000.0f});
     host_path_data.push_back({glm::vec3(0.0), 0.0});
-    int max_rad = 11;
+    int max_rad = 6;
     for (int a = -max_rad; a < max_rad; a++) {
         for (int b = -max_rad; b < max_rad; b++) {
             auto choose_mat = random_double();
@@ -786,10 +786,20 @@ int main() {
             host_path_data,
             vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
-    auto device_bvh_data = allocator.createDeviceBuffer(
+//    auto device_bvh_data = allocator.createDeviceBuffer(
+//            commandPool,
+//            presentationQueue,
+//            bvh.nodes,
+//            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_bbox_data = allocator.createDeviceBuffer(
             commandPool,
             presentationQueue,
-            bvh.nodes,
+            bvh.bboxes,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_children_data = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            bvh.children,
             vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
     auto device_leaf_data = allocator.createDeviceBuffer(
             commandPool,
@@ -808,7 +818,8 @@ int main() {
         std::uint64_t material_data;
         std::uint64_t sphere_data;
         std::uint64_t path_data;
-        std::uint64_t bvh_data;
+        std::uint64_t bbox_data;
+        std::uint64_t children_data;
         std::uint64_t leaf_data;
         std::uint64_t parent_data;
         std::uint32_t element_count;
@@ -822,13 +833,14 @@ int main() {
 
         float exposure_time;
     };
-    static_assert(sizeof(ViewState) == 64 + 16 + 8);
+    static_assert(sizeof(ViewState) == 64 + 16 + 16);
     ViewState view_state = {};
     view_state.material_ids = device_material_ids.getDeviceAddress();
     view_state.material_data = device_material_data.getDeviceAddress();
     view_state.sphere_data = device_sphere_data.getDeviceAddress();
     view_state.path_data = device_path_data.getDeviceAddress();
-    view_state.bvh_data = device_bvh_data.getDeviceAddress();
+    view_state.bbox_data = device_bbox_data.getDeviceAddress();
+    view_state.children_data = device_children_data.getDeviceAddress();
     view_state.leaf_data = device_leaf_data.getDeviceAddress();
     view_state.parent_data = device_parent_data.getDeviceAddress();
     view_state.element_count = static_cast<std::uint32_t>(host_material_ids.size());

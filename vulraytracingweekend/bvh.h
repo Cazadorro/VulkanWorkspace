@@ -50,6 +50,8 @@ namespace vul{
         Axis min_axis() const;
         [[nodiscard]]
         Axis max_axis() const;
+        [[nodiscard]]
+        double volume() const;
     };
     static_assert(sizeof(Box) == 24);
 
@@ -61,10 +63,18 @@ namespace vul{
         std::uint32_t rhs_idx;
     };
     static_assert(sizeof(BVHNode) == 32);
+    struct alignas(8) BVHChildren{
+        std::uint32_t lhs_idx;
+        std::uint32_t rhs_idx;
+    };
+    static_assert(sizeof(BVHChildren) == 8);
+
     int random_int(int min, int max);
 
     struct FlatBVH{
-        std::vector<BVHNode> nodes;
+//        std::vector<BVHNode> nodes;
+        std::vector<Box> bboxes;
+        std::vector<BVHChildren> children;
         std::vector<std::uint32_t> leaves;
         std::vector<std::uint32_t> parents;
     };
@@ -73,10 +83,12 @@ namespace vul{
     void fill_nodes(const gsl::span<Sphere>& host_sphere_data,
              const gsl::span<PathEnd>& host_path_data,
              const gsl::span<std::uint32_t>& idxs,
-             std::vector<BVHNode>& nodes,
-          std::vector<std::uint32_t>& leaves,
-          std::vector<std::uint32_t>& parents,
-          std::uint32_t parent);
+//             std::vector<BVHNode>& nodes,
+             std::vector<Box>& bboxes,
+             std::vector<BVHChildren>& children,
+             std::vector<std::uint32_t>& leaves,
+             std::vector<std::uint32_t>& parents,
+             std::uint32_t parent);
 }
 
 #endif //VULKANWORKSPACE_BVH_H

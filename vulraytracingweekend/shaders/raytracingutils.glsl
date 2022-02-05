@@ -313,6 +313,7 @@ bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out
     }
     if(tmin < 0.0){
         t = 0.0;
+        t = tmax;
 //        intersection_distance.to_object = 0.0;
     }else{
         t = tmin;

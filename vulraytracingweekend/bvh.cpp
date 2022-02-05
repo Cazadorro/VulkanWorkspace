@@ -91,15 +91,24 @@ vul::Axis vul::Box::max_axis() const {
     }
 }
 
+double vul::Box::volume() const {
+    VUL_ASSERT(dim.x >= 0.0);
+    VUL_ASSERT(dim.y >= 0.0);
+    VUL_ASSERT(dim.z >= 0.0);
+    return dim.x * dim.y * dim.z;
+}
+
 
 int vul::random_int(int min, int max) {
+    std::random_device dev;
     static std::uniform_int_distribution<std::int32_t> distribution(min, max);
-    static std::mt19937 generator;
+    static std::mt19937 generator(dev());
     return distribution(generator);
 }
 
 
 bool box_axis_compare(const vul::Box& lhs, const vul::Box& rhs, const vul::Axis axis){
+//    return lhs.pos[static_cast<int>(axis)] < rhs.pos[static_cast<int>(axis)];
     return lhs.min()[static_cast<int>(axis)] < rhs.min()[static_cast<int>(axis)];
 }
 
@@ -107,7 +116,8 @@ void vul::fill_nodes(
         const gsl::span<Sphere> &host_sphere_data,
         const gsl::span<PathEnd> &host_path_data,
         const gsl::span<std::uint32_t>& idxs,
-        std::vector<BVHNode>& nodes,
+        std::vector<Box>& bboxes,
+        std::vector<BVHChildren>& children,
         std::vector<std::uint32_t>& leaves,
         std::vector<std::uint32_t>& parents,
         std::uint32_t parent){
@@ -129,26 +139,42 @@ void vul::fill_nodes(
         return box_axis_compare(lhs_bbox, rhs_bbox, spitting_axis);
     });
 
+
+
     const std::uint32_t min_size = 8;
     if(idxs.size() > min_size) {
+        auto result_itr = std::max_element(idxs.begin(), idxs.end(), [&](const auto& lhs, const auto& rhs){
+            auto lhs_bbox = Box(host_sphere_data[lhs], host_path_data[lhs]);
+            auto rhs_bbox = Box(host_sphere_data[rhs], host_path_data[rhs]);
+            return lhs_bbox.volume() < rhs_bbox.volume() ;
+        });
+        auto result_idx = *result_itr;
+        auto result_box = Box(host_sphere_data[result_idx], host_path_data[result_idx]);
+        //if volume takes up more than 75% of space, split up
         auto lhs_size = idxs.size() / 2;
+        VUL_ASSERT(result_box.volume() < total_bbox.volume()); //becarefull once, iddin't work?
+        if((result_box.volume() / total_bbox.volume()) > 0.99){
+            //set to one so we can still use the rest of the function exactly the same.
+            lhs_size = 1;
+            //move the largest element to the begining
+            std::swap(*result_itr, *idxs.begin());
+        }
         auto rhs_size = idxs.size() - lhs_size;
-        auto current_idx = nodes.size();
-        nodes.push_back({total_bbox,
-                         static_cast<std::uint32_t>(nodes.size())+1,
-                         0});
+        auto current_idx = bboxes.size();
+        bboxes.push_back(total_bbox);
+        children.push_back({static_cast<std::uint32_t>(current_idx+1),0});
         parents.push_back(parent);
-        fill_nodes(host_sphere_data, host_path_data,gsl::span<std::uint32_t>(idxs.data(), lhs_size), nodes, leaves, parents, current_idx);
-        auto rhs_idx = static_cast<std::uint32_t>(nodes.size());
-        fill_nodes(host_sphere_data, host_path_data, gsl::span<std::uint32_t>(idxs.data() + lhs_size, rhs_size), nodes, leaves, parents, current_idx);
-        nodes[current_idx].rhs_idx = rhs_idx;
+        fill_nodes(host_sphere_data, host_path_data,gsl::span<std::uint32_t>(idxs.data(), lhs_size), bboxes, children, leaves, parents, current_idx);
+        auto rhs_idx = static_cast<std::uint32_t>(bboxes.size());
+        fill_nodes(host_sphere_data, host_path_data, gsl::span<std::uint32_t>(idxs.data() + lhs_size, rhs_size), bboxes, children, leaves, parents, current_idx);
+        children[current_idx].rhs_idx = rhs_idx;
     }else{
         auto leaf_position = static_cast<std::uint32_t>(leaves.size());
         auto leaf_size = static_cast<std::uint32_t>(idxs.size());
         auto end_flag = 0b1000'0000'0000'0000'0000'0000'0000'0000;
-        nodes.push_back({total_bbox,
-                         leaf_size | end_flag,
-                         leaf_position});
+        bboxes.push_back(total_bbox);
+        children.push_back({leaf_size | end_flag,
+                            leaf_position});
         parents.push_back(parent);
         for(auto idx : idxs){
             leaves.push_back({idx});
@@ -164,7 +190,7 @@ vul::FlatBVH vul::create_bvh(const gsl::span<Sphere> &host_sphere_data,
     std::iota(idxs.begin(), idxs.end(), 0);
 
     FlatBVH bvh;
-    fill_nodes(host_sphere_data, host_path_data, idxs, bvh.nodes, bvh.leaves, bvh.parents, 0xFFFFFFFFu);
+    fill_nodes(host_sphere_data, host_path_data, idxs,bvh.bboxes, bvh.children, bvh.leaves, bvh.parents, 0xFFFFFFFFu);
 
     return bvh;
 }

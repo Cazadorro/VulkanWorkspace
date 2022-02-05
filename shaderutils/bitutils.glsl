@@ -2,7 +2,7 @@
 #define BITUTILS_GLSL
 
 uint8_t set_bit(uint8_t value, uint8_t index){
-    return value | uint8_t(1) << index;
+    return value | (uint8_t(1) << index);
 }
 
 uint8_t clear_bit(uint8_t value, uint8_t index){
@@ -22,7 +22,7 @@ uint8_t change_bit(uint8_t value, uint8_t index, bool x){
 }
 
 uint16_t set_bit(uint16_t value, uint16_t index){
-    return value | uint8_t(1) << index;
+    return value | (uint8_t(1) << index);
 }
 
 uint16_t clear_bit(uint16_t value, uint16_t index){
@@ -43,7 +43,7 @@ uint16_t change_bit(uint16_t value, uint16_t index, bool x){
 
 
 uint32_t set_bit(uint32_t value, uint32_t index){
-    return value | uint32_t(1) << index;
+    return value | (uint32_t(1) << index);
 }
 
 uint32_t clear_bit(uint32_t value, uint32_t index){
@@ -64,7 +64,7 @@ uint32_t change_bit(uint32_t value, uint32_t index, bool x){
 
 
 uint64_t set_bit(uint64_t value, uint64_t index){
-    return value | uint64_t(1) << index;
+    return value | (uint64_t(1) << index);
 }
 
 uint64_t clear_bit(uint64_t value, uint64_t index){
