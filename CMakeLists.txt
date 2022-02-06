@@ -1,4 +1,5 @@
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.21)
+#cmake_policy(SET CMP0116 NEW)
 project(VulkanWorkspace)
 #TODO cite goodvibes texture pack for textures
 set(CMAKE_CXX_STANDARD 17)
@@ -43,14 +44,16 @@ add_subdirectory(external/stb)
 add_subdirectory(vulgenerated)
 add_subdirectory(vul)
 add_subdirectory(gul)
-add_subdirectory(vultest)
-add_subdirectory(vullbm2d)
-add_subdirectory(vulvoxel)
+
+#add_subdirectory(vultest)
+#add_subdirectory(vullbm2d)
+#add_subdirectory(vulvoxel)
 
 #add_subdirectory(vulparsetest)
 
-add_subdirectory(vullbmtesting)
-add_subdirectory(vullbm2dcpu)
+#add_subdirectory(vullbmtesting)
+#add_subdirectory(vullbm2dcpu)
+
 add_subdirectory(vulraytracingweekend)
 
 #add_executable(testmain testmain.cpp)

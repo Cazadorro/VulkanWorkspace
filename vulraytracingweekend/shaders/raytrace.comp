@@ -30,21 +30,7 @@
 #include "random.glsl"
 #include "bitutils.glsl"
 #include "algorithm.glsl"
-#include "t_Est23423.glsl" rt
-  #include "tEst.glsl" rt
-#include  "tEst.glsl" rt
-/*
-#include "test.glsl"
-#include "test.glsl"
-#include "test.glsl"
-#include "test.glsl"
-*/
-#include "test_after.glsl"
-//#include test
-//#include test.glsl
-//#include "test"
-//#include "test.glsl"
-//abc #include "test.glsl"
+
 
 #define WORKGROUP_SIZE 1024
 const uint SAMPLES_PER_PIXEL = 8;
@@ -57,6 +43,7 @@ layout(set = 0, binding=0, rgba8) uniform image2D output_image[];
 layout(buffer_reference, buffer_reference_align = 1, scalar) buffer MaterialIDArray{
     uint8_t data[];
 };
+
 
 layout(buffer_reference, buffer_reference_align = 16, scalar) buffer MaterialDataArray{
     vec4 data[];
@@ -215,6 +202,7 @@ vec3 random_in_unit_sphere(vec3 seed){
     return random_unit_vector(seed);
 }
 
+
 vec3 random_in_hemisphere(vec3 seed, vec3 normal){
     vec3 in_unit_sphere = random_unit_vector(seed);
     if (dot(in_unit_sphere, normal) > 0.0){
@@ -233,6 +221,7 @@ float random_float_01(vec3 seed){
 //    return hashwithoutsine13(seed);
     return hash13(seed);
 }
+
 
 float random_float_11(vec3 seed){
     //    return iqtest(seed).x;

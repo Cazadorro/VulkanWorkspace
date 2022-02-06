@@ -32,7 +32,7 @@ void *vul::VmaAllocation::mapMemory() {
         vmaMapMemory(m_pAllocator->get(), m_handle, &mappedData);
         m_mapCounter += 1;
     }else if(m_mapCounter == 0){
-        m_mapCounter += 1;
+//        m_mapCounter += 1;
     }
     return mappedData;
 }
@@ -64,6 +64,7 @@ vul::VmaAllocation::VmaAllocation(vul::VmaAllocation &&rhs) noexcept {
     using std::swap;
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
+    swap(m_mapCounter, rhs.m_mapCounter);
 }
 
 vul::VmaAllocation &
@@ -71,6 +72,7 @@ vul::VmaAllocation::operator=(vul::VmaAllocation &&rhs) noexcept {
     using std::swap;
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
+    swap(m_mapCounter, rhs.m_mapCounter);
     return *this;
 }
 

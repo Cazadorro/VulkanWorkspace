@@ -293,11 +293,12 @@ bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out
 //    if (tmax < 0.0){
     if (tmax < 0.0){
 
+
         //set to infinity?
 //        intersection_distance.to_object = tmax;
         return false;
     }
-
+//return x;
     // if tmin > tmax, ray doesn't intersect AABB
     //what if infinity (doesn't hit?), shoudl still be fine, can only be perpendicular to one?
     if (tmin > tmax){
