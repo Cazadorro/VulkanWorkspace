@@ -61,3 +61,5 @@ add_subdirectory(vulraytracingweekend)
 #add_subdirectory(external/enkiMI)
 #add_subdirectory(chunk_compression_testing)
 
+add_subdirectory(vulclouds)
+

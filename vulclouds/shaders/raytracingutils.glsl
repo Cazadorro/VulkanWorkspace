@@ -180,6 +180,7 @@ struct HitRecord{
     vec3 normal;
     bool front_face; //TODO DON'T LIKE THIS AT ALL!!!
 };
+
 bool is_inside(const in HitRecord hit_record){
    return hit_record.to_end == 0.0;
 }
@@ -325,6 +326,74 @@ bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out
 //    intersection_distance.to_end = tmax;
     return true;
 }
+struct HitRange{
+    float to_object;
+    float to_end;
+};
+bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out HitRange hit_range){
+    vec3 dir_recipricol = 1.0f / ray.dir;
+    // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+    // r.org is origin of ray
+    vec3 lb = box.pos - box.dim;
+    vec3 rt = box.pos + box.dim;
+    float t1 = (lb.x - ray.pos.x)*dir_recipricol.x;
+    float t2 = (rt.x - ray.pos.x)*dir_recipricol.x;
+
+    float t3 = (lb.y - ray.pos.y)*dir_recipricol.y;
+    float t4 = (rt.y - ray.pos.y)*dir_recipricol.y;
+
+    float t5 = (lb.z - ray.pos.z)*dir_recipricol.z;
+    float t6 = (rt.z - ray.pos.z)*dir_recipricol.z;
+
+    float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
+    float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
+    //    tmin = max(tmin, t_min);
+    //    tmax = min(tmax, t_max);
+    //what if we are inside?
+
+    // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
+    //    if (tmax < 0.0){
+    if (tmax < 0.0){
 
 
-#endif //RAYTRACINGUTILS_GLSL
+        //set to infinity?
+        //        intersection_distance.to_object = tmax;
+        return false;
+    }
+    //return x;
+    // if tmin > tmax, ray doesn't intersect AABB
+    //what if infinity (doesn't hit?), shoudl still be fine, can only be perpendicular to one?
+    if (tmin > tmax){
+        //set to infinity?
+        //        intersection_distance.to_object = tmax;
+        return false;
+    }
+    if(tmax < t_min){
+        return false;
+    }
+    if(tmin > t_max){
+        return false;
+    }
+    if(tmin < 0.0){
+        hit_range.to_object = 0.0;
+        //        intersection_distance.to_object = 0.0;
+    }else{
+        hit_range.to_object = tmin;
+        //        intersection_distance.to_object = tmin;
+    }
+    //don't need  tmax - tmin?
+    hit_range.to_end = tmax;
+    return true;
+}
+
+Ray move_to(const in Ray ray, float t){
+    Ray new_ray = ray;
+    new_ray.pos = endpoint(ray, t);
+    return new_ray;
+}
+
+Ray move_to(const in Ray ray, const in HitRange hit_range){
+    return move_to(ray, hit_range.to_object);
+}
+
+    #endif //RAYTRACINGUTILS_GLSL
