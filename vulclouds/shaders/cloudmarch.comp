@@ -31,10 +31,11 @@
 #include "bitutils.glsl"
 #include "algorithm.glsl"
 #include "volumetric.glsl"
+#include "noiseutils.glsl"
 
 #define WORKGROUP_SIZE 1024
 const uint SAMPLES_PER_PIXEL = 1;
-const uint MAX_ITR = 4;
+const uint MAX_ITR = 1;
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 layout (constant_id = 0) const int IMAGE_COUNT = 3;
 layout(set = 0, binding=0, rgba8) uniform image2D output_image[];
@@ -176,66 +177,7 @@ vec2 jitter_frag_coord(vec2 frag_coord, float time){
     return frag_coord + hashwithoutsine23_11(vec3(frag_coord, time));
 }
 
-vec3 randomSpherePoint(vec3 rand) {
-    float ang1 = (rand.x + 1.0) * pi;// [-1..1) -> [0..2*PI)
-    float u = rand.y;// [-1..1), cos and acos(2v-1) cancel each other out, so we arrive at [-1..1)
-    float u2 = u * u;
-    float sqrt1MinusU2 = sqrt(1.0 - u2);
-    float x = sqrt1MinusU2 * cos(ang1);
-    float y = sqrt1MinusU2 * sin(ang1);
-    float z = u;
-    return vec3(x, y, z);
-}
-vec3 random_unit_vector(vec3 seed){
-    vec2 random = iqtest(seed);
-    float z = random.x;
-    float az = random.y * pi;
-    float el = asin(z / 1.0);
-    el = atan(z, sqrt(1.0 - z*z));
-    float x = cos(el) * cos(az);
-    float y = cos(el) * sin(az);
-    //    return normalize(randomSpherePoint(hashwithoutsine33(seed)));
-    return vec3(z, y, x);
-}
 
-vec3 random_in_unit_sphere(vec3 seed){
-    return random_unit_vector(seed);
-}
-
-
-vec3 random_in_hemisphere(vec3 seed, vec3 normal){
-    vec3 in_unit_sphere = random_unit_vector(seed);
-    if (dot(in_unit_sphere, normal) > 0.0){
-        return in_unit_sphere;
-    } else {
-        return -in_unit_sphere;
-    }
-}
-
-vec3 random_vec3_01(vec3 seed){
-    return hash33(seed);
-}
-
-float random_float_01(vec3 seed){
-    //    return iqtest(seed).x;
-//    return hashwithoutsine13(seed);
-    return hash13(seed);
-}
-
-
-float random_float_11(vec3 seed){
-    //    return iqtest(seed).x;
-    return (2.0 * random_float_01(seed)) - 1.0;
-}
-//https://stackoverflow.com/questions/5837572/generate-a-random-point-within-a-circle-uniformly
-vec2 random_in_unit_disk(vec3 seed){
-    vec2 rand = hashwithoutsine23(seed);
-    float r = sqrt(rand.x);
-    float theta = rand.y * tau;
-    float x = r * cos(theta);
-    float y = r * sin(theta);
-    return vec2(x,y);
-}
 
 
 const float NEAR_ZERO_EPSILON = 1e-8;
@@ -493,38 +435,6 @@ uint calc_leaf_len(const in BVHChildren node){
 }
 const uint MAX_OBJ_OFFSET = 24;
 const uint MAX_OBJ_ID = 0xFFFFFFFF - MAX_OBJ_OFFSET;
-//vec3 other_obj_colors[MAX_OBJ_OFFSET] = vec3[MAX_OBJ_OFFSET](
-//    vec3(1.0,0.0,0.0),
-//    vec3(0.75,0.0,0.0),
-//    vec3(0.5,0.0,0.0),
-//    vec3(0.25,0.0,0.0),
-//
-//    vec3(0.0,1.0,0.0),
-//    vec3(0.0,0.75,0.0),
-//    vec3(0.0,0.5,0.0),
-//    vec3(0.0,0.25,0.0),
-//
-//    vec3(0.0,0.0,1.0),
-//    vec3(0.0,0.0,0.75),
-//    vec3(0.0,0.0,0.5),
-//    vec3(0.0,0.0,0.25),
-//
-//    vec3(1.0,0.0,0.0),
-//    vec3(0.75,0.0,0.0),
-//    vec3(0.5,0.0,0.0),
-//    vec3(0.25,0.0,0.0),
-//
-//    vec3(0.0,1.0,0.0),
-//    vec3(0.0,0.75,0.0),
-//    vec3(0.0,0.5,0.0),
-//    vec3(0.0,0.25,0.0),
-//
-//    vec3(0.0,0.0,1.0),
-//    vec3(0.0,0.0,0.75),
-//    vec3(0.0,0.0,0.5),
-//    vec3(0.0,0.0,0.25)
-//);
-//bool bbox_hit(const in Ray ray, float t_min, float t_max, float time, )
 
 bool world_hit_old(const in Ray ray, float t_min, float t_max, float time, out HitRecord hit_record, out uint object_id, inout vec4 debug_color, in uint iter){
 
@@ -903,126 +813,93 @@ Ray calc_Ray2(vec3 camera_origin, vec3 camera_rotation, float fov, float apeture
 //const float u_aperture = 0.1;
 
 
-vec4 permute(vec4 i) {
-    vec4 im = mod(i, 289.0);
-    return mod(((im*34.0)+10.0)*im, 289.0);
-}
-
-float psrdnoise(vec3 x, vec3 period, float alpha, out vec3 gradient)
-{
-    const mat3 M = mat3(0.0, 1.0, 1.0, 1.0, 0.0, 1.0,  1.0, 1.0, 0.0);
-    const mat3 Mi = mat3(-0.5, 0.5, 0.5, 0.5,-0.5, 0.5, 0.5, 0.5,-0.5);
-    vec3 uvw = M * x;
-    vec3 i0 = floor(uvw), f0 = fract(uvw);
-    vec3 g_ = step(f0.xyx, f0.yzz), l_ = 1.0 - g_;
-    vec3 g = vec3(l_.z, g_.xy), l = vec3(l_.xy, g_.z);
-    vec3 o1 = min( g, l ), o2 = max( g, l );
-    vec3 i1 = i0 + o1, i2 = i0 + o2, i3 = i0 + vec3(1.0);
-    vec3 v0 = Mi * i0, v1 = Mi * i1, v2 = Mi * i2, v3 = Mi * i3;
-    vec3 x0 = x - v0, x1 = x - v1, x2 = x - v2, x3 = x - v3;
-    if(any(greaterThan(period, vec3(0.0)))) {
-        vec4 vx = vec4(v0.x, v1.x, v2.x, v3.x);
-        vec4 vy = vec4(v0.y, v1.y, v2.y, v3.y);
-        vec4 vz = vec4(v0.z, v1.z, v2.z, v3.z);
-        if(period.x > 0.0) vx = mod(vx, period.x);
-        if(period.y > 0.0) vy = mod(vy, period.y);
-        if(period.z > 0.0) vz = mod(vz, period.z);
-        i0 = floor(M * vec3(vx.x, vy.x, vz.x) + 0.5);
-        i1 = floor(M * vec3(vx.y, vy.y, vz.y) + 0.5);
-        i2 = floor(M * vec3(vx.z, vy.z, vz.z) + 0.5);
-        i3 = floor(M * vec3(vx.w, vy.w, vz.w) + 0.5);
-    }
-    vec4 hash = permute( permute( permute(
-    vec4(i0.z, i1.z, i2.z, i3.z ))
-    + vec4(i0.y, i1.y, i2.y, i3.y ))
-    + vec4(i0.x, i1.x, i2.x, i3.x ));
-    vec4 theta = hash * 3.883222077;
-    vec4 sz = hash * -0.006920415 + 0.996539792;
-    vec4 psi = hash * 0.108705628;
-    vec4 Ct = cos(theta), St = sin(theta);
-    vec4 sz_prime = sqrt( 1.0 - sz*sz );
-    vec4 gx, gy, gz;
-    if(alpha != 0.0) {
-        vec4 px = Ct * sz_prime, py = St * sz_prime, pz = sz;
-        vec4 Sp = sin(psi), Cp = cos(psi), Ctp = St*Sp - Ct*Cp;
-        vec4 qx = mix( Ctp*St, Sp, sz), qy = mix(-Ctp*Ct, Cp, sz);
-        vec4 qz = -(py*Cp + px*Sp);
-        vec4 Sa = vec4(sin(alpha)), Ca = vec4(cos(alpha));
-        gx = Ca*px + Sa*qx; gy = Ca*py + Sa*qy; gz = Ca*pz + Sa*qz;
-    }
-    else {
-        gx = Ct * sz_prime; gy = St * sz_prime; gz = sz;
-    }
-    vec3 g0 = vec3(gx.x, gy.x, gz.x), g1 = vec3(gx.y, gy.y, gz.y);
-    vec3 g2 = vec3(gx.z, gy.z, gz.z), g3 = vec3(gx.w, gy.w, gz.w);
-    vec4 w = 0.5-vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3));
-    w = max(w, 0.0); vec4 w2 = w * w, w3 = w2 * w;
-    vec4 gdotx = vec4(dot(g0,x0), dot(g1,x1), dot(g2,x2), dot(g3,x3));
-    float n = dot(w3, gdotx);
-    vec4 dw = -6.0 * w2 * gdotx;
-    vec3 dn0 = w3.x * g0 + dw.x * x0;
-    vec3 dn1 = w3.y * g1 + dw.y * x1;
-    vec3 dn2 = w3.z * g2 + dw.z * x2;
-    vec3 dn3 = w3.w * g3 + dw.w * x3;
-    gradient = 39.5 * (dn0 + dn1 + dn2 + dn3);
-    return 39.5 * n;
-}
-
-struct FbmSettings{
-    int octaves;
-    float frequency;
-    float lacunarity;
-    float persistance;
-};
-
-float accumulate_noise(const in FbmSettings settings, vec3 uvw, float time){
-    vec3 v = settings.frequency*vec3(uvw);
-    vec3 p = vec3(0.0);
-    vec3 g;
-    vec3 gsum = vec3(0.0);
-    float alpha = 2.0*time;
-    float w = 1.0;
-    float s = 1.0;
-    float n = 0.0;
-
-    for(float i=0.0; i<float(settings.octaves); i++) {
-        n += w * psrdnoise(s*v + 0.13*gsum, p, s*alpha, g);
-        gsum += w*g;
-        w *= settings.persistance;
-        s *= settings.lacunarity;
-    }
-    return n;
-}
-
-float accumulate_noise_01(const in FbmSettings settings, vec3 uvw, float time){
-    float n = accumulate_noise(settings, uvw, time);
-    return ((n + 1.0) / 2.0);
-}
-
 
 const float absorption  = 0.0;
-float volumetricShadow(const in FbmSettings fbm_settings, const in Rangef32 source_range, float step_size, float density_modifier,  in vec3 from, in vec3 to){
-    const float numStep = 16.0; // quality control. Bump to avoid shadow alisaing
+const float sigmaEC = 1.0;
+float volumetricShadow(const in Box box, const in FbmSettings fbm_settings, const in Rangef32 source_range, float step_size, float density_modifier,  in vec3 from, vec3 to){
+    const float numStep = 6.0; // quality control. Bump to avoid shadow alisaing
     float shadow = 1.0;
     float sigmaS = 0.0;
     float sigmaE = 0.0;
-    float dd = length(to-from) / numStep;
-    for(float s=0.5; s<(numStep-0.1); s+=1.0)// start at 0.5 to sample at center of integral part
+    vec3 dir = normalize(to-from);
+    Ray ray = Ray(from, dir);
+    float dist = length(to-from);
+    HitRange hit_range;
+    if(!intersect(ray, box, 0.0, inf, hit_range)){
+        return 1.0;
+//        to = endpoint(ray, hit_range);
+    }
+    float offset = ((random_float_01(from) + 1.0)/2.0) * 0.1;
+    float dd = min(hit_range.to_end, dist) / numStep;
+    for(float s=0.5 + offset; s<(numStep-0.1); s+=1.0)// start at 0.5 to sample at center of integral part
     {
+//        if(s*dist/(numStep) > hit_range.to_end){
+//            break;
+//        }
         vec3 pos = from + (to-from)*(s/(numStep));
         //getParticipatingMedia(sigmaS, sigmaE, pos);
-        float density_sample = accumulate_noise_01(fbm_settings, pos, u_time * 0.1);
+        float density_sample = accumulate_noise_01(fbm_settings, pos, u_time * 0.05);
         density_sample = remap(density_sample, source_range);
         if(density_sample > 0.0){
             float sigmaS = density_sample * dd * density_modifier;
-            float sigmaE = max(0.000001, sigmaS + absorption);
+            float sigmaE = max(0.000001, sigmaS * sigmaEC + absorption);
             shadow *= exp(-sigmaE * dd);
+            if(shadow < 0.001){
+                break;
+            }
         }
 
     }
     return shadow;
 }
 
+FbmSettings alter_octaves(const in FbmSettings fbm_settings, float transmittance, float distance){
+    FbmSettings temp_fbm_settings = fbm_settings;
+    float opacity = clamp(1.0 - transmittance, 0.0, 1.0);
+    float opacity_distance = opacity * (distance * 0.1);
+    if(transmittance < 0.075){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 4, 1);
+    }
+    else if(transmittance < 0.15){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 3, 1);
+    }
+    else if(transmittance < 0.30){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 2, 1);
+    }
+    else if(transmittance < 0.6){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+
+    if(distance > 8.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 16.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 32.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 64.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 128.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+//    if(transmittance < 0.075){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 4, 1);
+//    }
+//    else if(transmittance < 0.15){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 3, 1);
+//    }
+//    else if(transmittance < 0.30){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 2, 1);
+//    }
+//
+//    else if(opacity_distance < 0.6){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+//    }
+    return temp_fbm_settings;
+}
 
 
 void main(){
@@ -1031,6 +908,8 @@ void main(){
     float aperture = u_view_state.aperture;
     float fov = u_view_state.fov;
     float lens_radius = aperture / 2.0;
+    lens_radius = 0.0;
+    focus_dist = 1.0;
     uint tidx = gl_GlobalInvocationID.x;
     uvec2 frag_coord = pixel_from_linear(tidx);
     ivec2 pos = ivec2(frag_coord);
@@ -1052,68 +931,50 @@ void main(){
         //jitter_frag_coord(frag_coord, float(sample_idx))
         vec2 temp_coord = frag_coord;
         temp_coord = jitter_frag_coord(vec2(temp_coord), float(sample_idx));
+        temp_coord= frag_coord;
 //        temp_coord *= focus_dist;
         vec2 disk_offset = lens_radius *  clamp(random_in_unit_disk(vec3(vec2(temp_coord),float(sample_idx))), -1.0,1.0);
         vec3 offset = camera_side * disk_offset.x + camera_up * disk_offset.y;
-
+        disk_offset = vec2(0.0);
+        offset = vec3(0.0);
 //        Ray ray = calc_Ray2(u_camera_origin, camera_rotation, u_fov, aperture, focus_dist, resolution, temp_coord / (resolution), sample_idx);
         Ray ray = create_Ray((temp_coord/ (resolution)), resolution, u_camera_origin , camera_rotation, fov, disk_offset, focus_dist);
         ray.pos += offset;
 
 
-
-//        ray.dir.xy -= disk_offset;
-//        ray.dir = normalize(ray.dir);
-        //        Ray ray = create_Ray(vec2(frag_coord), resolution, u_camera_origin, camera_rotation, u_fov);
-        //        vec4 color = calc_ray_background_color(ray);
-        //        const uint SPHERES_LEN = 2;
-        //        Sphere spheres[SPHERES_LEN] = Sphere[SPHERES_LEN](
-        //        Sphere(vec3(0.0,0.0,4.0), 0.5),
-        //        Sphere(vec3(0.0,-100.5,1.0), 100)
-        //        );
-        //        //    Sphere sphere = Sphere(vec3(0.0,0.0,4.0), 0.5);
-        //
-        //        HitRecord hit_record;
-        //        float closest_t = inf;
-        //        for(int i = 0; i < SPHERES_LEN; ++i){
-        //            Sphere sphere = spheres[i];
-        //            if( intersect(ray, sphere, hit_record) && hit_record.to_object < closest_t){
-        //                //        float t = get_first_surface(hit_record);
-        //                float t = (hit_record.to_object);
-        //                vec3 N = hit_record.normal;
-        //                color.rgb = 0.5*(N + 1);
-        //                closest_t = hit_record.to_object;
-        //            }
-        //        }
-
         float max_t = inf;
         {
             vec3 ray_endpoint = endpoint(ray, 1.0);
             float time = u_time + u_view_state.exposure_time * random_float_01(ray_endpoint);
-            vec4 debug_color = vec4(0.0);
-            vec3 color = calc_ray_color(ray, time, debug_color, max_t);
+            vec4 debug_color = vec4(1.0);
+            vec3 color = vec3(0.3);
+//            vec3 color = calc_ray_color(ray, time, debug_color, max_t);
             total_color += color;
             //        total_color *= mix(debug_color.rgb, vec3(1.0), debug_color.a);
             //        float16_t x = float16_t(1.0);
             float temp = remap(1.0, Range(0.0,1.0), Range(0.5, 2.0));
             total_color = mix(debug_color.rgb, total_color, debug_color.a);
         }
-        Box box = Box(vec3(0.0, 2.0,0.0), vec3(2.0));
+        Box box = Box(vec3(0.0, -16.0,0.0), vec3(16.0));
         HitRange hit_range;
-        FbmSettings fbm_settings = FbmSettings(5, 0.25, 2.0, 0.5);
-        float step_size = 0.2;
-        int max_steps = 20;
-        float density_modifier =20.0;
+        FbmSettings fbm_settings = FbmSettings(5, 0.05, 2.0, 0.5);
+        float step_size = 0.20;
+        int max_steps = 80;
+        float density_modifier =5.0;
         float density = 0.0;
         float opaqueVisiblity = 1.0f;
-        float absorption_coefficient = 1.0f;
-        vec3 sun_color = vec3(1.0,0.9,0.8)*10.0;
+        float absorption_coefficient = 1.0f ;
+        vec3 sun_color = vec3(1.0,0.9,0.8)*5.0;
+        vec3 sun_dir = vec3(0.0,1.0,0.0);
+        vec3 sun_loc = sun_dir*100.0;
         Rangef32 source_range = Rangef32(0.5, 1.0);
         float transmittance = 1.0;
         vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
+        step_size = step_size + step_size* ((rand01(frag_coord) + 1.0)/2.0) * 0.2;
+        float original_step_size = step_size;
         if(intersect(ray, box, 0.0, max_t, hit_range)){
 //            ray = move_to(ray, hit_range);
-            float depth = hit_range.to_object;
+            float depth = hit_range.to_object + step_size;// + step_size * ((rand01(frag_coord) + 1.0)/2.0);
             for(int i = 0; i < max_steps; ++i){
 //                if(depth > min(hit_range.to_end, max_t)){
 //                    break;
@@ -1122,21 +983,33 @@ void main(){
                     break;
                 }
                 vec3 ray_endpoint = endpoint(ray, depth);
-                float density_sample = accumulate_noise_01(fbm_settings, ray_endpoint, u_time * 0.1);
-                density_sample = remap(density_sample, source_range);
 
-                if( density_sample > 0.0){
+                float density_sample = accumulate_noise_01(fbm_settings, ray_endpoint, u_time * 0.05);
+                density_sample = remap(density_sample, source_range);
+//                density_sample = 0.01;
+
+                if( density_sample > 0.001){
                     float sigmaS = density_sample * step_size * density_modifier;
-                    float sigmaE = max(0.00000001, absorption + sigmaS);
-                    vec3 S = sun_color * sigmaS *isotropic_phase() * volumetricShadow(fbm_settings, source_range, step_size, density_modifier, ray_endpoint, vec3(0.0, 10.0, 0.0));
-                    vec3 Sint = (S - S * exp(-sigmaE * step_size)) / sigmaE;
+                    float sigmaE = max(0.00000001, absorption + sigmaS * sigmaEC);
+                    FbmSettings temp_fbm_settings = alter_octaves(fbm_settings, transmittance, depth);
+
+                    float cos_theta = dot(ray.dir,-sun_dir);
+                    float phase = max(hg_phase(cos_theta, 0.3),hg_phase(cos_theta, -0.1));
+//                    phase = isotropic_phase();
+                    float powder =powder_law(1.0, sigmaE * step_size);
+                    powder = 1.0;
+                    float shadow = volumetricShadow(box, temp_fbm_settings, source_range, step_size, density_modifier, ray_endpoint,sun_loc);
+                    vec3 S = (sun_color)* sigmaS *phase * shadow * powder;
+
+                    float temp_trans = exp(-sigmaE * step_size);
+                    vec3 Sint = (S - S * temp_trans) / sigmaE;
                     scatteredLight += transmittance * Sint;
-                    transmittance *= exp(-sigmaE * step_size);
+                    transmittance *= temp_trans;
 //                    float previousOpaqueVisiblity = opaqueVisiblity;
 //                    opaqueVisiblity *= beer_lambert(absorption_coefficient, step_size);
 //                    float absorptionFromMarch = previousOpaqueVisiblity - opaqueVisiblity;
-                    if(transmittance <= 0.0001){
-
+                    if(transmittance <= 0.001 || min_v(scatteredLight) > 0.999){
+                        break;
                     }
                     density += sigmaS;
                     if(density >= 1.0){
@@ -1144,16 +1017,14 @@ void main(){
                     }
                 }
                 depth += step_size;
+                if(depth > 2.0){
+                    step_size = original_step_size + (depth-2.0) * 0.02;
+                }
             }
         }
         vec3 cloud_color = vec3(0.5);
-        total_color = total_color * transmittance + scatteredLight;
-//        if(transmittance < 0.0){
-//            total_color = total_color * transmittance + scatteredLight;
-////            total_color = mix(scatteredLight, total_color, transmittance);
-//        }else{
-//            total_color =cloud_color;
-//        }
+        vec3 cloud_ambient = mix(vec3(0.2), vec3(0.1), density/10.0);
+        total_color = mix(cloud_ambient, total_color, transmittance) + scatteredLight;
     }
     total_color /= SAMPLES_PER_PIXEL;
     total_color = sqrt(total_color);

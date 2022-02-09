@@ -386,6 +386,10 @@ bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out
     return true;
 }
 
+
+vec3 endpoint(const in Ray ray, const in HitRange hit_range){
+    return endpoint(ray, hit_range.to_object);
+}
 Ray move_to(const in Ray ray, float t){
     Ray new_ray = ray;
     new_ray.pos = endpoint(ray, t);
