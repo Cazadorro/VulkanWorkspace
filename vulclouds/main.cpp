@@ -1013,6 +1013,10 @@ int main() {
                 bool right = false;
                 bool up = false;
                 bool down = false;
+                bool shift = false;
+                if (window.keyPressed(GLFW_KEY_LEFT_SHIFT)) {
+                    shift = true;
+                }
                 if (window.keyPressed(GLFW_KEY_W)) {
                     forward = true;
                 }
@@ -1036,6 +1040,9 @@ int main() {
                 }
                 if (window.keyPressed(GLFW_KEY_2)) {
                     toggle_density = !toggle_density;
+                }
+                if(shift){
+                    move_speed *= 10.0;
                 }
                 camera.move(forward, back, left, right, up, down, deltaTime,
                             move_speed);

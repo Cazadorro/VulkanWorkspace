@@ -824,19 +824,21 @@ float volumetricShadow(const in Box box, const in FbmSettings fbm_settings, cons
     vec3 dir = normalize(to-from);
     Ray ray = Ray(from, dir);
     float dist = length(to-from);
+    dist = distance(to, from);
     HitRange hit_range;
     if(!intersect(ray, box, 0.0, inf, hit_range)){
         return 1.0;
-//        to = endpoint(ray, hit_range);
+
     }
-    float offset = ((random_float_01(from) + 1.0)/2.0) * 0.1;
-    float dd = min(hit_range.to_end, dist) / numStep;
-    for(float s=0.5 + offset; s<(numStep-0.1); s+=1.0)// start at 0.5 to sample at center of integral part
-    {
+    dist = min(hit_range.to_end, dist);
+    float offset = ((random_float_01(from) + 1.0)/2.0) * 0.3;
+    float dd = dist / numStep;
+    // start at 0.5 to sample at center of integral part
+    for(float s=0.5 + offset; s<(numStep-0.1); s+=1.0){
 //        if(s*dist/(numStep) > hit_range.to_end){
 //            break;
 //        }
-        vec3 pos = from + (to-from)*(s/(numStep));
+        vec3 pos = from + dir*dist*(s/(numStep));
         //getParticipatingMedia(sigmaS, sigmaE, pos);
         float density_sample = accumulate_noise_01(fbm_settings, pos, u_time * 0.05);
         density_sample = remap(density_sample, source_range);
@@ -960,13 +962,13 @@ void main(){
         FbmSettings fbm_settings = FbmSettings(5, 0.05, 2.0, 0.5);
         float step_size = 0.20;
         int max_steps = 80;
-        float density_modifier =5.0;
+        float density_modifier =20.0;
         float density = 0.0;
         float opaqueVisiblity = 1.0f;
         float absorption_coefficient = 1.0f ;
         vec3 sun_color = vec3(1.0,0.9,0.8)*5.0;
         vec3 sun_dir = vec3(0.0,1.0,0.0);
-        vec3 sun_loc = sun_dir*100.0;
+        vec3 sun_loc = sun_dir*10000.0;
         Rangef32 source_range = Rangef32(0.5, 1.0);
         float transmittance = 1.0;
         vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
@@ -989,16 +991,17 @@ void main(){
 //                density_sample = 0.01;
 
                 if( density_sample > 0.001){
+
                     float sigmaS = density_sample * step_size * density_modifier;
                     float sigmaE = max(0.00000001, absorption + sigmaS * sigmaEC);
                     FbmSettings temp_fbm_settings = alter_octaves(fbm_settings, transmittance, depth);
-
+//                    temp_fbm_settings = fbm_settings;
                     float cos_theta = dot(ray.dir,-sun_dir);
                     float phase = max(hg_phase(cos_theta, 0.3),hg_phase(cos_theta, -0.1));
 //                    phase = isotropic_phase();
                     float powder =powder_law(1.0, sigmaE * step_size);
-                    powder = 1.0;
-                    float shadow = volumetricShadow(box, temp_fbm_settings, source_range, step_size, density_modifier, ray_endpoint,sun_loc);
+//                    powder = 1.0;
+                    float shadow = volumetricShadow(box, temp_fbm_settings, source_range, step_size, density_modifier * 0.01, ray_endpoint,sun_loc);
                     vec3 S = (sun_color)* sigmaS *phase * shadow * powder;
 
                     float temp_trans = exp(-sigmaE * step_size);
@@ -1024,6 +1027,7 @@ void main(){
         }
         vec3 cloud_color = vec3(0.5);
         vec3 cloud_ambient = mix(vec3(0.2), vec3(0.1), density/10.0);
+        cloud_ambient = vec3(0.2);
         total_color = mix(cloud_ambient, total_color, transmittance) + scatteredLight;
     }
     total_color /= SAMPLES_PER_PIXEL;
