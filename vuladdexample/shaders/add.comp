@@ -1,0 +1,33 @@
+#version 460
+
+#extension GL_EXT_scalar_block_layout: enable
+#extension GL_EXT_buffer_reference2 : enable
+
+
+layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
+layout (local_size_x_id = 0) in;
+layout (local_size_y_id = 1) in;
+layout (local_size_z_id = 2) in;
+
+layout(buffer_reference, buffer_reference_align = 4, scalar) buffer FloatArray{
+    float data[];
+};
+
+
+layout(push_constant, scalar) uniform PushConstantBlock{
+    uint u_width;
+    uint u_height;
+    FloatArray u_matrix;
+    float u_addend;
+// 24 bytes;
+};
+
+void main(){
+    uint x_idx = ( gl_WorkGroupID.x * gl_WorkGroupSize.x) + gl_LocalInvocationID.x;
+    uint y_idx = ( gl_WorkGroupID.y * gl_WorkGroupSize.y) + gl_LocalInvocationID.y;
+    if(y_idx >= u_height || x_idx >= u_width){
+        return;
+    }
+    uint unique_idx = (y_idx * u_width + x_idx);
+    u_matrix.data[unique_idx] += u_addend;
+}

@@ -20,9 +20,12 @@
 namespace vul {
     template<typename T>
     class ExpectedResult;
+    class Instance;
+    class Surface;
+    class Features;
+    class SurfaceFormat;
     class PhysicalDevice;
     class Device;
-    class Surface;
     class ExtensionsProperties{
     public:
         explicit ExtensionsProperties(std::vector<VkExtensionProperties> extensionProperties);
@@ -139,6 +142,18 @@ namespace vul {
         VkPhysicalDevice m_handle = VK_NULL_HANDLE;
     };
     static_assert(sizeof(PhysicalDevice) == sizeof(VkPhysicalDevice));
+
+
+    std::optional<vul::PhysicalDevice>
+    pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
+                       const vul::Features &features,
+                       const gsl::span<const char *const> &deviceExtensions,
+                       const vul::SurfaceFormat &surfaceFormat,
+                       vul::PresentModeKHR presentationMode);
+    std::optional<vul::PhysicalDevice>
+    pickPhysicalDevice(const vul::Instance &instance,
+                       const vul::Features &features,
+                       const gsl::span<const char *const> &deviceExtensions);
 }
 
 

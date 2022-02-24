@@ -5,6 +5,8 @@
 #ifndef VULKANWORKSPACE_EXPECTEDRESULT_H
 #define VULKANWORKSPACE_EXPECTEDRESULT_H
 #include "vul/enums.h"
+#include "physicaldevice.h"
+
 #include <fmt/format.h>
 #include <stdexcept>
 #include <gsl/span>
@@ -60,6 +62,9 @@ namespace vul {
     private:
 
     };
+
+
+
     template<typename T>
     ExpectedResult<T>::ExpectedResult(Result result_t, T &&value_t) : result(result_t), value(std::move(value_t)){
     }

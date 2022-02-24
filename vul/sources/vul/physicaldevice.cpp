@@ -9,6 +9,8 @@
 #include "vul/bitmasks.h"
 #include "vul/enums.h"
 #include "vul/features.h"
+#include "vul/instance.h"
+
 
 #include <fmt/core.h>
 #include <range/v3/algorithm/all_of.hpp>
@@ -420,4 +422,68 @@ vul::SingleQueueCreateInfo::SingleQueueCreateInfo(
         std::uint32_t queueFamilyIndex_t, float priority_t) : queueFamilyIndex(
         queueFamilyIndex_t), priority(priority_t) {
 
+}
+
+std::optional<vul::PhysicalDevice>
+vul::pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
+                   const vul::Features &features,
+                   const gsl::span<const char *const> &deviceExtensions,
+                   const vul::SurfaceFormat &surfaceFormat,
+                   vul::PresentModeKHR presentationMode)  {
+    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
+        //TODO handle more than just discrete
+        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
+            continue;
+        }
+        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+        auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
+                                     vul::QueueFlagBits::ComputeBit;
+        auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
+                                     vul::QueueFlagBits::TransferBit;
+        auto supportsQueueFamilies = queueFamilyProperties.contains(
+                {graphicsComputeFamily, computeTransferFamily})
+                                     && queueFamilyProperties.contains(surface,
+                                                                       vul::QueueFlagBits::GraphicsBit);
+
+        auto surfacePresentModes = surface.getPresentModesFrom(physicalDevice);
+        auto surfaceFormats = surface.getFormatsFrom(physicalDevice);
+        auto surfaceSupported =
+                surfacePresentModes.isSupported(presentationMode)
+                && surfaceFormats.isSupported(surfaceFormat);
+        auto featuresSupported = vul::matches(physicalDevice.getFeatures(),
+                                              features);
+        auto extensionsSupported = physicalDevice.getExtensionProperties().supports(
+                deviceExtensions);
+        if (supportsQueueFamilies && surfaceSupported && featuresSupported &&
+            extensionsSupported) {
+            return physicalDevice;
+        }
+    }
+    return std::nullopt;
+}
+
+
+std::optional<vul::PhysicalDevice>
+vul::pickPhysicalDevice(const vul::Instance &instance, const vul::Features &features,
+                        const gsl::span<const char *const> &deviceExtensions) {
+    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
+        //TODO handle more than just discrete
+        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
+            continue;
+        }
+        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+        auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
+                                     vul::QueueFlagBits::TransferBit;
+        auto supportsQueueFamilies = queueFamilyProperties.contains({computeTransferFamily});
+
+        auto featuresSupported = vul::matches(physicalDevice.getFeatures(),
+                                              features);
+        auto extensionsSupported = physicalDevice.getExtensionProperties().supports(
+                deviceExtensions);
+        if (supportsQueueFamilies && featuresSupported &&
+            extensionsSupported) {
+            return physicalDevice;
+        }
+    }
+    return std::nullopt;
 }

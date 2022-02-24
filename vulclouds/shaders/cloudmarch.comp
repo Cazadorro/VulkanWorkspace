@@ -966,7 +966,7 @@ void main(){
         float density = 0.0;
         float opaqueVisiblity = 1.0f;
         float absorption_coefficient = 1.0f ;
-        vec3 sun_color = vec3(1.0,0.9,0.8)*5.0;
+        vec3 sun_color = vec3(1.0,0.9,0.8)*2.0;
         vec3 sun_dir = vec3(0.0,1.0,0.0);
         vec3 sun_loc = sun_dir*10000.0;
         Rangef32 source_range = Rangef32(0.5, 1.0);

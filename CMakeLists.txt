@@ -62,4 +62,5 @@ add_subdirectory(vulraytracingweekend)
 #add_subdirectory(chunk_compression_testing)
 
 add_subdirectory(vulclouds)
-
+add_subdirectory(cudaexample)
+add_subdirectory(vuladdexample)
