@@ -96,43 +96,43 @@ inline glm::vec3 random_color(){
 inline glm::vec3 random_color(float min, float max){
     return {random_float(min,max),random_float(min,max),random_float(min,max)};
 }
-std::optional<vul::PhysicalDevice>
-pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
-                   const vul::Features &features,
-                   const gsl::span<const char *const> &deviceExtensions,
-                   const vul::SurfaceFormat &surfaceFormat,
-                   vul::PresentModeKHR presentationMode) {
-    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
-        //TODO handle more than just discrete
-        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
-            continue;
-        }
-        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-        auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
-                                     vul::QueueFlagBits::ComputeBit;
-        auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
-                                     vul::QueueFlagBits::TransferBit;
-        auto supportsQueueFamilies = queueFamilyProperties.contains(
-                {graphicsComputeFamily, computeTransferFamily})
-                                     && queueFamilyProperties.contains(surface,
-                                                                       vul::QueueFlagBits::GraphicsBit);
-
-        auto surfacePresentModes = surface.getPresentModesFrom(physicalDevice);
-        auto surfaceFormats = surface.getFormatsFrom(physicalDevice);
-        auto surfaceSupported =
-                surfacePresentModes.isSupported(presentationMode)
-                && surfaceFormats.isSupported(surfaceFormat);
-        auto featuresSupported = vul::matches(physicalDevice.getFeatures(),
-                                              features);
-        auto extensionsSupported = physicalDevice.getExtensionProperties().supports(
-                deviceExtensions);
-        if (supportsQueueFamilies && surfaceSupported && featuresSupported &&
-            extensionsSupported) {
-            return physicalDevice;
-        }
-    }
-    return std::nullopt;
-}
+//std::optional<vul::PhysicalDevice>
+//pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
+//                   const vul::Features &features,
+//                   const gsl::span<const char *const> &deviceExtensions,
+//                   const vul::SurfaceFormat &surfaceFormat,
+//                   vul::PresentModeKHR presentationMode) {
+//    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
+//        //TODO handle more than just discrete
+//        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
+//            continue;
+//        }
+//        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+//        auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
+//                                     vul::QueueFlagBits::ComputeBit;
+//        auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
+//                                     vul::QueueFlagBits::TransferBit;
+//        auto supportsQueueFamilies = queueFamilyProperties.contains(
+//                {graphicsComputeFamily, computeTransferFamily})
+//                                     && queueFamilyProperties.contains(surface,
+//                                                                       vul::QueueFlagBits::GraphicsBit);
+//
+//        auto surfacePresentModes = surface.getPresentModesFrom(physicalDevice);
+//        auto surfaceFormats = surface.getFormatsFrom(physicalDevice);
+//        auto surfaceSupported =
+//                surfacePresentModes.isSupported(presentationMode)
+//                && surfaceFormats.isSupported(surfaceFormat);
+//        auto featuresSupported = vul::matches(physicalDevice.getFeatures(),
+//                                              features);
+//        auto extensionsSupported = physicalDevice.getExtensionProperties().supports(
+//                deviceExtensions);
+//        if (supportsQueueFamilies && surfaceSupported && featuresSupported &&
+//            extensionsSupported) {
+//            return physicalDevice;
+//        }
+//    }
+//    return std::nullopt;
+//}
 
 int main() {
     gul::GlfwWindow window(800, 600, "ExampleWindow");
@@ -419,7 +419,7 @@ int main() {
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
                     vul::Format::D24UnormS8Uint,
-                    surface.getSwapchain()->getExtent3D(),
+                    surface.getSwapchain()->getExtent(),
                     vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
     ).assertValue();
 
@@ -465,7 +465,7 @@ int main() {
         depthImage = allocator.createDeviceImage(
                 vul::createSimple2DImageInfo(
                         vul::Format::D24UnormS8Uint,
-                        surface.getSwapchain()->getExtent3D(),
+                        surface.getSwapchain()->getExtent(),
                         vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
         ).assertValue();
 
@@ -498,7 +498,7 @@ int main() {
                                                               pixels.data()),
                                                       vul::createSimple2DImageInfo(
                                                               vul::Format::R8g8b8a8Srgb,
-                                                              pixels.getExtent3D(),
+                                                              pixels.getExtent2D(),
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 

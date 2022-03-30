@@ -234,15 +234,26 @@ namespace vul {
         VkImageTiling m_tiling;
     };
 
+    [[nodiscard]]
+    VkImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    [[nodiscard]]
+    VkImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    VkImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
     [[nodiscard]]
-    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    VkImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
     [[nodiscard]]
-    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    VkImageCreateInfo createSimple2DImageInfo(vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
     [[nodiscard]]
-    VkImageCreateInfo createSimple2DImageInfo( vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    VkImageCreateInfo createSimple2DImageInfo(vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    VkImageCreateInfo createSimple3DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    [[nodiscard]]
+    VkImageCreateInfo createSimple3DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
 
 
 }

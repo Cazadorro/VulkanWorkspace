@@ -39,6 +39,7 @@ const uint MAX_ITR = 1;
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 layout (constant_id = 0) const int IMAGE_COUNT = 3;
 layout(set = 0, binding=0, rgba8) uniform image2D output_image[];
+layout(set = 0, binding=1) uniform sampler3D u_lightning_image;
 //128 bytes max.
 
 layout(buffer_reference, buffer_reference_align = 1, scalar) buffer MaterialIDArray{
@@ -127,6 +128,12 @@ layout(buffer_reference, buffer_reference_align = 1, scalar) buffer ViewState{
 
 
 
+layout(buffer_reference, buffer_reference_align = 1, scalar) buffer DistanceIDArray{
+    uint8_t data[];
+};
+layout(buffer_reference, buffer_reference_align = 4, scalar) buffer PointArray{
+    vec3 data[];
+};
 
 layout(push_constant, scalar) uniform PushConstantBlock{
     ViewState u_view_state;
@@ -134,9 +141,31 @@ layout(push_constant, scalar) uniform PushConstantBlock{
     uint u_frame_idx;
     vec3 u_camera_rotation;
     float u_time;
+    DistanceIDArray u_distance_ids;
+    PointArray u_point_array;
 // 40 bytes;
 };
+float line_segment_distance(const in vec3 point, const in vec3 a, const in vec3 b){
+    vec3 ba = b-a;
+    vec3 pa = point-a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0f, 1.0f );
+    vec3  q = pa-h*ba;
+    float d = length(q);
+    return d;
+}
 
+float get_lightning_distance(vec3 pos){
+
+    ivec3 ipos = ivec3(pos);
+    if(ipos.x < 0 || ipos.x >= 128 || ipos.y < 0 || ipos.y >= 128 || ipos.z < 0 || ipos.z >= 128){
+        return inf;
+    }
+    int linear_pos = (127 - ipos.y) * 128 * 128 + ipos.z * 128 + ipos.x;
+    uint closest_segment_idx = uint(u_distance_ids.data[linear_pos]);
+    vec3 a = u_point_array.data[closest_segment_idx];
+    vec3 b = u_point_array.data[closest_segment_idx + 1u];
+    return line_segment_distance(pos, a,b);
+}
 
 
 
@@ -989,7 +1018,21 @@ void main(){
                 float density_sample = accumulate_noise_01(fbm_settings, ray_endpoint, u_time * 0.05);
                 density_sample = remap(density_sample, source_range);
 //                density_sample = 0.01;
-
+                vec3 sampling_coords = (((ray_endpoint - box.pos) / box.dim) + 1.0) / 2.0;
+                float value = texture(u_lightning_image, sampling_coords).r;
+                value = clamp_remap(value, Range(0.0f, 0.1f));
+                value = 1.0 - value;
+                float light_dist = get_lightning_distance((ray_endpoint - (box.pos - box.dim)) * (vec3(128.0)/(box.dim*2)));
+                light_dist *= ((box.dim.x*2)/ (128.0));
+                value = light_dist;
+                value = clamp((8.0f - (light_dist)), 0.0, 8.0);
+                value = clamp_remap(value, Range(0.0, 8.0), Range(0.0, 1.0));
+                vec3 lightning_blue = vec3(140 / 255.0f, 150 / 255.0f, 255 / 255.0f);
+                vec3 lightning_color_value =  value * lightning_blue;
+                bool light_close = light_dist < 0.1;
+                if(light_close){
+                    lightning_color_value *= 1000000.0;
+                }
                 if( density_sample > 0.001){
 
                     float sigmaS = density_sample * step_size * density_modifier;
@@ -1002,7 +1045,7 @@ void main(){
                     float powder =powder_law(1.0, sigmaE * step_size);
 //                    powder = 1.0;
                     float shadow = volumetricShadow(box, temp_fbm_settings, source_range, step_size, density_modifier * 0.01, ray_endpoint,sun_loc);
-                    vec3 S = (sun_color)* sigmaS *phase * shadow * powder;
+                    vec3 S = (sun_color)* sigmaS *phase * shadow * powder + lightning_color_value * sigmaS * powder;
 
                     float temp_trans = exp(-sigmaE * step_size);
                     vec3 Sint = (S - S * temp_trans) / sigmaE;
@@ -1018,6 +1061,21 @@ void main(){
                     if(density >= 1.0){
 //                        break;
                     }
+                }else if(light_close){
+                    density_sample = 0.00000001;
+                    float sigmaS = density_sample * step_size * density_modifier;
+                    float sigmaE = max(0.00000001, absorption + sigmaS * sigmaEC);
+                    float powder = powder_law(1.0, sigmaE * step_size);
+                    vec3 S = lightning_color_value * sigmaS;//* powder;
+
+                    float temp_trans = exp(-sigmaE * step_size);
+                    vec3 Sint = (S - S * temp_trans) / sigmaE;
+                    Sint = lightning_color_value;
+                    scatteredLight += transmittance * Sint;
+                    if(min_v(scatteredLight) > 0.999){
+                    break;
+                    }
+                    //ignore transmittance here, we effectively are at zero anyway.
                 }
                 depth += step_size;
                 if(depth > 2.0){

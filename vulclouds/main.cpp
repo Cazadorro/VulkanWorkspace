@@ -45,6 +45,8 @@
 #include <range/v3/range/conversion.hpp>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/transform.hpp>
+#include <range/v3/view/drop.hpp>
+#include <range/v3/view/zip.hpp>
 #include <gsl/span>
 #include <vul/temparrayproxy.h>
 #include <optional>
@@ -86,6 +88,15 @@ inline float random_float() {
     static std::mt19937 generator;
     return distribution(generator);
 }
+static std::size_t initial_seed = 23423459235346u;
+static std::uniform_real_distribution<float> out_distribution(0.0f, 1.0f);
+static std::mt19937 out_generator(initial_seed);
+inline float random_float_out(){
+    return out_distribution(out_generator);
+}
+inline float random_float_out(float min, float max){
+    return min + (max-min)*random_float_out();
+}
 inline float random_float(float min, float max) {
     // Returns a random real in [min,max).
     return min + (max-min)*random_float();
@@ -96,43 +107,195 @@ inline glm::vec3 random_color(){
 inline glm::vec3 random_color(float min, float max){
     return {random_float(min,max),random_float(min,max),random_float(min,max)};
 }
-std::optional<vul::PhysicalDevice>
-pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
-                   const vul::Features &features,
-                   const gsl::span<const char *const> &deviceExtensions,
-                   const vul::SurfaceFormat &surfaceFormat,
-                   vul::PresentModeKHR presentationMode) {
-    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
-        //TODO handle more than just discrete
-        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
-            continue;
-        }
-        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-        auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
-                                     vul::QueueFlagBits::ComputeBit;
-        auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
-                                     vul::QueueFlagBits::TransferBit;
-        auto supportsQueueFamilies = queueFamilyProperties.contains(
-                {graphicsComputeFamily, computeTransferFamily})
-                                     && queueFamilyProperties.contains(surface,
-                                                                       vul::QueueFlagBits::GraphicsBit);
 
-        auto surfacePresentModes = surface.getPresentModesFrom(physicalDevice);
-        auto surfaceFormats = surface.getFormatsFrom(physicalDevice);
-        auto surfaceSupported =
-                surfacePresentModes.isSupported(presentationMode)
-                && surfaceFormats.isSupported(surfaceFormat);
-        auto featuresSupported = vul::matches(physicalDevice.getFeatures(),
-                                              features);
-        auto extensionsSupported = physicalDevice.getExtensionProperties().supports(
-                deviceExtensions);
-        if (supportsQueueFamilies && surfaceSupported && featuresSupported &&
-            extensionsSupported) {
-            return physicalDevice;
+
+float line_segment_distance(const glm::vec3& point, const glm::vec3& a, const glm::vec3& b){
+    glm::vec3 ba = b-a;
+    glm::vec3 pa = point-a;
+    float h = glm::clamp( dot(pa,ba)/glm::dot(ba,ba), 0.0f, 1.0f );
+    glm::vec3  q = pa-h*ba;
+    float d = glm::length(q);
+    return d;
+}
+
+std::vector<std::uint8_t> generate_distance_field(std::size_t segment_count){
+    std::size_t distance_field_dim = 128;
+    auto distance_field_dimf = static_cast<float>(distance_field_dim);
+    std::size_t distance_field_size = distance_field_dim*distance_field_dim*distance_field_dim;
+    std::vector<std::uint8_t> distance_field(distance_field_size);
+
+    glm::vec3 prev_pt(random_float(0.0f, distance_field_dimf),random_float(0.0f, distance_field_dimf), distance_field_dimf);
+
+    prev_pt = glm::vec3(distance_field_dimf/2.0,distance_field_dimf/2.0,distance_field_dimf/2.0);
+
+    std::vector<glm::vec3> points;
+    points.push_back(prev_pt);
+    for(std::size_t i = 0; i < segment_count; ++i){
+        auto point = points.back();
+        glm::vec3 random_offset( random_float(-8.0f, 8.0f),random_float(-8.0f, 8.0f), random_float(-8.0f, 8.0f));
+        auto new_point = point + random_offset;
+        points.push_back(new_point);
+    }
+    glm::vec3 end_pt(random_float(0.0f, distance_field_dimf),random_float(0.0f, distance_field_dimf), 0.0f);
+//    points.push_back(end_pt);
+//    points.clear();
+//    points.push_back(glm::vec3(0.0f,64.0f,distance_field_dimf));
+//    points.push_back(glm::vec3(distance_field_dimf,64.0f,0.0f));
+    for(std::size_t y = 0; y < distance_field_dim; ++y){
+        for(std::size_t z = 0; z < distance_field_dim; ++z){
+            for(std::size_t x = 0; x < distance_field_dim; ++x){
+                glm::vec3 point(static_cast<float>(x),static_cast<float>(y),static_cast<float>(z));
+                glm::vec3 prev_point = points[0];
+                float dist = std::numeric_limits<float>::infinity();
+                for(auto& next_point : points | ranges::views::drop(1)){
+                    dist = glm::min(dist, line_segment_distance(point, prev_point, next_point));
+                    prev_point = next_point;
+                }
+                auto uint_dist = static_cast<std::uint8_t>(glm::clamp(dist, 0.0f, 255.0f));
+                auto linear_idx = y * distance_field_dim * distance_field_dim + z * distance_field_dim + x;
+                distance_field.at(linear_idx) = uint_dist;
+            }
         }
     }
-    return std::nullopt;
+    return distance_field;
 }
+
+struct DistanceIDPoints{
+    std::vector<std::uint8_t> distance_field_ids;
+    std::vector<glm::vec3> points;
+    std::vector<std::uint8_t> rle_idxs;
+    std::vector<std::uint32_t> rle_distances;
+};
+DistanceIDPoints generate_closest_distance_id(std::size_t segment_count, std::size_t distance_field_dim){
+    auto distance_field_dimf = static_cast<float>(distance_field_dim);
+    std::size_t distance_field_size = distance_field_dim*distance_field_dim*distance_field_dim;
+    std::vector<std::uint8_t> distance_field_ids(distance_field_size);
+
+    glm::vec3 prev_pt(random_float(0.0f, distance_field_dimf), distance_field_dimf, random_float(0.0f, distance_field_dimf));
+
+    prev_pt = glm::vec3(distance_field_dimf/2.0,distance_field_dimf/2.0,distance_field_dimf/2.0);
+
+    std::vector<glm::vec3> points;
+    points.push_back(prev_pt);
+    for(std::size_t i = 0; i < segment_count; ++i){
+        auto point = points.back();
+        glm::vec3 random_offset( random_float(-8.0f, 8.0f),random_float(-8.0f, 8.0f), random_float(-8.0f, 8.0f));
+        auto new_point = point + random_offset;
+        points.push_back(new_point);
+    }
+    glm::vec3 end_pt(random_float(0.0f, distance_field_dimf),0.0f, random_float(0.0f, distance_field_dimf));
+    prev_pt = glm::vec3(distance_field_dimf/2.0,distance_field_dimf,distance_field_dimf/2.0);
+    end_pt = glm::vec3(distance_field_dimf/2.0,0.0f,distance_field_dimf/2.0);
+//        points.clear();
+//    points.push_back(prev_pt);
+//    points.push_back(end_pt);
+
+//    points.push_back(glm::vec3(0.0f,64.0f,distance_field_dimf));
+//    points.push_back(glm::vec3(distance_field_dimf,64.0f,0.0f));
+    std::uint8_t value;
+    std::uint32_t distance;
+    std::vector<std::uint8_t> rle_idxs;
+    std::vector<std::uint32_t> rle_distances;
+    for(std::size_t y = 0; y < distance_field_dim; ++y){
+        for(std::size_t z = 0; z < distance_field_dim; ++z){
+            for(std::size_t x = 0; x < distance_field_dim; ++x){
+                glm::vec3 point(static_cast<float>(x) + 0.5,static_cast<float>(y) + 0.5,static_cast<float>(z) + 0.5);
+                glm::vec3 prev_point = points[0];
+                float dist = std::numeric_limits<float>::infinity();
+                std::uint8_t best_idx = 0;
+                for(auto [idx, next_point] : ranges::views::enumerate(points)  | ranges::views::drop(1)){
+                    auto curr_dist =line_segment_distance(point, prev_point, next_point);
+                    if(curr_dist < dist){
+                        //idx of the points, but the actual line segment index is different.
+                        best_idx = idx - 1;
+                        dist = curr_dist;
+                    }
+                    prev_point = next_point;
+                }
+                auto linear_idx = ( distance_field_dim - y - 1) * distance_field_dim * distance_field_dim + z * distance_field_dim + x;
+                distance_field_ids.at(linear_idx) = best_idx;
+                if(rle_idxs.empty()){
+                    rle_idxs.push_back(best_idx);
+                    rle_distances.push_back(1);
+                }else if(rle_idxs.back() != best_idx){
+                    rle_idxs.push_back(best_idx);
+                    rle_distances.push_back(1);
+                }else{
+                    rle_distances.back() += 1;
+                }
+            }
+        }
+    }
+    return DistanceIDPoints{distance_field_ids, points, rle_idxs, rle_distances};
+}
+struct RLEPoints{
+    std::vector<glm::vec3> points;
+    std::vector<std::uint8_t> rle_idxs;
+    std::vector<std::uint32_t> rle_distances;
+};
+RLEPoints generate_closest_distance_id2(std::size_t segment_count, std::size_t distance_field_dim, float denominator){
+    out_generator.seed(initial_seed);
+    auto distance_field_dimf = static_cast<float>(distance_field_dim);
+    std::size_t distance_field_size = distance_field_dim*distance_field_dim*distance_field_dim;
+    glm::vec3 prev_pt(random_float_out(0.0f, distance_field_dimf), distance_field_dimf, random_float_out(0.0f, distance_field_dimf));
+
+    prev_pt = glm::vec3(distance_field_dimf/(2.0 * denominator),distance_field_dimf/(2.0 * denominator),distance_field_dimf/(2.0 * denominator));
+
+    std::vector<glm::vec3> points;
+    points.push_back(prev_pt);
+    for(std::size_t i = 0; i < segment_count; ++i){
+        auto point = points.back();
+        glm::vec3 random_offset( random_float_out(-8.0f, 8.0f),random_float_out(-8.0f, 8.0f), random_float_out(-8.0f, 8.0f));
+        auto new_point = point + random_offset;
+        points.push_back(new_point);
+    }
+    glm::vec3 end_pt(random_float_out(0.0f, distance_field_dimf),0.0f, random_float_out(0.0f, distance_field_dimf));
+    prev_pt = glm::vec3(distance_field_dimf/2.0,distance_field_dimf,distance_field_dimf/2.0);
+    end_pt = glm::vec3(distance_field_dimf/2.0,0.0f,distance_field_dimf/2.0);
+//        points.clear();
+//    points.push_back(prev_pt);
+//    points.push_back(end_pt);
+
+//    points.push_back(glm::vec3(0.0f,64.0f,distance_field_dimf));
+//    points.push_back(glm::vec3(distance_field_dimf,64.0f,0.0f));
+    std::uint8_t value;
+    std::uint32_t distance;
+    std::vector<std::uint8_t> rle_idxs;
+    std::vector<std::uint32_t> rle_distances;
+    for(std::size_t y = 0; y < distance_field_dim; ++y){
+        for(std::size_t z = 0; z < distance_field_dim; ++z){
+            for(std::size_t x = 0; x < distance_field_dim; ++x){
+                glm::vec3 point(static_cast<float>(x) + 0.5,static_cast<float>(y) + 0.5,static_cast<float>(z) + 0.5);
+                point /= denominator;
+                glm::vec3 prev_point = points[0];
+                float dist = std::numeric_limits<float>::infinity();
+                std::uint8_t best_idx = 0;
+                for(auto [idx, next_point] : ranges::views::enumerate(points)  | ranges::views::drop(1)){
+                    auto curr_dist =line_segment_distance(point, prev_point, next_point);
+                    if(curr_dist < dist){
+                        //idx of the points, but the actual line segment index is different.
+                        best_idx = idx - 1;
+                        dist = curr_dist;
+                    }
+                    prev_point = next_point;
+                }
+                auto linear_idx = ( distance_field_dim - y - 1) * distance_field_dim * distance_field_dim + z * distance_field_dim + x;
+                if(rle_idxs.empty()){
+                    rle_idxs.push_back(best_idx);
+                    rle_distances.push_back(1);
+                }else if(rle_idxs.back() != best_idx){
+                    rle_idxs.push_back(best_idx);
+                    rle_distances.push_back(1);
+                }else{
+                    rle_distances.back() += 1;
+                }
+            }
+        }
+    }
+    return RLEPoints{points, rle_idxs, rle_distances};
+}
+
+
 
 int main() {
     gul::GlfwWindow window(800, 600, "ExampleWindow");
@@ -419,7 +582,7 @@ int main() {
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
                     vul::Format::D24UnormS8Uint,
-                    surface.getSwapchain()->getExtent3D(),
+                    surface.getSwapchain()->getExtent(),
                     vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
     ).assertValue();
 
@@ -465,7 +628,7 @@ int main() {
         depthImage = allocator.createDeviceImage(
                 vul::createSimple2DImageInfo(
                         vul::Format::D24UnormS8Uint,
-                        surface.getSwapchain()->getExtent3D(),
+                        surface.getSwapchain()->getExtent(),
                         vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
         ).assertValue();
 
@@ -498,7 +661,7 @@ int main() {
                                                               pixels.data()),
                                                       vul::createSimple2DImageInfo(
                                                               vul::Format::R8g8b8a8Srgb,
-                                                              pixels.getExtent3D(),
+                                                              pixels.getExtent2D(),
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
@@ -550,9 +713,11 @@ int main() {
         std::uint32_t u_frame_idx;
         glm::vec3 u_camera_rotation;
         float u_time;
+        std::uint64_t u_distance_ids;
+        std::uint64_t u_point_array;
 // 40 bytes;
     };
-    static_assert(sizeof(RayTracingPushConstant) == 40);
+    static_assert(sizeof(RayTracingPushConstant) == 40 + 16);
 
     vul::SamplerBuilder raytracedImageSamplerBuilder(device);
     raytracedImageSamplerBuilder.setFilter(vul::Filter::Linear);
@@ -570,8 +735,10 @@ int main() {
     raytraceDescriptorLayoutBuilder.setBindings(
             {vul::StorageImageBinding(0,
                                       vul::ShaderStageFlagBits::ComputeBit,
-                                      3).get()},
-            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
+                                      3).get(),
+             vul::CombinedSamplerBinding(1,
+                                      vul::ShaderStageFlagBits::ComputeBit).get()},
+            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit,static_cast<vul::DescriptorBindingFlagBits>(0)});
 
 
     auto raytraceDescriptorLayout = raytraceDescriptorLayoutBuilder.create().assertValue();
@@ -608,6 +775,52 @@ int main() {
     std::vector<vul::Image> raytracedImages;
     std::vector<vul::ImageView> raytracedImagesViews;
 
+    auto distance_field =generate_distance_field(1);
+    auto [distance_field_ids, points,rle_idxs, rle_distances] = generate_closest_distance_id(16, 128);
+//
+//    {
+//        std::array test_sizes = {128, 256, 512, 1024};
+//        std::array test_denom = {1.0, 2.0, 4.0, 8.0};
+//        for(auto [size, denom] : ranges::views::zip(test_sizes, test_denom)){
+//            auto[points1, rle_idxs1, rle_distances1] = generate_closest_distance_id2(
+//                    16, size, denom);
+//            fmt::print("size {} rle_idxs1 size {}\n", size, rle_idxs1.size());
+//        }
+//    }
+    fmt::print("rle_idxs size {}\n", rle_idxs.size());
+
+    auto device_distance_field_ids = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            distance_field_ids,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_points = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            points,
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    vul::SamplerBuilder lightningSamplerBuilder(device);
+    lightningSamplerBuilder.setFilter(vul::Filter::Linear);
+    lightningSamplerBuilder.setAddressMode(
+            vul::SamplerAddressMode::ClampToBorder);
+    lightningSamplerBuilder.setBorderColor(vul::BorderColor::IntOpaqueBlack);
+    lightningSamplerBuilder.enableAnisotropy();
+    lightningSamplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
+
+    auto lightningSampler = lightningSamplerBuilder.create().assertValue();
+    auto lightningImage = allocator.createDeviceTexture(commandPool,
+                                                      presentationQueue,
+                                                      distance_field,
+                                                      vul::createSimple3DImageInfo(
+                                                              vul::Format::R8Unorm,
+                                                              VkExtent3D{128,128,128},
+                                                              vul::ImageUsageFlagBits::TransferDstBit |
+                                                              vul::ImageUsageFlagBits::SampledBit)).assertValue();
+
+    auto lightningImageView = lightningImage.createImageView(
+            vul::ImageSubresourceRange(
+                    vul::ImageAspectFlagBits::ColorBit)).assertValue();
     auto resizeDescriptorSets = [&]() {
         raytracedImages.clear();
         raytracedImagesViews.clear();
@@ -654,6 +867,7 @@ int main() {
                     raytracedImagesViews | views::transform(
                             [](auto &value) { return value.createStorageWriteInfo(); }) |
                     ranges::to<std::vector>());
+            updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler({lightningImageView.createDescriptorInfo(lightningSampler, vul::ImageLayout::ShaderReadOnlyOptimal)});
             auto updates = updateBuilder.create(raytraceDescriptorSet);
             device.updateDescriptorSets(updates);
         }
@@ -1103,6 +1317,8 @@ int main() {
         rayTracingPushConstant.u_camera_rotation = camera.getRotation();
         rayTracingPushConstant.u_frame_idx = static_cast<std::uint32_t>(swapchainImageIndex); //TODO swapchain_size;
         rayTracingPushConstant.u_time = static_cast<float>(time);
+        rayTracingPushConstant.u_distance_ids = device_distance_field_ids.getDeviceAddress();
+        rayTracingPushConstant.u_point_array = device_points.getDeviceAddress();
         imguiRenderer.render();
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);

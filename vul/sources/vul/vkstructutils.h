@@ -6,8 +6,51 @@
 #define VULKANWORKSPACE_VKSTRUCTUTILS_H
 
 #include <vulkan/vulkan.h>
+#include <cstdint>
 
 namespace vul {
+
+    struct Extent2D;
+    struct Extent3D{
+        std::uint32_t    width;
+        std::uint32_t    height;
+        std::uint32_t    depth;
+        explicit Extent3D(const VkExtent3D& extent);
+        Extent3D(std::uint32_t width, std::uint32_t height, std::uint32_t depth);
+        [[nodiscard]]
+        static Extent3D fromDim(std::uint32_t dim);
+        operator VkExtent3D() const;
+        [[nodiscard]]
+        VkExtent3D &get();
+        [[nodiscard]]
+        const VkExtent3D &get() const;
+        [[nodiscard]]
+        Extent3D to3D() const;
+        [[nodiscard]]
+        Extent2D to2D() const;
+        [[nodiscard]]
+        std::uint32_t to1D() const;
+    };
+
+    struct Extent2D{
+        std::uint32_t    width;
+        std::uint32_t    height;
+        explicit Extent2D(const VkExtent2D& extent);
+        Extent2D(std::uint32_t width, std::uint32_t height);
+        static Extent2D fromDim(std::uint32_t dim);
+        [[nodiscard]]
+        operator VkExtent2D() const;
+        [[nodiscard]]
+        VkExtent2D &get();
+        [[nodiscard]]
+        const VkExtent2D &get() const;
+        [[nodiscard]]
+        Extent3D to3D() const;
+        [[nodiscard]]
+        Extent2D to2D() const;
+        [[nodiscard]]
+        std::uint32_t to1D() const;
+    };
 
 
     struct Rect2D {
