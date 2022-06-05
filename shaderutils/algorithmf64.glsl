@@ -208,6 +208,10 @@ f64vec4 sort_dsc(f64vec4 value){
     }
     return value;
 }
+
+float64_t median(float64_t a, float64_t b, float64_t c) {
+    return max(min(r, g), min(max(r, g), b));
+}
     //////
 
 #endif //ALGORITHMF64_GLSL

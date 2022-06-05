@@ -208,6 +208,10 @@ f16vec4 sort_dsc(f16vec4 value){
     }
     return value;
 }
+
+float16_t median(float16_t a, float16_t b, float16_t c) {
+    return max(min(r, g), min(max(r, g), b));
+}
     //////
 
 #endif //ALGORITHMF16_GLSL

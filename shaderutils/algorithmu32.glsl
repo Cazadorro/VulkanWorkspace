@@ -208,6 +208,10 @@ u32vec4 sort_dsc(u32vec4 value){
     }
     return value;
 }
+
+uint32_t median(uint32_t a, uint32_t b, uint32_t c) {
+    return max(min(r, g), min(max(r, g), b));
+}
     //////
 
     #endif //ALGORITHMU32_GLSL

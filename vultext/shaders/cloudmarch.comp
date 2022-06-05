@@ -1,0 +1,1095 @@
+#version 460
+////https://www.khronos.org/blog/vulkan-subgroup-tutorial
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+#extension GL_KHR_shader_subgroup_shuffle: enable
+#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+#extension GL_KHR_shader_subgroup_clustered: enable
+#extension GL_KHR_shader_subgroup_quad: enable
+#extension GL_KHR_memory_scope_semantics : enable
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+#include "raytracingutils.glsl"
+#include "mathconstants.glsl"
+#include "murmurhash.glsl"
+#include "random.glsl"
+#include "bitutils.glsl"
+#include "algorithm.glsl"
+#include "volumetric.glsl"
+#include "noiseutils.glsl"
+
+#define WORKGROUP_SIZE 1024
+const uint SAMPLES_PER_PIXEL = 1;
+const uint MAX_ITR = 1;
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+layout (constant_id = 0) const int IMAGE_COUNT = 3;
+layout(set = 0, binding=0, rgba8) uniform image2D output_image[];
+layout(set = 0, binding=1) uniform sampler3D u_lightning_image;
+//128 bytes max.
+
+layout(buffer_reference, buffer_reference_align = 1, scalar) buffer MaterialIDArray{
+    uint8_t data[];
+};
+
+
+layout(buffer_reference, buffer_reference_align = 16, scalar) buffer MaterialDataArray{
+    vec4 data[];
+};
+
+layout(buffer_reference, buffer_reference_align = 16, scalar) buffer SphereArray{
+    Sphere data[];
+};
+struct PathEnd{
+    vec3 pos;
+    float speed;
+};
+layout(buffer_reference, buffer_reference_align = 16, scalar) buffer PathEndArray{
+    PathEnd data[];
+};
+
+struct BVHNode{
+    Box bbox;
+    uint lhs_idx;
+    uint rhs_idx;
+};
+layout(buffer_reference, buffer_reference_align = 4, scalar) buffer BVHNodeArray{
+    BVHNode data[];
+};
+
+struct BVHChildren{
+    uint lhs_idx;
+    uint rhs_idx;
+};
+
+
+layout(buffer_reference, buffer_reference_align = 8, scalar) buffer BboxArray{
+    Box data[];
+};
+layout(buffer_reference, buffer_reference_align = 8, scalar) buffer BVHChildrenArray{
+    BVHChildren data[];
+};
+
+
+layout(buffer_reference, buffer_reference_align = 4, scalar) buffer BVHLeafArray{
+    uint data[];
+};
+
+layout(buffer_reference, buffer_reference_align = 4, scalar) buffer ParentDataArray{
+    uint data[];
+};
+Sphere calc_moved_sphere(const in Sphere begin, const in PathEnd end, float time){
+    vec3 begin_pos = begin.pos;
+    vec3 end_pos = end.pos;
+    float speed = end.speed;
+    float dist = distance(begin_pos, end_pos);
+    float dist_traveled = speed * time;
+    float current_pos_along_dist = mod(dist_traveled,2*dist); //divide by dist to get 0->2
+    float current_fract = 1.0 - abs((current_pos_along_dist / dist) - 1.0); // get -1 -> 0 -> 1 to 1 -> 0 -> 1 to 0 -> 1 -> 0
+    vec3 current_pos = mix(begin_pos, end_pos, current_fract);
+    return Sphere(current_pos, begin.r);
+}
+
+layout(buffer_reference, buffer_reference_align = 1, scalar) buffer ViewState{
+    MaterialIDArray material_ids;
+    MaterialDataArray material_data;
+    SphereArray sphere_data;
+    PathEndArray path_data;
+
+
+//    BVHNodeArray bvh_data;
+    BboxArray bbox_data;
+    BVHChildrenArray children_data;
+
+    BVHLeafArray leaf_data;
+    ParentDataArray parent_data;
+    uint element_count;
+    uint image_width;
+    uint image_height;
+    float focus_dist;
+    float aperture;
+    float fov;
+    float exposure_time;
+};
+
+
+
+layout(buffer_reference, buffer_reference_align = 1, scalar) buffer DistanceIDArray{
+    uint8_t data[];
+};
+layout(buffer_reference, buffer_reference_align = 4, scalar) buffer PointArray{
+    vec3 data[];
+};
+
+layout(push_constant, scalar) uniform PushConstantBlock{
+    ViewState u_view_state;
+    vec3 u_camera_origin;
+    uint u_frame_idx;
+    vec3 u_camera_rotation;
+    float u_time;
+    DistanceIDArray u_distance_ids;
+    PointArray u_point_array;
+// 40 bytes;
+};
+float line_segment_distance(const in vec3 point, const in vec3 a, const in vec3 b){
+    vec3 ba = b-a;
+    vec3 pa = point-a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0f, 1.0f );
+    vec3  q = pa-h*ba;
+    float d = length(q);
+    return d;
+}
+
+float get_lightning_distance(vec3 pos){
+
+    ivec3 ipos = ivec3(pos);
+    if(ipos.x < 0 || ipos.x >= 128 || ipos.y < 0 || ipos.y >= 128 || ipos.z < 0 || ipos.z >= 128){
+        return inf;
+    }
+    int linear_pos = (127 - ipos.y) * 128 * 128 + ipos.z * 128 + ipos.x;
+    uint closest_segment_idx = uint(u_distance_ids.data[linear_pos]);
+    vec3 a = u_point_array.data[closest_segment_idx];
+    vec3 b = u_point_array.data[closest_segment_idx + 1u];
+    return line_segment_distance(pos, a,b);
+}
+
+
+
+vec3 calc_ray_background_color(const in Ray ray) {
+    float t = 0.5*(ray.dir.y + 1.0);
+    vec3 dir = ray.dir;
+
+    if(false){
+        if (dir.z < 0.0){
+            dir.xy *= -1.0;
+        }
+
+        if (dir.x >= 0.0 && dir.y >= 0.0){
+            return vec3(1.0, 0.0, 0.0);
+        }
+        if (dir.x >= 0.0 && dir.y < 0.0){
+            return vec3(0.0, 1.0, 0.0);
+        }
+        if (dir.x < 0.0 && dir.y >= 0.0){
+            return vec3(0.0, 0.0, 1.0);
+        }
+        if (dir.x < 0.0 && dir.y < 0.0){
+            return vec3(1.0, 1.0, 0.0);
+        }
+    }
+    return (1.0-t)*vec3(1.0, 1.0, 1.0) + t*vec3(0.5, 0.7, 1.0);
+
+}
+
+uvec2 pixel_from_linear(uint linear_idx){
+    return uvec2(linear_idx % u_view_state.image_width, linear_idx / u_view_state.image_width);
+}
+bool pixel_within_image(uvec2 pixel_idx){
+    return (pixel_idx.x < u_view_state.image_width && pixel_idx.y < u_view_state.image_height);
+}
+
+vec2 jitter_frag_coord(vec2 frag_coord, float time){
+    return frag_coord + hashwithoutsine23_11(vec3(frag_coord, time));
+}
+
+
+
+
+const float NEAR_ZERO_EPSILON = 1e-8;
+bool near_zero(float val){
+    return abs(val) < NEAR_ZERO_EPSILON;
+}
+
+bool near_zero(vec2 val){
+    return near_zero(val.x) && near_zero(val.y);
+}
+
+bool near_zero(vec3 val){
+    return near_zero(val.x) && near_zero(val.y) && near_zero(val.z);
+}
+
+bool near_zero(vec4 val){
+    return near_zero(val.x) && near_zero(val.y) && near_zero(val.z) && near_zero(val.w);
+}
+
+
+struct LambertianMaterial{
+    vec3 albedo;
+};
+
+bool scatter(
+const in LambertianMaterial material,
+const in Ray ray,
+const in HitRecord hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    vec3 ray_endpoint = scatter_endpoint(ray, hit_record);
+    vec3 scatter_dir = normalize(hit_record.normal + random_unit_vector(ray_endpoint));
+    if(near_zero(scatter_dir)){
+        scatter_dir = hit_record.normal;
+    }
+    scatter_ray = Ray(ray_endpoint, scatter_dir);
+    color_attenuation = material.albedo;
+    return true;
+}
+struct MetalMaterial{
+    vec3 albedo;
+    float fuzz;
+};
+bool scatter(
+const in MetalMaterial material,
+const in Ray ray,
+const in HitRecord hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    vec3 ray_endpoint = scatter_endpoint(ray, hit_record);
+    vec3 reflected_dir = reflect(ray.dir, hit_record.normal);
+    scatter_ray = Ray(ray_endpoint, normalize(reflected_dir + material.fuzz*random_in_unit_sphere(ray_endpoint)));
+    color_attenuation = material.albedo;
+    return (dot(scatter_ray.dir, hit_record.normal) > 0);
+}
+
+struct DielectricMaterial{
+  vec3 albedo;
+  float ir; //index of refraction.
+};
+
+vec3 refract2(const in vec3 direction, const in vec3 normal, float refraction_ratio){
+    float cos_theta = min(dot(-direction, normal), 1.0);
+    //perpendicular
+    vec3 r_out_perp = refraction_ratio * (direction + cos_theta * normal);
+    //parallel
+    vec3 r_out_para = -sqrt(abs(1.0 - length2(r_out_perp))) * normal;
+    return r_out_perp + r_out_para;
+}
+
+float reflectance(float cosine, float ref_idx) {
+    // Use Schlick's approximation for reflectance.
+    float r0 = (1-ref_idx) / (1+ref_idx);
+    r0 = r0*r0;
+    return r0 + (1-r0)*pow5((1 - cosine));
+}
+
+bool scatter(
+const in DielectricMaterial material,
+const in Ray old_ray,
+const in HitRecord hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    Ray ray = old_ray;
+    ray.dir = normalize(ray.dir);
+    vec3 ray_endpoint = scatter_endpoint(ray, hit_record);
+    float refraction_ratio = hit_record.front_face ? (1.0 / material.ir) : material.ir;
+    float cos_theta = min(dot(-(ray.dir), hit_record.normal), 1.0);
+    float sin_theta = sqrt(1.0 - cos_theta * cos_theta);
+    bool cannot_refract = (refraction_ratio * sin_theta) > 1.0;
+    vec3 dir;
+    if(cannot_refract || (true && (reflectance(cos_theta, refraction_ratio) > random_float_01(ray_endpoint)))){
+        vec3 reflected_dir = reflect(ray.dir, hit_record.normal);
+        dir = reflected_dir;
+    }else{
+        vec3 refracted_dir = refract(ray.dir, hit_record.normal, refraction_ratio);
+        dir = refracted_dir;
+    }
+
+    color_attenuation = material.albedo;
+    scatter_ray = Ray(ray_endpoint, dir);
+    return true;
+}
+
+
+const uint MATERIAL_NONE = 0;
+const uint MATERIAL_LAMBERTIAN = MATERIAL_NONE + 1;
+const uint MATERIAL_METAL = MATERIAL_LAMBERTIAN + 1;
+const uint MATERIAL_DIELECTRIC = MATERIAL_METAL + 1;
+
+struct Material{
+    uint type;
+    vec3 albedo;
+    float f;
+};
+
+bool scatter(
+const in Material material,
+const in Ray ray,
+const in HitRecord old_hit_record,
+out vec3 color_attenuation,
+out Ray scatter_ray){
+    HitRecord hit_record = old_hit_record;
+//    hit_record.to_object -= 0.0001;
+    switch(material.type){
+        case MATERIAL_LAMBERTIAN:{
+            LambertianMaterial material_instance = LambertianMaterial(material.albedo);
+            return scatter(material_instance, ray, hit_record, color_attenuation, scatter_ray);
+        }
+        case MATERIAL_METAL:{
+            MetalMaterial material_instance = MetalMaterial(material.albedo, min(material.f, 1.0));
+            return scatter(material_instance, ray, hit_record, color_attenuation, scatter_ray);
+        }
+        case MATERIAL_DIELECTRIC:{
+            DielectricMaterial material_instance = DielectricMaterial(material.albedo, material.f);
+            return scatter(material_instance, ray, hit_record, color_attenuation, scatter_ray);
+        }
+    }
+    return false;
+}
+
+struct IdxStack{
+    uint stack[11];
+    uint size;
+};
+
+IdxStack initIdxStack(){
+    IdxStack stack;
+    stack.size = 0;
+    return stack;
+}
+
+void push(inout IdxStack stack, uint value){
+    stack.stack[stack.size] = value;
+    stack.size +=1;
+}
+
+uint pop(inout IdxStack stack){
+    stack.size -=1;
+    return stack.stack[stack.size];
+}
+
+uint top(const in IdxStack stack){
+    return stack.stack[stack.size - 1];
+}
+
+bool is_empty(const in IdxStack stack){
+    return stack.size == 0;
+}
+
+void clear(inout IdxStack stack){
+    stack.size = 0;
+}
+
+struct ParentStack{
+    //0 means left traversed, 1 right traversed
+    uint stack_bitfield;
+    uint size;
+};
+
+ParentStack initParentStack(){
+    ParentStack stack;
+    stack.stack_bitfield = 0;
+    stack.size = 0;
+    return stack;
+}
+
+//void set_traversed_left(inout ParentStack stack){
+//    stack.stack_bitfield = set_bit(stack.stack_bitfield, stack.size);
+//}
+//void set_traversed_right(inout ParentStack stack){
+//    stack.stack_bitfield = clear_bit(stack.stack_bitfield, stack.size);
+//}
+
+void set_traversed_left(inout ParentStack stack){
+    stack.stack_bitfield = set_bit(stack.stack_bitfield, stack.size - 1);
+}
+void set_traversed_right(inout ParentStack stack){
+    stack.stack_bitfield = clear_bit(stack.stack_bitfield, stack.size - 1);
+}
+void set_traversed(inout ParentStack stack, bool traversed_left){
+    if(traversed_left){
+        set_traversed_left(stack);
+    }else{
+        set_traversed_right(stack);
+    }
+}
+
+bool get_traversed(inout ParentStack stack){
+    return get_bit(stack.stack_bitfield, stack.size);
+}
+void push(inout ParentStack stack, bool traversed_left){
+    stack.size +=1;
+//    stack.stack_bitfield = toggle_bit(stack.stack_bitfield, stack.size-1, val);
+    set_traversed(stack, traversed_left);
+}
+bool pop(inout ParentStack stack){
+    stack.size -=1;
+    return get_traversed(stack);
+}
+
+bool top(const in ParentStack stack){
+    return get_bit(stack.stack_bitfield, stack.size - 1);
+}
+
+void set_top(inout ParentStack stack, bool val){
+//    stack.stack_bitfield = toggle_bit(stack.stack_bitfield, stack.size-1, val);
+    set_traversed(stack, val);
+}
+
+bool is_empty(const in ParentStack stack){
+    return stack.size == 0;
+}
+
+void clear(inout ParentStack stack){
+    stack.size = 0;
+}
+
+
+
+const uint LEAF_MASK = 0x80000000u;
+bool is_leaf(const in BVHNode node){
+    return bool(node.lhs_idx & LEAF_MASK);
+}
+bool is_leaf(const in BVHChildren node){
+    return bool(node.lhs_idx & LEAF_MASK);
+}
+
+uint calc_leaf_len(const in BVHNode node){
+    return node.lhs_idx & (~LEAF_MASK);
+}
+
+uint calc_leaf_len(const in BVHChildren node){
+    return node.lhs_idx & (~LEAF_MASK);
+}
+const uint MAX_OBJ_OFFSET = 24;
+const uint MAX_OBJ_ID = 0xFFFFFFFF - MAX_OBJ_OFFSET;
+
+bool world_hit_old(const in Ray ray, float t_min, float t_max, float time, out HitRecord hit_record, out uint object_id, inout vec4 debug_color, in uint iter){
+
+    float closest_t = t_max;
+    bool hit_anything  = false;
+
+    IdxStack idx_stack = initIdxStack();
+    float alpha = 1.0;
+
+
+    push(idx_stack,0);
+    float perm_t = inf;
+    uint last_node_idx = 0u;
+    float best_test_t = inf;
+    while(!is_empty(idx_stack)){
+        uint node_idx = pop(idx_stack);
+        Box node_bbox = u_view_state.bbox_data.data[node_idx];
+        BVHChildren node_children = u_view_state.children_data.data[node_idx];
+//        vec3 center = node.bbox.pos;
+//        vec3 to_center = center - ray.pos;
+//        if(dot(ray.dir,to_center) < 0.0){
+//            float rad = max_v(abs(node.bbox.dim));
+//            //                rad *= rad;
+//            if(length(to_center) > rad){
+//                continue;
+//            }
+//        }
+        float test_t;
+        if(!intersect(ray, node_bbox, t_min, closest_t, test_t)){
+            continue;
+        }
+
+        else if(node_idx > 1 && idx_stack.size == 1 && iter == 0u && test_t < best_test_t){
+            best_test_t = test_t;
+            vec3 temp_color = random_vec3_01(node_bbox.pos * float(node_idx));
+            alpha = 0.5;
+            debug_color.rgb *= mix(temp_color, vec3(1.0), alpha);
+            debug_color.a = 0.3;
+            debug_color.rgb = temp_color;
+            debug_color.a = 0.5;
+        }
+
+        if(is_leaf(node_children)){
+
+
+
+
+            uint leaf_data_len = calc_leaf_len(node_children);
+            uint leaf_start_idx = node_children.rhs_idx;
+            uint leaf_end_idx = leaf_start_idx + leaf_data_len;
+            for (uint leaf_idx = leaf_start_idx; leaf_idx < leaf_end_idx; ++leaf_idx){
+                uint i = u_view_state.leaf_data.data[leaf_idx];
+                Sphere sphere_begin = u_view_state.sphere_data.data[i];
+                PathEnd path_end = u_view_state.path_data.data[i];
+                Sphere sphere;
+                if(path_end.speed == 0.0){
+                    sphere = sphere_begin;
+                }else{
+                    sphere = calc_moved_sphere(sphere_begin, path_end, time);
+                }
+
+                HitRecord temp_record;
+                //        if(intersect(ray, t_min, t_max, sphere, temp_record) && temp_record.to_object < closest_t){
+                //            hit_anything  = true;
+                //            closest_t =  temp_record.to_object;
+                //            hit_record = temp_record;
+                //            object_id = i;
+                //        }
+                if (intersect(ray, sphere, temp_record, t_min) && temp_record.to_object < closest_t){
+                    hit_anything  = true;
+                    closest_t =  temp_record.to_object;
+                    hit_record = temp_record;
+                    object_id = i;
+                }
+            }
+        }else{
+            push(idx_stack, node_children.rhs_idx);
+            push(idx_stack, node_children.lhs_idx);
+        }
+    }
+    //    if(perm_t < closest_t){
+    //        object_id = MAX_OBJ_ID+((last_node_idx-6u) % MAX_OBJ_OFFSET);
+    //        return true;
+    //    }
+
+    //
+    //    for (int i = 0; i < u_view_state.element_count; ++i){
+    //        Sphere sphere_begin = u_view_state.sphere_data.data[i];
+    //        PathEnd path_end = u_view_state.path_data.data[i];
+    //        Sphere sphere;
+    //        if(path_end.speed == 0.0){
+    //            sphere = sphere_begin;
+    //        }else{
+    //            sphere = calc_moved_sphere(sphere_begin, path_end, time);
+    //        }
+    //
+    //        HitRecord temp_record;
+    ////        if(intersect(ray, t_min, t_max, sphere, temp_record) && temp_record.to_object < closest_t){
+    ////            hit_anything  = true;
+    ////            closest_t =  temp_record.to_object;
+    ////            hit_record = temp_record;
+    ////            object_id = i;
+    ////        }
+    //        if (intersect(ray, sphere, temp_record, t_min) && temp_record.to_object < closest_t){
+    //            hit_anything  = true;
+    //            closest_t =  temp_record.to_object;
+    //            hit_record = temp_record;
+    //            object_id = i;
+    //        }
+    //    }
+    if(best_test_t > hit_record.to_object && iter == 0u){
+        debug_color.a = 1.0;
+    }
+
+    return hit_anything;
+}
+bool world_hit_new(const in Ray ray, float t_min, float t_max, float time, out HitRecord hit_record, out uint object_id, inout vec4 debug_color, in uint iter){
+    float closest_t = t_max;
+    bool hit_anything  = false;
+
+//    IdxStack idx_stack = initIdxStack();
+    ParentStack parent_stack = initParentStack();
+    float alpha = 1.0;
+
+
+    push(parent_stack,true);
+    float perm_t = inf;
+    uint current_node_idx = 0u;
+    uint child_node_idx = 0u;
+    bool check_parent = false;
+    int debug_itr = 0;
+
+//    if(get_bit(parent_stack.stack_bitfield, 0)){
+//        debug_color = vec4(1.0,1.0,0.0,0.0);
+//        hit_record.to_object = 1.0;
+//        hit_record.to_end = 1.0;
+//        hit_record.front_face = true;
+//        hit_record.normal = vec3(0.0,1.0,0.0);
+//        object_id = 0;
+//        return true;
+//    }
+    while(!is_empty(parent_stack)){
+
+        if(parent_stack.size > 16){
+            debug_color = vec4(1.0,1.0,0.0,0.0);
+            hit_record.to_object = 1.0;
+            hit_record.to_end = 1.0;
+            hit_record.front_face = true;
+            hit_record.normal = vec3(0.0,1.0,0.0);
+            object_id = 0;
+            return true;
+        }
+        debug_itr += 1;
+        if(debug_itr > 127){
+
+            debug_color = vec4(1.0,0.0,0.0,0.0);
+            if(!check_parent){
+                debug_color = vec4(0.0,0.0,0.0,0.0);
+            }
+            hit_record.to_object = 1.0;
+            hit_record.to_end = 1.0;
+            hit_record.front_face = true;
+            hit_record.normal = vec3(0.0,1.0,0.0);
+            object_id = 0;
+            return true;
+        }
+        if(check_parent){
+//            debug_color = vec4(0.0,0.0,1.0,0.0);
+//            hit_record.to_object = 1.0;
+//            hit_record.to_end = 1.0;
+//            hit_record.front_face = true;
+//            hit_record.normal = vec3(0.0,1.0,0.0);
+//            object_id = 0;
+//            return true;
+            check_parent = false;
+            child_node_idx = current_node_idx;
+            current_node_idx = u_view_state.parent_data.data[child_node_idx];
+            if(!top(parent_stack)){
+                pop(parent_stack);
+                check_parent = true;
+                continue;
+            }
+
+            set_top(parent_stack, false);
+            BVHChildren parent_node_children =  u_view_state.children_data.data[current_node_idx];
+            if(parent_node_children.lhs_idx == child_node_idx){
+                current_node_idx = parent_node_children.rhs_idx;
+            }else if(parent_node_children.rhs_idx == child_node_idx){
+                current_node_idx = parent_node_children.lhs_idx;
+            }else{
+                {
+                    debug_color = vec4(1.0,1.0,0.0,0.0);
+                    hit_record.to_object = 1.0;
+                    hit_record.to_end = 1.0;
+                    hit_record.front_face = true;
+                    hit_record.normal = vec3(0.0,1.0,0.0);
+                    object_id = 0;
+                    return true;
+                }
+            }
+            push(parent_stack,true);
+        }else{
+            //need to pop?
+            Box node_bbox = u_view_state.bbox_data.data[current_node_idx];
+            BVHChildren node_children = u_view_state.children_data.data[current_node_idx];
+            float test_t;
+            if(!intersect(ray, node_bbox, t_min, closest_t, test_t)){
+//                debug_color = vec4(1.0,0.0,1.0,0.0);
+//                hit_record.to_object = 1.0;
+//                hit_record.to_end = 1.0;
+//                hit_record.front_face = true;
+//                hit_record.normal = vec3(0.0,1.0,0.0);
+//                object_id = 0;
+//                return true;
+                pop(parent_stack);
+                check_parent = true;
+//                break;
+                continue;
+            }
+            else if(current_node_idx > 1u && iter == 0u){
+//                vec3 temp_color = random_vec3_01(node_bbox.pos * float(current_node_idx));
+//                alpha = 0.5;
+//                debug_color.rgb *= mix(temp_color, vec3(1.0), alpha);
+//                debug_color.a = 0.3;
+            }
+
+            if(is_leaf(node_children)){
+
+                pop(parent_stack);
+//                debug_color = vec4(1.0,1.0,0.0,0.0);
+//                return true;
+
+
+                check_parent = true;
+                uint leaf_data_len = calc_leaf_len(node_children);
+                uint leaf_start_idx = node_children.rhs_idx;
+                uint leaf_end_idx = leaf_start_idx + leaf_data_len;
+
+                for (uint leaf_idx = leaf_start_idx; leaf_idx < leaf_end_idx; ++leaf_idx){
+                    uint i = u_view_state.leaf_data.data[leaf_idx];
+                    Sphere sphere_begin = u_view_state.sphere_data.data[i];
+                    PathEnd path_end = u_view_state.path_data.data[i];
+                    Sphere sphere;
+                    if(path_end.speed == 0.0){
+                        sphere = sphere_begin;
+                    }else{
+                        sphere = calc_moved_sphere(sphere_begin, path_end, time);
+                    }
+
+
+                    HitRecord temp_record;
+                    //        if(intersect(ray, t_min, t_max, sphere, temp_record) && temp_record.to_object < closest_t){
+                    //            hit_anything  = true;
+                    //            closest_t =  temp_record.to_object;
+                    //            hit_record = temp_record;
+                    //            object_id = i;
+                    //        }
+                    if (intersect(ray, sphere, temp_record, t_min) && temp_record.to_object < closest_t){
+
+                        hit_anything  = true;
+                        closest_t =  temp_record.to_object;
+
+                        hit_record = temp_record;
+                        object_id = i;
+
+                    }
+//                    debug_color = vec4(1.0,1.0,0.0,0.0);
+//                    hit_record.to_object = 1.0;
+//                    hit_record.to_end = 1.0;
+//                    hit_record.front_face = true;
+//                    hit_record.normal = vec3(0.0,1.0,0.0);
+//                    object_id = 0;
+//                    return true;
+                }
+
+                continue;
+            }else{
+//                debug_color = vec4(0.0,1.0,0.0,0.0);
+//                hit_record.to_object = 1.0;
+//                hit_record.to_end = 1.0;
+//                hit_record.front_face = true;
+//                hit_record.normal = vec3(0.0,1.0,0.0);
+//                object_id = 0;
+//                return true;
+                current_node_idx = node_children.lhs_idx;
+                push(parent_stack, true);
+                continue;
+            }
+        }
+
+    }
+    return hit_anything;
+}
+
+bool world_hit(const in Ray ray, float t_min, float t_max, float time, out HitRecord hit_record, out uint object_id, inout vec4 debug_color, in uint iter){
+    return world_hit_new(ray,t_min,t_max,time,hit_record,object_id,debug_color,iter);
+//    return world_hit_old(ray,t_min,t_max,time,hit_record,object_id,debug_color,iter);
+}
+
+vec3 calc_ray_color(const in Ray start_ray, float time, inout vec4 debug_color, out float max_t){
+
+    debug_color.a = 1.0;
+    debug_color.rgb = calc_ray_background_color(start_ray);
+
+    bool hit = true;
+    vec3 final_color = vec3(0.0);
+    vec3 total_attenuation = vec3(1.0,1.0,1.0);
+    Ray ray = start_ray;
+    uint iterations = 0;
+    max_t = inf;
+    while (hit && iterations < MAX_ITR){
+        if (iterations >= MAX_ITR){
+            return vec3(0.0,0.0,0.0);
+        }
+
+        hit = false;
+        HitRecord hit_record;
+        float closest_t = inf;
+        uint object_id;
+
+        if (world_hit(ray, 0.001, inf, time, hit_record, object_id, debug_color, iterations)){
+            if(iterations == 0){
+                max_t = hit_record.to_object;
+            }
+//            if(object_id >= MAX_OBJ_ID){
+//                return other_obj_colors[object_id - MAX_OBJ_ID];
+//            }
+            Ray scatter_ray;
+            vec3 color_attenuation;
+            Material material;
+            material.type = u_view_state.material_ids.data[object_id];
+            vec4 material_data = u_view_state.material_data.data[object_id];
+            material.albedo = material_data.xyz;
+            material.f = material_data.w;
+            if(scatter(material, ray, hit_record, color_attenuation, scatter_ray)){
+                hit = true;
+                total_attenuation *= color_attenuation;
+                ray = scatter_ray;
+            }else{
+                return vec3(0.0,0.0,0.0);
+            }
+        }else{
+            break;
+        }
+        iterations += 1;
+    }
+    return total_attenuation * calc_ray_background_color(ray);
+}
+
+Ray calc_Ray2(vec3 camera_origin, vec3 camera_rotation, float fov, float apeture, float focus_dist, uvec2 resolution, vec2 uv, float sample_idx){
+    focus_dist = 1.0;
+    vec3 camera_up = rotate_dir(vec3(0.0,-1.0,0.0), camera_rotation);
+    vec3 camera_side =  rotate_dir(vec3(1.0,0.0,0.0), camera_rotation);
+    vec3 camera_forward = rotate_dir(vec3(0.0,0.0,1.0),camera_rotation);
+
+    float h = tan(fov/2.0);
+    float aspect_ratio = float(resolution.x) / resolution.y;
+    float viewport_height = 2.0 * h;
+    float viewport_width = aspect_ratio * viewport_height;
+    vec3 origin = camera_origin;
+    vec3 horizontal = focus_dist * viewport_width * camera_side;
+    vec3 vertical = focus_dist * viewport_height * camera_up;
+    vec3 lower_left_origin = origin - horizontal / 2.0 - vertical / 2.0 + focus_dist * camera_forward;
+    float lens_radius = apeture / 2.0;
+
+    vec2 disk_offset = lens_radius *  clamp(random_in_unit_disk(vec3(vec2(uv*resolution),float(sample_idx))), -1.0,1.0);
+    vec3 offset = camera_side * disk_offset.x + camera_up * disk_offset.y;
+    //origin - horizontal / 2.0 - vertical / 2.0 + focus_dist * camera_forward; - origin
+    //-horizontal / 2.0 - vertical / 2.0 + vec3(0.0,0.0,1.0); + uv.x * horizontal + uv.y * vertical
+    //range(-1.0,1.0) range(-1.0,1.0)
+    return Ray(origin + offset, lower_left_origin + uv.x * horizontal + uv.y * vertical - origin- offset);
+}
+
+//
+//const float u_focus_dist = 1.0;
+//const float u_aperture = 0.1;
+
+
+
+const float absorption  = 0.0;
+const float sigmaEC = 1.0;
+float volumetricShadow(const in Box box, const in FbmSettings fbm_settings, const in Rangef32 source_range, float step_size, float density_modifier,  in vec3 from, vec3 to){
+    const float numStep = 6.0; // quality control. Bump to avoid shadow alisaing
+    float shadow = 1.0;
+    float sigmaS = 0.0;
+    float sigmaE = 0.0;
+    vec3 dir = normalize(to-from);
+    Ray ray = Ray(from, dir);
+    float dist = length(to-from);
+    dist = distance(to, from);
+    HitRange hit_range;
+    if(!intersect(ray, box, 0.0, inf, hit_range)){
+        return 1.0;
+
+    }
+    dist = min(hit_range.to_end, dist);
+    float offset = ((random_float_01(from) + 1.0)/2.0) * 0.3;
+    float dd = dist / numStep;
+    // start at 0.5 to sample at center of integral part
+    for(float s=0.5 + offset; s<(numStep-0.1); s+=1.0){
+//        if(s*dist/(numStep) > hit_range.to_end){
+//            break;
+//        }
+        vec3 pos = from + dir*dist*(s/(numStep));
+        //getParticipatingMedia(sigmaS, sigmaE, pos);
+        float density_sample = accumulate_noise_01(fbm_settings, pos, u_time * 0.05);
+        density_sample = remap(density_sample, source_range);
+        if(density_sample > 0.0){
+            float sigmaS = density_sample * dd * density_modifier;
+            float sigmaE = max(0.000001, sigmaS * sigmaEC + absorption);
+            shadow *= exp(-sigmaE * dd);
+            if(shadow < 0.001){
+                break;
+            }
+        }
+
+    }
+    return shadow;
+}
+
+FbmSettings alter_octaves(const in FbmSettings fbm_settings, float transmittance, float distance){
+    FbmSettings temp_fbm_settings = fbm_settings;
+    float opacity = clamp(1.0 - transmittance, 0.0, 1.0);
+    float opacity_distance = opacity * (distance * 0.1);
+    if(transmittance < 0.075){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 4, 1);
+    }
+    else if(transmittance < 0.15){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 3, 1);
+    }
+    else if(transmittance < 0.30){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 2, 1);
+    }
+    else if(transmittance < 0.6){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+
+    if(distance > 8.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 16.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 32.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 64.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+    if(distance > 128.0){
+        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+    }
+//    if(transmittance < 0.075){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 4, 1);
+//    }
+//    else if(transmittance < 0.15){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 3, 1);
+//    }
+//    else if(transmittance < 0.30){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 2, 1);
+//    }
+//
+//    else if(opacity_distance < 0.6){
+//        temp_fbm_settings.octaves = max(temp_fbm_settings.octaves - 1, 1);
+//    }
+    return temp_fbm_settings;
+}
+
+
+void main(){
+
+    float focus_dist = u_view_state.focus_dist;//max(u_focus_dist + cos(2.0 * (float(u_frame_idx % 1000) / 1000.0) - 1.0) * 10.0, 0.1);
+    float aperture = u_view_state.aperture;
+    float fov = u_view_state.fov;
+    float lens_radius = aperture / 2.0;
+    lens_radius = 0.0;
+    focus_dist = 1.0;
+    uint tidx = gl_GlobalInvocationID.x;
+    uvec2 frag_coord = pixel_from_linear(tidx);
+    ivec2 pos = ivec2(frag_coord);
+    ivec2 dims = ivec2(u_view_state.image_width, u_view_state.image_height);
+
+    uvec2 resolution = uvec2(u_view_state.image_width, u_view_state.image_height);
+    if (!pixel_within_image(frag_coord)){
+        return;
+    }
+
+
+    vec3 camera_rotation = u_camera_rotation;
+    camera_rotation.x *= -1.0;
+    vec3 total_color = vec3(0.0);
+
+    vec3 camera_up = rotate_dir(vec3(0.0,1.0,0.0), camera_rotation);
+    vec3 camera_side =  rotate_dir(vec3(1.0,0.0,0.0), camera_rotation);
+    for (int sample_idx = 0; sample_idx < SAMPLES_PER_PIXEL; ++sample_idx){
+        //jitter_frag_coord(frag_coord, float(sample_idx))
+        vec2 temp_coord = frag_coord;
+        temp_coord = jitter_frag_coord(vec2(temp_coord), float(sample_idx));
+        temp_coord= frag_coord;
+//        temp_coord *= focus_dist;
+        vec2 disk_offset = lens_radius *  clamp(random_in_unit_disk(vec3(vec2(temp_coord),float(sample_idx))), -1.0,1.0);
+        vec3 offset = camera_side * disk_offset.x + camera_up * disk_offset.y;
+        disk_offset = vec2(0.0);
+        offset = vec3(0.0);
+//        Ray ray = calc_Ray2(u_camera_origin, camera_rotation, u_fov, aperture, focus_dist, resolution, temp_coord / (resolution), sample_idx);
+        Ray ray = create_Ray((temp_coord/ (resolution)), resolution, u_camera_origin , camera_rotation, fov, disk_offset, focus_dist);
+        ray.pos += offset;
+
+
+        float max_t = inf;
+        {
+            vec3 ray_endpoint = endpoint(ray, 1.0);
+            float time = u_time + u_view_state.exposure_time * random_float_01(ray_endpoint);
+            vec4 debug_color = vec4(1.0);
+            vec3 color = vec3(0.3);
+//            vec3 color = calc_ray_color(ray, time, debug_color, max_t);
+            total_color += color;
+            //        total_color *= mix(debug_color.rgb, vec3(1.0), debug_color.a);
+            //        float16_t x = float16_t(1.0);
+            float temp = remap(1.0, Range(0.0,1.0), Range(0.5, 2.0));
+            total_color = mix(debug_color.rgb, total_color, debug_color.a);
+        }
+        Box box = Box(vec3(0.0, -16.0,0.0), vec3(16.0));
+        HitRange hit_range;
+        FbmSettings fbm_settings = FbmSettings(5, 0.05, 2.0, 0.5);
+        float step_size = 0.20;
+        int max_steps = 80;
+        float density_modifier =20.0;
+        float density = 0.0;
+        float opaqueVisiblity = 1.0f;
+        float absorption_coefficient = 1.0f ;
+        vec3 sun_color = vec3(1.0,0.9,0.8)*2.0;
+        vec3 sun_dir = vec3(0.0,1.0,0.0);
+        vec3 sun_loc = sun_dir*10000.0;
+        Rangef32 source_range = Rangef32(0.5, 1.0);
+        float transmittance = 1.0;
+        vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
+        step_size = step_size + step_size* ((rand01(frag_coord) + 1.0)/2.0) * 0.2;
+        float original_step_size = step_size;
+        if(intersect(ray, box, 0.0, max_t, hit_range)){
+//            ray = move_to(ray, hit_range);
+            float depth = hit_range.to_object + step_size;// + step_size * ((rand01(frag_coord) + 1.0)/2.0);
+            for(int i = 0; i < max_steps; ++i){
+//                if(depth > min(hit_range.to_end, max_t)){
+//                    break;
+//                }
+                if(depth > (hit_range.to_end)){
+                    break;
+                }
+                vec3 ray_endpoint = endpoint(ray, depth);
+
+                float density_sample = accumulate_noise_01(fbm_settings, ray_endpoint, u_time * 0.05);
+                density_sample = remap(density_sample, source_range);
+//                density_sample = 0.01;
+                vec3 sampling_coords = (((ray_endpoint - box.pos) / box.dim) + 1.0) / 2.0;
+                float value = texture(u_lightning_image, sampling_coords).r;
+                value = clamp_remap(value, Range(0.0f, 0.1f));
+                value = 1.0 - value;
+                float light_dist = get_lightning_distance((ray_endpoint - (box.pos - box.dim)) * (vec3(128.0)/(box.dim*2)));
+                light_dist *= ((box.dim.x*2)/ (128.0));
+                value = light_dist;
+                value = clamp((8.0f - (light_dist)), 0.0, 8.0);
+                value = clamp_remap(value, Range(0.0, 8.0), Range(0.0, 1.0));
+                vec3 lightning_blue = vec3(140 / 255.0f, 150 / 255.0f, 255 / 255.0f);
+                vec3 lightning_color_value =  value * lightning_blue;
+                bool light_close = light_dist < 0.1;
+                if(light_close){
+                    lightning_color_value *= 1000000.0;
+                }
+                if( density_sample > 0.001){
+
+                    float sigmaS = density_sample * step_size * density_modifier;
+                    float sigmaE = max(0.00000001, absorption + sigmaS * sigmaEC);
+                    FbmSettings temp_fbm_settings = alter_octaves(fbm_settings, transmittance, depth);
+//                    temp_fbm_settings = fbm_settings;
+                    float cos_theta = dot(ray.dir,-sun_dir);
+                    float phase = max(hg_phase(cos_theta, 0.3),hg_phase(cos_theta, -0.1));
+//                    phase = isotropic_phase();
+                    float powder =powder_law(1.0, sigmaE * step_size);
+//                    powder = 1.0;
+                    float shadow = volumetricShadow(box, temp_fbm_settings, source_range, step_size, density_modifier * 0.01, ray_endpoint,sun_loc);
+                    vec3 S = (sun_color)* sigmaS *phase * shadow * powder + lightning_color_value * sigmaS * powder;
+
+                    float temp_trans = exp(-sigmaE * step_size);
+                    vec3 Sint = (S - S * temp_trans) / sigmaE;
+                    scatteredLight += transmittance * Sint;
+                    transmittance *= temp_trans;
+//                    float previousOpaqueVisiblity = opaqueVisiblity;
+//                    opaqueVisiblity *= beer_lambert(absorption_coefficient, step_size);
+//                    float absorptionFromMarch = previousOpaqueVisiblity - opaqueVisiblity;
+                    if(transmittance <= 0.001 || min_v(scatteredLight) > 0.999){
+                        break;
+                    }
+                    density += sigmaS;
+                    if(density >= 1.0){
+//                        break;
+                    }
+                }else if(light_close){
+                    density_sample = 0.00000001;
+                    float sigmaS = density_sample * step_size * density_modifier;
+                    float sigmaE = max(0.00000001, absorption + sigmaS * sigmaEC);
+                    float powder = powder_law(1.0, sigmaE * step_size);
+                    vec3 S = lightning_color_value * sigmaS;//* powder;
+
+                    float temp_trans = exp(-sigmaE * step_size);
+                    vec3 Sint = (S - S * temp_trans) / sigmaE;
+                    Sint = lightning_color_value;
+                    scatteredLight += transmittance * Sint;
+                    if(min_v(scatteredLight) > 0.999){
+                    break;
+                    }
+                    //ignore transmittance here, we effectively are at zero anyway.
+                }
+                depth += step_size;
+                if(depth > 2.0){
+                    step_size = original_step_size + (depth-2.0) * 0.02;
+                }
+            }
+        }
+        vec3 cloud_color = vec3(0.5);
+        vec3 cloud_ambient = mix(vec3(0.2), vec3(0.1), density/10.0);
+        cloud_ambient = vec3(0.2);
+        total_color = mix(cloud_ambient, total_color, transmittance) + scatteredLight;
+    }
+    total_color /= SAMPLES_PER_PIXEL;
+    total_color = sqrt(total_color);
+
+    imageStore(output_image[u_frame_idx % IMAGE_COUNT], pos, vec4(total_color, 1.0));
+}

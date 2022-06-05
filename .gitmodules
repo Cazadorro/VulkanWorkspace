@@ -28,3 +28,12 @@
 [submodule "external/enkiMI"]
 	path = external/enkiMI
 	url = https://github.com/dougbinks/enkiMI.git
+[submodule "external/msdfgen"]
+	path = external/msdfgen
+	url = https://github.com/Chlumsky/msdfgen.git
+[submodule "external/freetype"]
+	path = external/freetype
+	url = https://github.com/freetype/freetype.git
+[submodule "external/vcpkg"]
+	path = external/vcpkg
+	url = https://github.com/microsoft/vcpkg

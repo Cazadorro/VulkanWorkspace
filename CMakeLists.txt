@@ -9,6 +9,9 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT "-fuse-ld=lld")
 set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld")
 
+# VCPKG packages.
+#find_package(freetype CONFIG REQUIRED)
+
 find_package(Vulkan REQUIRED)
 add_subdirectory(external/glm)
 target_compile_definitions(glm INTERFACE
@@ -38,6 +41,7 @@ add_subdirectory(external/pugixml)
 add_subdirectory(external/range)
 add_subdirectory(external/vma)
 add_subdirectory(external/stb)
+add_subdirectory(external/msdfgen)
 
 #add_subdirectory(external/glslang)
 
@@ -64,3 +68,4 @@ add_subdirectory(vulraytracingweekend)
 add_subdirectory(vulclouds)
 add_subdirectory(cudaexample)
 add_subdirectory(vuladdexample)
+add_subdirectory(vultext)

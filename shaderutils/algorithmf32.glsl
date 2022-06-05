@@ -208,6 +208,10 @@ f32vec4 sort_dsc(f32vec4 value){
     }
     return value;
 }
+
+float32_t median(float32_t a, float32_t b, float32_t c) {
+    return max(min(r, g), min(max(r, g), b));
+}
     //////
 
 #endif //ALGORITHMF32_GLSL
