@@ -1,6 +1,6 @@
 # VulkanWorkspace
 
-Everything is a work in progress.  Contains vul library, though right now to indpendently set this up there's a bunch of steps required to create generated code. Would need to compile  and run vul generated first, then compile vul code
+Everything is a work in progress, currently only using this for personal use to try out vulkan projects in a single repo.  May seperate library later.  Contains vul library, though right now to indpendently set this up there's a bunch of steps required to create generated code. Would need to compile  and run vul generated first, then compile vul code
 
 Vul clouds contains 
 
