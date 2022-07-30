@@ -1,10 +1,10 @@
 cmake_minimum_required(VERSION 3.13)
 project(VulkanWorkspace)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 
-add_library(gul STATIC gul/imguirenderer.cpp gul/imguirenderer.h)
+add_library(gul STATIC gul/imguirenderer.cpp gul/imguirenderer.h gul/kdtree.cpp gul/kdtree.h gul/geometry.cpp gul/geometry.h)
 target_sources(gul
         PRIVATE
         ./gul/glfwwindow.cpp

@@ -1,13 +1,18 @@
 cmake_minimum_required(VERSION 3.21)
 #cmake_policy(SET CMP0116 NEW)
+if(WIN32)
+        # Set MSVC runtime to MultiThreaded (/MT)
+#        cmake_policy(SET CMP0091 NEW)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 project(VulkanWorkspace)
 #TODO cite goodvibes texture pack for textures
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 list (APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(VkShaderBuildFunctions)
-set(CMAKE_EXE_LINKER_FLAGS_INIT "-fuse-ld=lld")
-set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld")
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld")
+#set(CMAKE_EXE_LINKER_FLAGS_INIT "-fuse-ld=lld")
+#set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld")
+#set(CMAKE_SHARED_LINKER_FLAGS_INIT "-fuse-ld=lld")
 
 # VCPKG packages.
 #find_package(freetype CONFIG REQUIRED)

@@ -210,7 +210,7 @@ u8vec4 sort_dsc(u8vec4 value){
 }
 
 uint8_t median(uint8_t a, uint8_t b, uint8_t c) {
-    return max(min(r, g), min(max(r, g), b));
+    return max(min(a, b), min(max(a, b), c));
 }
     //////
 

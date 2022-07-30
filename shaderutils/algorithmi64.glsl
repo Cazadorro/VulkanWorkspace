@@ -210,7 +210,7 @@ i64vec4 sort_dsc(i64vec4 value){
 }
 
 int64_t median(int64_t a, int64_t b, int64_t c) {
-    return max(min(r, g), min(max(r, g), b));
+    return max(min(a, b), min(max(a, b), c));
 }
     //////
 

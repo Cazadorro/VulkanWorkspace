@@ -210,7 +210,7 @@ i32vec4 sort_dsc(i32vec4 value){
 }
 
 int32_t median(int32_t a, int32_t b, int32_t c) {
-    return max(min(r, g), min(max(r, g), b));
+    return max(min(a, b), min(max(a, b), c));
 }
     //////
 
