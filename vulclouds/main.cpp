@@ -204,7 +204,7 @@ DistanceIDPoints generate_closest_distance_id(std::size_t segment_count, std::si
                 float dist = std::numeric_limits<float>::infinity();
                 std::uint8_t best_idx = 0;
                 for(auto [idx, next_point] : ranges::views::enumerate(points)  | ranges::views::drop(1)){
-                    auto curr_dist =line_segment_distance(point, prev_point, next_point);
+                    auto curr_dist = line_segment_distance(point, prev_point, next_point);
                     if(curr_dist < dist){
                         //idx of the points, but the actual line segment index is different.
                         best_idx = idx - 1;

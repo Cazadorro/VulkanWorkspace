@@ -17,6 +17,31 @@ namespace gul {
         y = 1,
         z = 2
     };
+    template<typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+    Axis operator +(const Axis lhs, T rhs){
+        using AxisIntegerType = std::underlying_type_t<Axis>;
+        auto lhs_int = static_cast<AxisIntegerType>(lhs);
+        return static_cast<Axis>((lhs_int + rhs) % 3);
+    }
+    template<typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+    Axis operator +(T lhs, const Axis rhs){
+        using AxisIntegerType = std::underlying_type_t<Axis>;
+        auto rhs_int = static_cast<AxisIntegerType>(rhs);
+        return static_cast<Axis>((lhs + rhs_int) % 3);
+    }
+    template<typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+    Axis operator -(const Axis lhs, T rhs){
+        using AxisIntegerType = std::underlying_type_t<Axis>;
+        auto lhs_int = static_cast<AxisIntegerType>(lhs);
+        return static_cast<Axis>((lhs_int - rhs) % 3);
+    }
+    template<typename T, std::enable_if_t<std::is_integral_v<T>>* = nullptr>
+    Axis operator -(T lhs, const Axis rhs){
+        using AxisIntegerType = std::underlying_type_t<Axis>;
+        auto rhs_int = static_cast<AxisIntegerType>(rhs);
+        return static_cast<Axis>((lhs - rhs_int) % 3);
+    }
+
 
     template<typename T>
     struct CornerAABB;
