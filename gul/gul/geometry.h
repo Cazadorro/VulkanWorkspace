@@ -69,7 +69,7 @@ namespace gul {
         }
         [[nodiscard]]
         static CenterAABB from_min_max(const vec3 &min, const vec3 &max) {
-            auto pos = (min + max) / 2;
+            auto pos = (min + max) / static_cast<T>(2);
             auto dim = max - pos;
             return CenterAABB{pos, dim};
         }
@@ -101,7 +101,7 @@ namespace gul {
         }
 
         vec3 size() const {
-            return dim * 2;
+            return dim * static_cast<T>(2);
         }
 
 
@@ -172,7 +172,7 @@ namespace gul {
 
         [[nodiscard]]
         CenterAABB<T> to_center_aabb() const{
-            return CenterAABB<T>{center(), len / 2};
+            return CenterAABB<T>{center(), len / static_cast<T>(2)};
         }
 
         [[nodiscard]]
@@ -187,7 +187,7 @@ namespace gul {
 
         [[nodiscard]]
         vec3 center() const {
-            return (min() + max()) / 2;
+            return (min() + max()) / static_cast<T>(2);
         }
 
         vec3 size() const {
@@ -242,7 +242,7 @@ namespace gul {
         }
 
         [[nodiscard]]
-        CenterAABB<T> to_aabb(){
+        CenterAABB<T> to_aabb() const{
             return CenterAABB<T>::from_min_max(min(), max());
         }
 
@@ -307,7 +307,7 @@ namespace gul {
         }
 
         [[nodiscard]]
-        CornerAABB<T> to_aabb(){
+        CornerAABB<T> to_aabb() const{
             return CenterAABB<T>::from_min_max(min(), max());
         }
 

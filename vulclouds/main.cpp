@@ -6,6 +6,9 @@
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
 #include <gul/glfwwindow.h>
+#include <gul/geometry.h>
+#include <gul/kdtree.h>
+#include <range/v3/view/drop.hpp>
 #include "bvh.h"
 #include <vul/commandutils.h>
 #include <vul/computepipeline.h>
@@ -58,6 +61,8 @@
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
 #include <misc/cpp/imgui_stdlib.h>
+
+#include <iostream>
 
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
@@ -118,6 +123,31 @@ float line_segment_distance(const glm::vec3& point, const glm::vec3& a, const gl
     return d;
 }
 
+gul::KDTree<float> generate_lighting_kd_tree(std::size_t segment_count){
+    std::size_t distance_field_dim = 128;
+    auto distance_field_dimf = static_cast<float>(distance_field_dim);
+    glm::vec3 prev_pt(random_float(0.0f, distance_field_dimf),random_float(0.0f, distance_field_dimf), distance_field_dimf);
+
+    prev_pt = glm::vec3(distance_field_dimf/2.0,distance_field_dimf/2.0,distance_field_dimf/2.0);
+
+    std::vector<glm::vec3> points;
+    points.push_back(prev_pt);
+    for(std::size_t i = 0; i < segment_count; ++i){
+        auto point = points.back();
+        glm::vec3 random_offset( random_float(-8.0f, 8.0f),random_float(-8.0f, 8.0f), random_float(-8.0f, 8.0f));
+        auto new_point = point + random_offset;
+        points.push_back(new_point);
+    }
+    glm::vec3 end_pt(random_float(0.0f, distance_field_dimf),random_float(0.0f, distance_field_dimf), 0.0f);
+    std::vector<gul::LineSegment<float>> line_segments;
+    auto previous_point = points[0];
+    for(const auto& current_point : points | ranges::views::drop(0) ){
+        line_segments.emplace_back(previous_point, current_point);
+        previous_point = current_point;
+    }
+
+    return gul::KDTree<float>{line_segments};
+}
 std::vector<std::uint8_t> generate_distance_field(std::size_t segment_count){
     std::size_t distance_field_dim = 128;
     auto distance_field_dimf = static_cast<float>(distance_field_dim);
@@ -166,6 +196,9 @@ struct DistanceIDPoints{
     std::vector<std::uint8_t> rle_idxs;
     std::vector<std::uint32_t> rle_distances;
 };
+
+
+
 DistanceIDPoints generate_closest_distance_id(std::size_t segment_count, std::size_t distance_field_dim){
     auto distance_field_dimf = static_cast<float>(distance_field_dim);
     std::size_t distance_field_size = distance_field_dim*distance_field_dim*distance_field_dim;
@@ -735,10 +768,8 @@ int main() {
     raytraceDescriptorLayoutBuilder.setBindings(
             {vul::StorageImageBinding(0,
                                       vul::ShaderStageFlagBits::ComputeBit,
-                                      3).get(),
-             vul::CombinedSamplerBinding(1,
-                                      vul::ShaderStageFlagBits::ComputeBit).get()},
-            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit,static_cast<vul::DescriptorBindingFlagBits>(0)});
+                                      3).get()},
+            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
 
 
     auto raytraceDescriptorLayout = raytraceDescriptorLayoutBuilder.create().assertValue();
@@ -775,30 +806,36 @@ int main() {
     std::vector<vul::Image> raytracedImages;
     std::vector<vul::ImageView> raytracedImagesViews;
 
-    auto distance_field =generate_distance_field(1);
-    auto [distance_field_ids, points,rle_idxs, rle_distances] = generate_closest_distance_id(16, 128);
-//
-//    {
-//        std::array test_sizes = {128, 256, 512, 1024};
-//        std::array test_denom = {1.0, 2.0, 4.0, 8.0};
-//        for(auto [size, denom] : ranges::views::zip(test_sizes, test_denom)){
-//            auto[points1, rle_idxs1, rle_distances1] = generate_closest_distance_id2(
-//                    16, size, denom);
-//            fmt::print("size {} rle_idxs1 size {}\n", size, rle_idxs1.size());
-//        }
-//    }
-    fmt::print("rle_idxs size {}\n", rle_idxs.size());
+    auto kdtree = generate_lighting_kd_tree(16);
 
-    auto device_distance_field_ids = allocator.createDeviceBuffer(
+
+    std::cout << "KDTREE DIVISORS : " << kdtree.get_divisors().size() << std::endl;
+    std::cout << "KDTREE INDEXES : " << kdtree.get_indexes().size() << std::endl;
+    std::cout << "KDTREE LEAFS : " << kdtree.get_leafs().size() << std::endl;
+    auto device_kdtree_aabb = allocator.createDeviceBuffer(
             commandPool,
             presentationQueue,
-            distance_field_ids,
+            kdtree.get_aabb(),
             vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto device_points = allocator.createDeviceBuffer(
+
+    auto device_kdtree_divisors = allocator.createDeviceBuffer(
             commandPool,
             presentationQueue,
-            points,
+            kdtree.get_divisors(),
             vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    auto device_kdtree_indexes = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            kdtree.get_indexes(),
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    auto device_kdtree_leafs = allocator.createDeviceBuffer(
+            commandPool,
+            presentationQueue,
+            kdtree.get_leafs(),
+            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
 
     vul::SamplerBuilder lightningSamplerBuilder(device);
     lightningSamplerBuilder.setFilter(vul::Filter::Linear);
@@ -808,19 +845,7 @@ int main() {
     lightningSamplerBuilder.enableAnisotropy();
     lightningSamplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
-    auto lightningSampler = lightningSamplerBuilder.create().assertValue();
-    auto lightningImage = allocator.createDeviceTexture(commandPool,
-                                                      presentationQueue,
-                                                      distance_field,
-                                                      vul::createSimple3DImageInfo(
-                                                              vul::Format::R8Unorm,
-                                                              VkExtent3D{128,128,128},
-                                                              vul::ImageUsageFlagBits::TransferDstBit |
-                                                              vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
-    auto lightningImageView = lightningImage.createImageView(
-            vul::ImageSubresourceRange(
-                    vul::ImageAspectFlagBits::ColorBit)).assertValue();
     auto resizeDescriptorSets = [&]() {
         raytracedImages.clear();
         raytracedImagesViews.clear();
@@ -867,7 +892,6 @@ int main() {
                     raytracedImagesViews | views::transform(
                             [](auto &value) { return value.createStorageWriteInfo(); }) |
                     ranges::to<std::vector>());
-            updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler({lightningImageView.createDescriptorInfo(lightningSampler, vul::ImageLayout::ShaderReadOnlyOptimal)});
             auto updates = updateBuilder.create(raytraceDescriptorSet);
             device.updateDescriptorSets(updates);
         }
@@ -885,149 +909,13 @@ int main() {
 
 
 
-//    std::vector host_material_ids = {
-//            MaterialType::Lambertian,
-//            MaterialType::Lambertian,
-//            MaterialType::Dielectric,
-//            MaterialType::Dielectric,
-//            MaterialType::Metal
-//    };
-//    std::vector host_material_data = {
-//            glm::vec4(0.8, 0.8, 0.0, 0.0),
-//            glm::vec4(0.1, 0.2, 0.5, 1.5),
-//            glm::vec4(1.0, 1.0, 1.0, 1.5),
-//            glm::vec4(1.0, 1.0, 1.0, 1.5),
-//            glm::vec4(0.8, 0.6, 0.2, 0.0)
-//    };
-//    std::vector host_sphere_data = {
-//            Sphere{glm::vec3(0.0, -100.5, 1.0), 100},
-//            Sphere{glm::vec3(0.0, 0.0, 1.0), 0.5},
-//            Sphere{glm::vec3(-1.0, 0.0, 1.0), 0.5},
-//            Sphere{glm::vec3(-1.0, 0.0, 1.0), -0.4},
-//            Sphere{glm::vec3(1.0, 0.0, 1.0), 0.5}
-//    };
-
-    std::vector<MaterialType> host_material_ids;
-    std::vector<glm::vec4> host_material_data;
-    std::vector<vul::Sphere> host_sphere_data;
-    std::vector<vul::PathEnd> host_path_data;
-
-
-    auto ground_material = glm::vec4(0.5f, 0.5f, 0.5f, 0.0f);
-    auto ground_type = MaterialType::Lambertian;
-    host_material_ids.push_back(ground_type);
-    host_material_data.push_back(ground_material);
-    host_sphere_data.push_back({glm::vec3(0.0f,-1000.0f,0.0f), 1000.0f});
-    host_path_data.push_back({glm::vec3(0.0), 0.0});
-    int max_rad = 0;
-    for (int a = -max_rad; a < max_rad; a++) {
-        for (int b = -max_rad; b < max_rad; b++) {
-            auto choose_mat = random_double();
-            glm::vec3 center(a + (0.9f*random_float()), 0.2f, b + (0.9f*random_float()));
-
-            if ((center - glm::vec3(4.0f, 0.2f, 0.0f)).length() > 0.9f) {
-
-
-                if (choose_mat < 0.8) {
-                    // diffuse
-                    auto albedo = random_color() * random_color();
-                    host_material_ids.push_back(MaterialType::Lambertian);
-                    host_material_data.push_back(glm::vec4(albedo,0.0f));
-                    host_sphere_data.push_back({center,  0.2f});
-                    auto center2 = center + glm::vec3(0.0f, random_float(0.0f, 0.5f), 0.0f);
-                    float speed = glm::distance(center, center2) / 1.0;
-//                    speed = 0.0;
-//                    center2 = center;
-                    host_path_data.push_back({center2, speed});
-                } else if (choose_mat < 0.95) {
-                    //material
-                    auto albedo = random_color(0.5f, 1.0f);
-                    auto fuzz = random_float(0.0f, 0.5f);
-                    host_material_ids.push_back(MaterialType::Metal);
-                    host_material_data.push_back(glm::vec4(albedo,fuzz));
-                    host_sphere_data.push_back({center,  0.2f});
-                    host_path_data.push_back({glm::vec3(0.0), 0.0});
-                } else {
-                    // glass
-                    auto albedo = glm::vec3(1.0f);
-                    auto ir = 1.5f;
-                    host_material_ids.push_back(MaterialType::Dielectric);
-                    host_material_data.push_back(glm::vec4(albedo,ir));
-                    host_sphere_data.push_back({center,  0.2f});
-                    host_path_data.push_back({glm::vec3(0.0), 0.0});
-                }
-            }
-        }
-    }
-    host_material_ids.push_back(MaterialType::Dielectric);
-    host_material_data.push_back(glm::vec4(glm::vec3(1.0f),1.5f));
-    host_sphere_data.push_back({glm::vec3(0.0f,1.0f,0.0f),  1.0f});
-    host_path_data.push_back({glm::vec3(0.0), 0.0});
-
-    host_material_ids.push_back(MaterialType::Lambertian);
-    host_material_data.push_back(glm::vec4(glm::vec3(0.4f, 0.2f, 0.1f),0.0f));
-    host_sphere_data.push_back({glm::vec3(-4.0f, 1.0f, 0.0f),  1.0f});
-    host_path_data.push_back({glm::vec3(0.0), 0.0});
-
-    host_material_ids.push_back(MaterialType::Metal);
-    host_material_data.push_back(glm::vec4(glm::vec3(0.7f, 0.6f, 0.5f),0.0f));
-    host_sphere_data.push_back({glm::vec3(4.0f, 1.0f, 0.0f),  1.0f});
-    host_path_data.push_back({glm::vec3(0.0), 0.0});
-
-    auto bvh = vul::create_bvh(host_sphere_data, host_path_data);
-
-
-
-    auto device_material_ids = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            host_material_ids,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto device_material_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            host_material_data,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto device_sphere_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            host_sphere_data,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-
-    auto device_path_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            host_path_data,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-
-//    auto device_bvh_data = allocator.createDeviceBuffer(
-//            commandPool,
-//            presentationQueue,
-//            bvh.nodes,
-//            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto device_bbox_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            bvh.bboxes,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto device_children_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            bvh.children,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-    auto device_leaf_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            bvh.leaves,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-
-    auto device_parent_data = allocator.createDeviceBuffer(
-            commandPool,
-            presentationQueue,
-            bvh.parents,
-            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
     struct alignas(8) ViewState {
+        std::uint64_t kdtree_aabb;
+        std::uint64_t kdtree_divisors;
+        std::uint64_t kdtree_indexes;
+        std::uint64_t kdtree_leafs;
+
         std::uint64_t material_ids;
         std::uint64_t material_data;
         std::uint64_t sphere_data;
@@ -1036,6 +924,7 @@ int main() {
         std::uint64_t children_data;
         std::uint64_t leaf_data;
         std::uint64_t parent_data;
+
         std::uint32_t element_count;
         std::uint32_t image_width;
 
@@ -1046,18 +935,24 @@ int main() {
         float fov;
 
         float exposure_time;
+
+
     };
-    static_assert(sizeof(ViewState) == 64 + 16 + 16);
+    static_assert(sizeof(ViewState) == 32 + 64 + 16 + 16);
     ViewState view_state = {};
-    view_state.material_ids = device_material_ids.getDeviceAddress();
-    view_state.material_data = device_material_data.getDeviceAddress();
-    view_state.sphere_data = device_sphere_data.getDeviceAddress();
-    view_state.path_data = device_path_data.getDeviceAddress();
-    view_state.bbox_data = device_bbox_data.getDeviceAddress();
-    view_state.children_data = device_children_data.getDeviceAddress();
-    view_state.leaf_data = device_leaf_data.getDeviceAddress();
-    view_state.parent_data = device_parent_data.getDeviceAddress();
-    view_state.element_count = static_cast<std::uint32_t>(host_material_ids.size());
+    view_state.kdtree_aabb = device_kdtree_aabb.getDeviceAddress();
+    view_state.kdtree_divisors = device_kdtree_divisors.getDeviceAddress();
+    view_state.kdtree_indexes = device_kdtree_indexes.getDeviceAddress();
+    view_state.kdtree_leafs = device_kdtree_leafs.getDeviceAddress();
+    view_state.material_ids = 0;
+    view_state.material_data = 0;
+    view_state.sphere_data = 0;
+    view_state.path_data = 0;
+    view_state.bbox_data = 0;
+    view_state.children_data = 0;
+    view_state.leaf_data = 0;
+    view_state.parent_data = 0;
+    view_state.element_count = 0;
     view_state.image_width = surface.getSwapchain()->getExtent().width;
     view_state.image_height = surface.getSwapchain()->getExtent().height;
     view_state.focus_dist = 10.0f;
@@ -1317,8 +1212,6 @@ int main() {
         rayTracingPushConstant.u_camera_rotation = camera.getRotation();
         rayTracingPushConstant.u_frame_idx = static_cast<std::uint32_t>(swapchainImageIndex); //TODO swapchain_size;
         rayTracingPushConstant.u_time = static_cast<float>(time);
-        rayTracingPushConstant.u_distance_ids = device_distance_field_ids.getDeviceAddress();
-        rayTracingPushConstant.u_point_array = device_points.getDeviceAddress();
         imguiRenderer.render();
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);

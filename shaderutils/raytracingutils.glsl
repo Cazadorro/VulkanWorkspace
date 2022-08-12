@@ -1,6 +1,7 @@
 #ifndef RAYTRACINGUTILS_GLSL
 #define RAYTRACINGUTILS_GLSL
 #extension GL_GOOGLE_include_directive :enable
+#include "geometryutils.glsl"
 #include "mathutils.glsl"
 
 struct Ray{
@@ -77,11 +78,6 @@ Ray create_Ray(
     float cosA = ray_dir.z;// needed for depth calculation.
     return Ray(ray_origin, rot_ray_dir);
 }
-
-struct Sphere{
-    vec3 pos;
-    float r;
-};
 
 //more accurate difference of products using FMA:
 //https://pharr.org/matt/blog/2019/11/03/difference-of-floats
@@ -265,12 +261,8 @@ bool intersect(const in Ray ray, float t_min, float t_max, const in Sphere obj, 
     return true;
 }
 
-struct Box{
-    vec3 pos;
-    vec3 dim;
-};
 
-bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out float t){
+bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_max, out float t){
     vec3 dir_recipricol = 1.0f / ray.dir;
     // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
     // r.org is origin of ray
@@ -330,7 +322,7 @@ struct HitRange{
     float to_object;
     float to_end;
 };
-bool intersect(const in Ray ray, const in Box box, float t_min, float t_max, out HitRange hit_range){
+bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_max, out HitRange hit_range){
     vec3 dir_recipricol = 1.0f / ray.dir;
     // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
     // r.org is origin of ray

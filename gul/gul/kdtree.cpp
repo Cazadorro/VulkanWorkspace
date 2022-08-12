@@ -3,6 +3,3 @@
 //
 
 #include "kdtree.h"
-
-namespace gul {
-} // gul

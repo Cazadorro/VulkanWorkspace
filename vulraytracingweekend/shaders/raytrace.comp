@@ -61,7 +61,7 @@ layout(buffer_reference, buffer_reference_align = 16, scalar) buffer PathEndArra
 };
 
 struct BVHNode{
-    Box bbox;
+    CenterAABB bbox;
     uint lhs_idx;
     uint rhs_idx;
 };
@@ -76,7 +76,7 @@ struct BVHChildren{
 
 
 layout(buffer_reference, buffer_reference_align = 8, scalar) buffer BboxArray{
-    Box data[];
+    CenterAABB data[];
 };
 layout(buffer_reference, buffer_reference_align = 8, scalar) buffer BVHChildrenArray{
     BVHChildren data[];
@@ -541,7 +541,7 @@ bool world_hit_old(const in Ray ray, float t_min, float t_max, float time, out H
     float best_test_t = inf;
     while(!is_empty(idx_stack)){
         uint node_idx = pop(idx_stack);
-        Box node_bbox = u_view_state.bbox_data.data[node_idx];
+        CenterAABB node_bbox = u_view_state.bbox_data.data[node_idx];
         BVHChildren node_children = u_view_state.children_data.data[node_idx];
 //        vec3 center = node.bbox.pos;
 //        vec3 to_center = center - ray.pos;
@@ -728,7 +728,7 @@ bool world_hit_new(const in Ray ray, float t_min, float t_max, float time, out H
             push(parent_stack,true);
         }else{
             //need to pop?
-            Box node_bbox = u_view_state.bbox_data.data[current_node_idx];
+            CenterAABB node_bbox = u_view_state.bbox_data.data[current_node_idx];
             BVHChildren node_children = u_view_state.children_data.data[current_node_idx];
             float test_t;
             if(!intersect(ray, node_bbox, t_min, closest_t, test_t)){
