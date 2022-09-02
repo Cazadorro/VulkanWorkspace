@@ -23,7 +23,7 @@ namespace vul {
 
     class PrimaryCommandBuffer;
 
-    class Surface;
+    class Swapchain;
 }
 namespace gul {
     class GlfwWindow;
@@ -33,7 +33,7 @@ namespace gul {
                 gul::GlfwWindow &window,
                 const vul::Instance &instance,
                 const vul::Device &device,
-                const vul::Surface& surface,
+                const vul::Swapchain &swapchain,
                 std::uint32_t queueFamilyIndex,
                 const vul::Queue &queue,
                 vul::Format format);
@@ -52,7 +52,7 @@ namespace gul {
 
     private:
         const vul::Device *m_pDevice = nullptr;
-        const vul::Surface *m_pSurface = nullptr;
+        const vul::Swapchain *m_pSwapchain = nullptr;
         vul::RenderPass m_renderPass;
         vul::DescriptorPool m_descriptorPool;
         std::vector<vul::Framebuffer> m_framebuffers;

@@ -145,3 +145,4 @@ target_compile_options(vul PRIVATE
         > )
 
 target_link_options (vul PRIVATE -fuse-ld=lld)
+target_compile_definitions(vul PUBLIC $<$<CONFIG:Debug>:VUL_DEBUG> $<$<CONFIG:Release>:VUL_RELEASE>)

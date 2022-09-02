@@ -116,7 +116,7 @@ vul::Result vul::Surface::resizeSwapchain(const vul::SwapchainBuilder &builder,
     auto resizeBuilder = builder;
     resizeBuilder.imageExtent(extent);
     resizeBuilder.oldSwapchain(*m_pSwapchain);
-    auto[result, swapchain] = builder.create(*this);
+    auto[result, swapchain] = resizeBuilder.create(*this);
     m_pSwapchain = std::make_unique<vul::Swapchain>(std::move(swapchain));
     return result;
 }

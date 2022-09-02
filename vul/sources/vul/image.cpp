@@ -419,7 +419,7 @@ vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
 
 
 VkImageCreateInfo
-createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
+vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
                         vul::ImageUsageBitMask usage,
                         std::uint32_t mipLevels, std::uint32_t arrayLayers,
                         vul::ImageTiling tiling) {

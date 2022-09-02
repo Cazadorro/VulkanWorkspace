@@ -5,7 +5,6 @@
 #include "imguirenderer.h"
 #include "glfwwindow.h"
 #include <vul/commandbuffer.h>
-#include <vul/surface.h>
 #include <vul/imageview.h>
 #include <vul/swapchain.h>
 #include <vul/queue.h>
@@ -29,11 +28,11 @@
 gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
                                   const vul::Instance &instance,
                                   const vul::Device &device,
-                                  const vul::Surface &surface,
+                                  const vul::Swapchain &swapchain,
                                   std::uint32_t queueFamilyIndex,
                                   const vul::Queue &queue,
                                   vul::Format format) : m_pDevice(&device),
-                                                        m_pSurface(&surface) {
+                                                        m_pSwapchain(&swapchain) {
 
     //from imgui_impl_vulkan.cpp, line 1567.
 //    const VkFormat requestSurfaceImageFormat[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
@@ -103,12 +102,12 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
     ImGui_ImplVulkan_Init(&init_info, m_renderPass.get());
 
 
-    for (const auto &imageView: m_pSurface->getSwapchain()->getImageViews()) {
+    for (const auto &imageView:m_pSwapchain->getImageViews()) {
         std::array<const vul::ImageView *, 1> imageViews = {&imageView};
         vul::FramebufferBuilder framebufferBuilder(device);
         framebufferBuilder.setAttachments(imageViews);
         framebufferBuilder.setDimensions(
-                m_pSurface->getSwapchain()->getExtent());
+                m_pSwapchain->getExtent());
         framebufferBuilder.setRenderPass(m_renderPass);
         m_framebuffers.push_back(
                 framebufferBuilder.create().assertValue());
@@ -182,16 +181,16 @@ void gul::ImguiRenderer::newFrame() const {
 }
 
 std::function<void()> gul::ImguiRenderer::createResizeCallback(const vul::Queue& renderQueue) {
-    auto resizeImGuiFramebuffers = [&device = *m_pDevice, &surface = *m_pSurface, &renderpass = m_renderPass, &framebuffers = m_framebuffers, &renderQueue]() {
+    auto resizeImGuiFramebuffers = [&device = *m_pDevice, &swapchain = *m_pSwapchain, &renderpass = m_renderPass, &framebuffers = m_framebuffers, &renderQueue]() {
         renderQueue.waitIdle();
         framebuffers.clear();
-        const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+        const auto &swapchainImageViews = swapchain.getImageViews();
         for (const auto &imageView: swapchainImageViews) {
             std::array<const vul::ImageView *, 1> imageViews = {&imageView};
             vul::FramebufferBuilder framebufferBuilder(device);
             framebufferBuilder.setAttachments(imageViews);
             framebufferBuilder.setDimensions(
-                    surface.getSwapchain()->getExtent());
+                    swapchain.getExtent());
             framebufferBuilder.setRenderPass(renderpass);
             framebuffers.push_back(
                     framebufferBuilder.create().assertValue());
@@ -217,7 +216,7 @@ gul::ImguiRenderer::recordCommands(vul::PrimaryCommandBuffer &commandBuffer,
 
     std::array<VkClearValue, 1> clearValues{};
     clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
-    auto extent = m_pSurface->getSwapchain()->getExtent();
+    auto extent = m_pSwapchain->getExtent();
     auto renderPassBlock = commandBuffer.beginRenderPass(
             m_renderPass,
             m_framebuffers[swapchainImageIndex],

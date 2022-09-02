@@ -2,7 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
-
+#include <gul/imguirenderer.h>
 #include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
 #include <iostream>
@@ -144,43 +144,6 @@ const std::vector<uint16_t> indices = {
         4, 5, 6, 6, 7, 4
 };
 
-std::optional<vul::PhysicalDevice>
-pickPhysicalDevice(const vul::Instance &instance, const vul::Surface &surface,
-                   const vul::Features &features,
-                   const gsl::span<const char *const> &deviceExtensions,
-                   const vul::SurfaceFormat &surfaceFormat,
-                   vul::PresentModeKHR presentationMode) {
-    for (const auto &physicalDevice: instance.enumeratePhysicalDevices()) {
-        //TODO handle more than just discrete
-        if (physicalDevice.getType() != vul::PhysicalDeviceType::DiscreteGpu) {
-            continue;
-        }
-        auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-        auto graphicsComputeFamily = vul::QueueFlagBits::GraphicsBit |
-                                     vul::QueueFlagBits::ComputeBit;
-        auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
-                                     vul::QueueFlagBits::TransferBit;
-        auto supportsQueueFamilies = queueFamilyProperties.contains(
-                {graphicsComputeFamily, computeTransferFamily})
-                                     && queueFamilyProperties.contains(surface,
-                                                                       vul::QueueFlagBits::GraphicsBit);
-
-        auto surfacePresentModes = surface.getPresentModesFrom(physicalDevice);
-        auto surfaceFormats = surface.getFormatsFrom(physicalDevice);
-        auto surfaceSupported =
-                surfacePresentModes.isSupported(presentationMode)
-                && surfaceFormats.isSupported(surfaceFormat);
-        auto featuresSupported = vul::matches(physicalDevice.getFeatures(),
-                                              features);
-        auto extensionsSupported = physicalDevice.getExtensionProperties().supports(
-                deviceExtensions);
-        if (supportsQueueFamilies && surfaceSupported && featuresSupported &&
-            extensionsSupported) {
-            return physicalDevice;
-        }
-    }
-    return std::nullopt;
-}
 
 
 int main() {
@@ -219,54 +182,18 @@ int main() {
                     .setDefaults()
                     .create()
                     .assertValue();
-    vul::Features features;
-    features.getPhysicalDeviceFeatures().samplerAnisotropy = VK_TRUE;
-    features.getPhysicalDeviceFeatures().robustBufferAccess = VK_TRUE;
-    features.getPhysicalDeviceFeatures().shaderFloat64 = VK_TRUE;
-    features.getPhysicalDeviceFeatures().shaderInt64 = VK_TRUE;
-    features.getPhysicalDeviceFeatures().shaderInt16 = VK_TRUE;
+    auto features = vul::Features::withMaxFeatureSetNVMaxwell();
 
-    features.physicalDeviceVulkan11Features.storageBuffer16BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan11Features.uniformAndStorageBuffer16BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan11Features.storagePushConstant16 = VK_TRUE;
-    //features.physicalDeviceVulkan11Features.storageInputOutput16 = VK_TRUE; in/out for shaders, not very important.
-
-    features.physicalDeviceVulkan12Features.storageBuffer8BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan12Features.uniformAndStorageBuffer8BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan12Features.storagePushConstant8 = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderBufferInt64Atomics = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderSharedInt64Atomics = VK_TRUE;
-    //features.physicalDeviceVulkan12Features.shaderFloat16 = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderInt8 = VK_TRUE;
-    //all the descriptor indexing stuff we need
-    features.physicalDeviceVulkan12Features.descriptorIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
-    features.physicalDeviceVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
-    features.physicalDeviceVulkan12Features.runtimeDescriptorArray = VK_TRUE;
-
-    features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
-    features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
-    features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
-    features.physicalDeviceVulkan12Features.bufferDeviceAddressCaptureReplay = VK_TRUE;
-
-    features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
-    features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;
-
-    features.physicalDeviceSynchronization2FeaturesKHR.synchronization2 = VK_TRUE;
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
             VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
     };
-    vul::Device device; //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
+     //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
     vul::Surface surface = window.createSurface(instance);
     //TODO will need to capitalize letters?
     //srgb vul::Format::B8g8r8a8Srgb,
-    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
+    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Unorm,
                                                      vul::ColorSpaceKHR::SrgbNonlinear};
 
     const auto defaultPresentMode = vul::PresentModeKHR::Mailbox;
@@ -287,12 +214,14 @@ int main() {
                                  vul::QueueFlagBits::TransferBit;
 
     auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+
     auto graphicsQueueFamilyIndexes = queueFamilyProperties.getQueueFamilyIndexes(
             graphicsComputeFamily);
     auto computeQueueFamilyIndexes = queueFamilyProperties.getQueueFamilyIndexes(
             computeTransferFamily);
     auto presentationQueueFamilyIndexes = queueFamilyProperties.getPresentationQueueFamilyIndexes(
             surface, graphicsComputeFamily);
+
     auto presentFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
             presentationQueueFamilyIndexes);
     if (!presentFamilyIndexResult.has_value()) {
@@ -315,7 +244,7 @@ int main() {
     std::vector<vul::SingleQueueCreateInfo> queueCreateInfos = {
             vul::SingleQueueCreateInfo{presentQueueIndex},
             vul::SingleQueueCreateInfo{computeQueueIndex}};
-    device = physicalDevice.createDevice(queueCreateInfos, deviceExtensions,
+    auto device = physicalDevice.createDevice(queueCreateInfos, deviceExtensions,
                                          features).assertValue();
     //TODO what to do when queue is same for all but we try to parrallelize? only return references to queues? Have internal mutexes etc??
     //Make queues exclusive? that way you have to manually pass ownership? will get a queue per thing anyway, not a big deal.
@@ -352,8 +281,9 @@ int main() {
 
     char c;
     std::cout << "Waiting" << std::endl;
-    std::cin >> c;
-    surface.createSwapchain(swapchainBuilder);
+//    std::cin >> c;
+    auto swapchain = swapchainBuilder.create(surface).assertValue();
+
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
                                                device,
                                                VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT).assertValue();
@@ -378,7 +308,7 @@ int main() {
 
     auto subpassBuilder = vul::SubpassGraph(
             {vul::AttachmentDescription::PresentTemp(
-                    surface.getSwapchain()->getFormat()),
+                    swapchain.getFormat()),
              vul::AttachmentDescription::DepthTemp(
                      vul::Format::D24UnormS8Uint)}, 1);
     subpassBuilder.subpassAt(0).setWrites({0, 1})
@@ -391,7 +321,7 @@ int main() {
                     vul::AccessFlagBits::ColorAttachmentWriteBit |
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
     auto renderPass = subpassBuilder.createRenderPass(device).assertValue();
-
+    renderPass.setObjectName("MyActualRenderPass");
     auto commandPool = device.createCommandPool(
             presentQueueIndex,
             vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
@@ -537,7 +467,7 @@ int main() {
     pipelineBuilder.setPrimitiveStateInfo(
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
-            surface.getSwapchain()->getExtent());
+            swapchain.getExtent());
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
     pipelineBuilder.setDefaultRasterizationState();
@@ -572,7 +502,7 @@ int main() {
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createSimple2DImageInfo(
                     vul::Format::D24UnormS8Uint,
-                    surface.getSwapchain()->getExtent3D(),
+                    swapchain.getExtent(),
                     vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
     ).assertValue();
 
@@ -581,7 +511,7 @@ int main() {
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
-    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+    const auto &swapchainImageViews = swapchain.getImageViews();
     auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
 
     for (const auto &imageView: swapchainImageViews) {
@@ -589,13 +519,13 @@ int main() {
                                                             &depthImageView};
         vul::FramebufferBuilder framebufferBuilder(device);
         framebufferBuilder.setAttachments(imageViews);
-        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
+        framebufferBuilder.setDimensions(swapchain.getExtent());
         framebufferBuilder.setRenderPass(renderPass);
         swapchainFramebuffers.push_back(
                 framebufferBuilder.create().assertValue());
     }
 
-    auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder,
+    auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder, &swapchain,
             &pipelineBuilder, &graphicsPipeline, &depthImage, &depthImageView,
             &allocator, &swapchainFramebuffers, &device, &renderPass]() {
         auto size = window.getFramebufferSize();
@@ -610,28 +540,30 @@ int main() {
 
         swapchainFramebuffers.clear();
 
+        swapchain = swapchainBuilder.resize(swapchain, window.getFramebufferExtent()).assertValue();
 //        surface.resizeSwapchain(swapchainBuilder,
 //                                window.getFramebufferExtent());
-        swapchainBuilder.imageExtent(window.getFramebufferExtent());
-        surface.createSwapchain(swapchainBuilder);
+
+//        swapchainBuilder.imageExtent(window.getFramebufferExtent());
+//        surface.createSwapchain(swapchainBuilder);
 
         depthImage = allocator.createDeviceImage(
                 vul::createSimple2DImageInfo(
                         vul::Format::D24UnormS8Uint,
-                        surface.getSwapchain()->getExtent3D(),
+                        swapchain.getExtent(),
                         vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
         ).assertValue();
 
         depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
                 vul::ImageAspectFlagBits::DepthBit)).assertValue();
-        const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
+        const auto &swapchainImageViews = swapchain.getImageViews();
         for (const auto &imageView: swapchainImageViews) {
             std::array<const vul::ImageView *, 2> imageViews = {&imageView,
                                                                 &depthImageView};
             vul::FramebufferBuilder framebufferBuilder(device);
             framebufferBuilder.setAttachments(imageViews);
             framebufferBuilder.setDimensions(
-                    surface.getSwapchain()->getExtent());
+                    swapchain.getExtent());
             framebufferBuilder.setRenderPass(renderPass);
             swapchainFramebuffers.push_back(
                     framebufferBuilder.create().assertValue());
@@ -676,8 +608,8 @@ int main() {
                                                            presentationQueue,
                                                            vul::TempArrayProxy(textureLayerSpans),
                                                            vul::createSimple2DImageInfo(
-                                                                   vul::Format::R8g8b8a8Srgb,
-                                                                   VkExtent3D{16,16,1},
+                                                                   vul::Format::R8g8b8a8Unorm,
+                                                                   VkExtent2D{16,16},
                                                                    vul::ImageUsageFlagBits::TransferDstBit |
                                                                    vul::ImageUsageFlagBits::SampledBit,
                                                                    1,textureLayers.size())).assertValue();
@@ -695,8 +627,8 @@ int main() {
                                                               pixels.size(),
                                                               pixels.data()),
                                                       vul::createSimple2DImageInfo(
-                                                              vul::Format::R8g8b8a8Srgb,
-                                                              pixels.getExtent3D(),
+                                                              vul::Format::R8g8b8a8Unorm,
+                                                              pixels.getExtent2D(),
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
@@ -760,58 +692,17 @@ int main() {
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
 
+    gul::ImguiRenderer imguiRenderer(window, instance, device, swapchain,
+                                     presentQueueIndex, presentationQueue,
+                                     swapchain.getFormat());
 
-    std::vector<VkDescriptorPoolSize> pool_sizes =
-            {
-                    {VK_DESCRIPTOR_TYPE_SAMPLER,                1000},
-                    {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-                    {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,          1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,   1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,         1000},
-                    {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-                    {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,       1000}
-            };
+    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback(
+            presentationQueue)]() {
+        resizeSwapchain();
+        resizeImGuiFramebuffers();
+    };
 
-    auto imguiPool = device.createDescriptorPool(
-            pool_sizes, 1000,
-            vul::DescriptorPoolCreateFlagBits::FreeDescriptorSetBit).assertValue();
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void) io;
-//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-//    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-    ImGui::StyleColorsDark();
-
-    ImGui_ImplGlfw_InitForVulkan(window.getWindowPtr(), true);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance.get();
-    init_info.PhysicalDevice = physicalDevice.get();
-    init_info.Device = device.get();
-    init_info.QueueFamily = presentQueueIndex;
-    init_info.Queue = presentationQueue.get();
-//    init_info.PipelineCache = g_PipelineCache;
-    init_info.DescriptorPool = imguiPool.get();
-//    init_info.Allocator = g_Allocator;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
-//    init_info.CheckVkResultFn = check_vk_result;
-
-    ImGui_ImplVulkan_Init(&init_info, renderPass.get());
-
-    renderPass.setObjectName("MyActualRenderPass");
-
-    commandPool.singleTimeSubmit(presentationQueue,
-                                 [](vul::CommandBuffer &commandBuffer) {
-                                     ImGui_ImplVulkan_CreateFontsTexture(
-                                             commandBuffer.get());
-                                 });
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
 
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -827,9 +718,7 @@ int main() {
 //        std::this_thread::sleep_for(32ms) ;
 //        presentationQueue.waitIdle();
         glfwPollEvents();
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplGlfw_NewFrame();
-        ImGui::NewFrame();
+        imguiRenderer.newFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
@@ -890,12 +779,12 @@ int main() {
                 frameCounters[currentFrameIndex]);
         auto &presentationFinishedSemaphore = presentationFinishedSemaphores[currentFrameIndex];
         auto &binaryRenderFinishedSemaphore = binaryRenderFinishedSemaphores[currentFrameIndex];
-        auto swapchainImageIndexResult = surface.getSwapchain()->acquireNextImage(
+        auto swapchainImageIndexResult = swapchain.acquireNextImage(
                 presentationFinishedSemaphore);
 
         if (swapchainImageIndexResult.result ==
             vul::Result::ErrorOutOfDateKhr) {
-            resizeSwapchain();
+            resizeWindow();
             continue;
         }
         auto swapchainImageIndex = swapchainImageIndexResult.assertValue(
@@ -985,8 +874,8 @@ int main() {
 //                                   glm::vec3(0.0f, 1.0f, 0.0f));
             ubo.view = camera.calcViewMatrix();
             ubo.proj = glm::perspective(glm::radians(45.0f),
-                                        surface.getSwapchain()->getExtent().width /
-                                        (float) surface.getSwapchain()->getExtent().height,
+                                        swapchain.getExtent().width /
+                                        (float) swapchain.getExtent().height,
                                         0.1f,
                                         1000.0f);
 
@@ -999,7 +888,7 @@ int main() {
         }
 
 
-        ImGui::Render();
+        imguiRenderer.render();
 
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
@@ -1007,7 +896,7 @@ int main() {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
-                auto extent = surface.getSwapchain()->getExtent();
+                auto extent = swapchain.getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
                 commandBuffer.setScissor(vul::Rect2D(extent).get());
 
@@ -1039,9 +928,8 @@ int main() {
                         chunk_rle_materials.size() * box_vertex_count *
                         vertex_split_pass_count;
                 renderPassBlock.draw(vertex_count);
-                ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
-                                                commandBuffer.get());
             }
+            imguiRenderer.recordCommands(commandBuffer, swapchainImageIndex);
             commandBuffer.end();
         }
 
@@ -1071,19 +959,16 @@ int main() {
         presentationQueue.submit(submitInfo);
         //TODO do actual render here
 
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
+        imguiRenderer.postSubmit();
 
-        auto presentResult = surface.getSwapchain()->present(presentationQueue,
+        auto presentResult = swapchain.present(presentationQueue,
                                                              binaryRenderFinishedSemaphore,
                                                              swapchainImageIndex);
 
         if (presentResult == vul::Result::ErrorOutOfDateKhr ||
             presentResult == vul::Result::SuboptimalKhr || framebufferResized) {
             framebufferResized = false;
-            resizeSwapchain();
+            resizeWindow();
         } else if (presentResult != vul::Result::Success) {
             throw std::runtime_error("failed to present swapchain image");
         }
@@ -1095,9 +980,5 @@ int main() {
 
     }
     device.waitIdle();
-
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
     return 0;
 }

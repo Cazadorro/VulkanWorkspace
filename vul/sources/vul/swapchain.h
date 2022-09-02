@@ -66,6 +66,10 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<Swapchain> create(const Surface &surface) const;
 
+        [[nodiscard]]
+        ExpectedResult<Swapchain>  resize(Swapchain &swapchain, const VkExtent2D &extent) const;
+
+
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
@@ -129,9 +133,13 @@ namespace vul {
         [[nodiscard]]
         const std::vector<VkImage>& getImages() const;
 
+        [[nodiscard]]
+        const Surface& getSurface() const;
+
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
+        const Surface *m_pSurface = nullptr;
         VkSwapchainKHR m_handle = VK_NULL_HANDLE;
         VkExtent2D m_extent = {};
         vul::Format m_format = {};

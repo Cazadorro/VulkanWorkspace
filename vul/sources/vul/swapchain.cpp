@@ -159,6 +159,14 @@ vul::SwapchainBuilder::create(const vul::Surface &surface) const {
                               m_pAllocator)};
 }
 
+vul::ExpectedResult<vul::Swapchain>
+vul::SwapchainBuilder::resize(vul::Swapchain &swapchain, const VkExtent2D &extent) const {
+    auto resizeBuilder = *this;
+    resizeBuilder.imageExtent(extent);
+    resizeBuilder.oldSwapchain(swapchain);
+    return resizeBuilder.create(swapchain.getSurface());
+}
+
 
 vul::Swapchain::Swapchain(const vul::Device &device, VkSwapchainKHR handle,
                           VkExtent2D extent, vul::Format format,
@@ -256,4 +264,8 @@ const std::vector<vul::ImageView>& vul::Swapchain::getImageViews() const {
 
 const std::vector<VkImage> &vul::Swapchain::getImages() const {
     return m_images;
+}
+
+const vul::Surface &vul::Swapchain::getSurface() const {
+    return *m_pSurface;
 }

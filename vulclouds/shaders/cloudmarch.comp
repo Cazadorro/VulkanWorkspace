@@ -151,6 +151,10 @@ layout(buffer_reference, buffer_reference_align = 1, scalar) buffer ViewState{
 
 
 
+//shared float divisors[32];
+//shared uint64_t indexes[32];
+//shared
+
 layout(buffer_reference, buffer_reference_align = 1, scalar) buffer DistanceIDArray{
     uint8_t data[];
 };
@@ -170,7 +174,7 @@ layout(push_constant, scalar) uniform PushConstantBlock{
 };
 
 
-GEN_FIXED_STACK(uint, 16)
+GEN_FIXED_STACK(uint, 8)
 
 struct KDTreeIndexPair{
     uint index_type;
@@ -209,17 +213,20 @@ float get_lightning_distance(vec3 pos, float min_dist, inout DebugColor debug_co
         return inf;
     }
 
-    Stack_uint_16 index_stack = init_Stack_uint_16();
+    Stack_uint_8 index_stack = init_Stack_uint_8();
     push(index_stack, 0);
-
+    #ifdef DEBUG_KDTREE
     uint iterations = 0;
+    #endif
     while(!is_empty(index_stack)){
         uint index = pop(index_stack);
 
         KDTreeIndexPair index_pair = to_kdtree_index_pair(kdtree_indexes.data[index]);
-//        if(index > 11){
-//            return 0;
-//        }
+        #ifdef DEBUG_KDTREE
+        if(index > 11){
+            return 0;
+        }
+        #endif
         if(index_pair.index_type == INDEX_LEAF){
 
             uint index_start = index_pair.lhs_index;
@@ -228,19 +235,21 @@ float get_lightning_distance(vec3 pos, float min_dist, inout DebugColor debug_co
                 LineSegment line_segment = kdtree_leafs.data[i];
                 float segment_dist = calc_distance(pos, line_segment);
                 min_dist = min(min_dist, segment_dist);
-//                if(i > 17){
-//                    return 0;
-//                }
+                #ifdef DEBUG_KDTREE
+                if(index > 17){
+                    return 0;
+                }
+                #endif
             }
         }else{
-            if(index >= 5){
-                debug_color.exists = true;
-                debug_color.color = vec4(1.0,0.0,0.0,1.0);
-                if(index > 20){
-                    debug_color.color = vec4(1.0,1.0,0.0,1.0);
-                }
-                return 0;
-            }
+//            if(index >= 5){
+//                debug_color.exists = true;
+//                debug_color.color = vec4(1.0,0.0,0.0,1.0);
+//                if(index > 20){
+//                    debug_color.color = vec4(1.0,1.0,0.0,1.0);
+//                }
+//                return 0;
+//            }
 
             float divisor = kdtree_divisors.data[index];
 
@@ -254,39 +263,51 @@ float get_lightning_distance(vec3 pos, float min_dist, inout DebugColor debug_co
             if(lhs_dist < min_dist){
                 if(lhs_dist < rhs_dist){
                     push(index_stack, index_pair.lhs_index);
-//                    if(index_stack.size >= 16){
-//                        return 0;
-//                    }
+                    #ifdef DEBUG_KDTREE
+                    if(index_stack.size >= 16){
+                        return 0;
+                    }
+                    #endif
                     if(rhs_dist < min_dist){
                         push(index_stack, index_pair.rhs_index);
-//                        if(index_stack.size >= 16){
-//                            return 0;
-//                        }
+                        #ifdef DEBUG_KDTREE
+                        if(index_stack.size >= 16){
+                            return 0;
+                        }
+                        #endif
                     }
                 }else{ // if rhs < lhs then that means it is also < min_dist
                     push(index_stack, index_pair.rhs_index);
-//                    if(index_stack.size >= 16){
-//                        return 0;
-//                    }
+                    #ifdef DEBUG_KDTREE
+                    if(index_stack.size >= 16){
+                        return 0;
+                    }
+                    #endif
                     push(index_stack, index_pair.lhs_index);
-//                    if(index_stack.size >= 16){
-//                        return 0;
-//                    }
+                    #ifdef DEBUG_KDTREE
+                    if(index_stack.size >= 16){
+                        return 0;
+                    }
+                    #endif
                 }
             }else if(rhs_dist < min_dist){
                 push(index_stack, index_pair.rhs_index);
-//                if(index_stack.size >= 16){
-//                    return 0;
-//                }
+                #ifdef DEBUG_KDTREE
+                if(index_stack.size >= 16){
+                    return 0;
+                }
+                #endif
             }
         }
+        #ifdef DEBUG_KDTREE
         iterations += 1;
         if(iterations > 10000000){
             return 0;
         }
+        #endif
+
     }
 
-//    return 1.0;
     return min_dist;
 }
 
@@ -649,6 +670,7 @@ FbmSettings alter_octaves(const in FbmSettings fbm_settings, float transmittance
 //    }
     return temp_fbm_settings;
 }
+
 
 
 void main(){

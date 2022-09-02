@@ -145,6 +145,9 @@ namespace vul {
         const Instance *m_pInstance = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkSurfaceKHR m_handle = VK_NULL_HANDLE;
+        bool m_hasSwapchain = false;
+
+        friend class SwapchainBuilder;
         std::unique_ptr<Swapchain> m_pSwapchain;
     };
 

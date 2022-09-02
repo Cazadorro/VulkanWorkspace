@@ -369,7 +369,12 @@ int main() {
                     .assertValue();
     vul::Features features;
     features.getPhysicalDeviceFeatures().samplerAnisotropy = VK_TRUE;
+#ifdef NDEBUG
+    std::cout << "NOT IN NDEBUG!" << std::endl;
+    features.getPhysicalDeviceFeatures().robustBufferAccess = VK_FALSE;
+#else
     features.getPhysicalDeviceFeatures().robustBufferAccess = VK_TRUE;
+#endif
     features.getPhysicalDeviceFeatures().shaderFloat64 = VK_TRUE;
     features.getPhysicalDeviceFeatures().shaderInt64 = VK_TRUE;
     features.getPhysicalDeviceFeatures().shaderInt16 = VK_TRUE;
