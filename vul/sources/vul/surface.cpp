@@ -75,7 +75,6 @@ VkBool32 vul::Surface::isSupportedBy(vul::PhysicalDevice physicalDevice,
 
 vul::Surface::~Surface() {
     if (m_handle != VK_NULL_HANDLE) {
-        m_pSwapchain.reset();
         vkDestroySurfaceKHR(m_pInstance->get(), m_handle, m_pAllocator);
     }
 }
@@ -85,7 +84,6 @@ vul::Surface::Surface(vul::Surface &&rhs) noexcept {
     swap(m_pInstance, rhs.m_pInstance);
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
-    swap(m_pSwapchain, rhs.m_pSwapchain);
 }
 
 vul::Surface &vul::Surface::operator=(vul::Surface &&rhs) noexcept {
@@ -93,37 +91,10 @@ vul::Surface &vul::Surface::operator=(vul::Surface &&rhs) noexcept {
     swap(m_pInstance, rhs.m_pInstance);
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
-    swap(m_pSwapchain, rhs.m_pSwapchain);
     return *this;
 }
 
-const vul::Swapchain *vul::Surface::getSwapchain() const {
-    return m_pSwapchain.get();
-}
 
-vul::Result
-vul::Surface::createSwapchain(const vul::SwapchainBuilder &builder) {
-    if (m_pSwapchain != nullptr) {
-        m_pSwapchain.reset();
-    }
-    auto[result, swapchain] = builder.create(*this);
-    m_pSwapchain = std::make_unique<vul::Swapchain>(std::move(swapchain));
-    return result;
-}
-
-vul::Result vul::Surface::resizeSwapchain(const vul::SwapchainBuilder &builder,
-                                          const VkExtent2D &extent) {
-    auto resizeBuilder = builder;
-    resizeBuilder.imageExtent(extent);
-    resizeBuilder.oldSwapchain(*m_pSwapchain);
-    auto[result, swapchain] = resizeBuilder.create(*this);
-    m_pSwapchain = std::make_unique<vul::Swapchain>(std::move(swapchain));
-    return result;
-}
-
-bool vul::Surface::hasSwapchain() const {
-    return m_pSwapchain != nullptr;
-}
 
 VkSurfaceKHR vul::Surface::get() const {
     return m_handle;

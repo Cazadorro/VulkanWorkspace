@@ -253,18 +253,18 @@ int main() {
             computeTransferFamily);
     auto presentationQueueFamilyIndexes = queueFamilyProperties.getPresentationQueueFamilyIndexes(
             surface, graphicsComputeFamily);
-    auto presentFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
+    auto presentFamilyIndexResult = queueFamilyProperties.findMinimumQueueFamilyIndex(
             presentationQueueFamilyIndexes);
     if (!presentFamilyIndexResult.has_value()) {
         throw std::runtime_error(
                 "failed to find a suitable presentation queue!");
     }
-    auto graphicsFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
+    auto graphicsFamilyIndexResult = queueFamilyProperties.findMinimumQueueFamilyIndex(
             graphicsQueueFamilyIndexes);
     if (!graphicsFamilyIndexResult.has_value()) {
         throw std::runtime_error("failed to find a suitable graphics queue!");
     }
-    auto computeFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
+    auto computeFamilyIndexResult = queueFamilyProperties.findMinimumQueueFamilyIndex(
             computeQueueFamilyIndexes);
     if (!computeFamilyIndexResult.has_value()) {
         throw std::runtime_error("failed to find a suitable compute queue!");

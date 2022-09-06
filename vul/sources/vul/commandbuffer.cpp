@@ -112,7 +112,7 @@ void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
 void vul::CommandBuffer::copyBuffer(const vul::Buffer &srcBuffer,
                                     vul::Buffer &dstBuffer,
                                     VkDeviceSize dstOffset) {
-    VUL_ASSERT(dstOffset <= dstBuffer.size());
+    UUL_ASSERT(dstOffset <= dstBuffer.size());
     copyBuffer(srcBuffer, dstBuffer, VkBufferCopy{0, dstOffset,
                                                   std::min(srcBuffer.size(),
                                                            dstBuffer.size() - dstOffset)});
@@ -197,7 +197,7 @@ void vul::CommandBuffer::bindVertexBuffers(
         const vul::TempArrayProxy<VkBuffer const> &buffers,
         const vul::TempArrayProxy<const VkDeviceSize> &offsets,
         std::uint32_t firstBinding) {
-    VUL_ASSERT(buffers.size() == offsets.size(), "Expected buffers count to be the same as offsets");
+    UUL_ASSERT(buffers.size() == offsets.size(), "Expected buffers count to be the same as offsets");
     vkCmdBindVertexBuffers(m_handle, firstBinding, static_cast<std::uint32_t>(buffers.size()), buffers.data(), offsets.data());
 }
 

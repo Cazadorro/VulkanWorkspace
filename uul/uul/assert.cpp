@@ -2,10 +2,10 @@
 // Created by Shae Bolt on 8/18/2021.
 //
 
-#include "vkassert.h"
+#include "uul/assert.h"
 #include <iostream>
 
-void vul::detail::handle_assert(const char *message, const char *condition,
+void uul::detail::handle_assert(const char *message, const char *condition,
                                 const char *file_name,
                                 const char *function_name,
                                 unsigned long long int line_number) {

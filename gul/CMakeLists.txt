@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 
-add_library(gul STATIC gul/imguirenderer.cpp gul/imguirenderer.h gul/kdtree.cpp gul/kdtree.h gul/geometry.cpp gul/geometry.h)
+add_library(gul STATIC gul/imguirenderer.cpp gul/imguirenderer.h gul/kdtree.cpp gul/kdtree.h gul/geometry.cpp gul/geometry.h gul/noise/opensimplex.cpp gul/noise/opensimplex.h gul/noise/fbm.h gul/noise/fbm.cpp)
 target_sources(gul
         PRIVATE
         ./gul/glfwwindow.cpp
@@ -24,7 +24,7 @@ target_include_directories(gul
 
 target_link_libraries(gul
         PRIVATE
-
+        uul
         PUBLIC
         fmt::fmt
         Vulkan::Vulkan

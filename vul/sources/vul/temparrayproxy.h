@@ -6,11 +6,13 @@
 #define VULKANWORKSPACE_TEMPARRAYPROXY_H
 
 #include "vul/tempvoidarrayproxy.h"
-#include "vul/vkassert.h"
+#include <uul/assert.h>
 #include "vul/traitutils.h"
 #include "vul/temparrayproxyfwd.h"
+#include <span>
 #include <gsl/span>
 #include <fmt/core.h>
+
 
 namespace vul {
 //from https://raw.githubusercontent.com/KhronosGroup/Vulkan-Hpp/master/vulkan/vulkan.hpp
@@ -44,7 +46,7 @@ namespace vul {
             auto new_size = (m_size * sizeof(T)) / sizeof(U);
             auto old_size_bytes = (m_size * sizeof(T));
             auto new_size_bytes = (new_size * sizeof(U));
-            VUL_ASSERT(old_size_bytes == new_size_bytes,
+            UUL_ASSERT(old_size_bytes == new_size_bytes,
                        fmt::format(
                                "Can't reinterpret non evenly divisible "
                                "element {} bytes vs {} bytes with element "
@@ -59,7 +61,7 @@ namespace vul {
             auto new_size = (m_size * sizeof(T)) / sizeof(U);
             auto old_size_bytes = (m_size * sizeof(T));
             auto new_size_bytes = (new_size * sizeof(U));
-            VUL_ASSERT(old_size_bytes == new_size_bytes,
+            UUL_ASSERT(old_size_bytes == new_size_bytes,
                        fmt::format(
                                "Can't reinterpret non evenly divisible "
                                "element {} bytes vs {} bytes with element "
@@ -199,6 +201,33 @@ namespace vul {
                   m_ptr(data.data()) {}
 
 
+        template<size_t N = std::dynamic_extent>
+        TempArrayProxy(std::span<T, N> const &data) noexcept
+                : m_size(static_cast<std::size_t>( data.size())),
+                  m_ptr(data.data()) {}
+
+        template<size_t N = std::dynamic_extent,
+                typename B = T,
+                typename std::enable_if<std::is_const<B>::value, int>::type = 0>
+        TempArrayProxy(
+                std::span<typename std::remove_const<T>::type, N> const &data) noexcept
+                : m_size(static_cast<std::size_t>( data.size())),
+                  m_ptr(data.data()) {}
+
+        template<size_t N = std::dynamic_extent>
+        TempArrayProxy(std::span<T, N> &data) noexcept
+                : m_size(static_cast<std::size_t>( data.size())),
+                  m_ptr(data.data()) {}
+
+        template<size_t N = std::dynamic_extent,
+                typename B = T,
+                typename std::enable_if<std::is_const<B>::value, int>::type = 0>
+        TempArrayProxy(
+                std::span<typename std::remove_const<T>::type, N> &data) noexcept
+                : m_size(static_cast<std::size_t>( data.size())),
+                  m_ptr(data.data()) {}
+
+
         [[nodiscard]]
         const T *begin() const noexcept {
             return m_ptr;
@@ -211,25 +240,25 @@ namespace vul {
 
         [[nodiscard]]
         const T &front() const noexcept {
-            VUL_ASSERT(m_size && m_ptr);
+            UUL_ASSERT(m_size && m_ptr);
             return *m_ptr;
         }
 
         [[nodiscard]]
         const T &back() const noexcept {
-            VUL_ASSERT(m_size && m_ptr);
+            UUL_ASSERT(m_size && m_ptr);
             return *(m_ptr + m_size - 1);
         }
 
         [[nodiscard]]
         T &front() noexcept {
-            VUL_ASSERT(m_size && m_ptr);
+            UUL_ASSERT(m_size && m_ptr);
             return *m_ptr;
         }
 
         [[nodiscard]]
         T &back() noexcept {
-            VUL_ASSERT(m_size && m_ptr);
+            UUL_ASSERT(m_size && m_ptr);
             return *(m_ptr + m_size - 1);
         }
 

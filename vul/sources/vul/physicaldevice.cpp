@@ -124,7 +124,7 @@ vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
 
 
 std::optional<std::uint32_t>
-vul::QueueFamilyProperties::getMinimumQueueFamilyIndex(
+vul::QueueFamilyProperties::findMinimumQueueFamilyIndex(
         const gsl::span<std::uint32_t> &queueFamilyIndexes) const {
     if (queueFamilyIndexes.empty()) {
         return std::nullopt;
@@ -140,6 +140,21 @@ vul::QueueFamilyProperties::getMinimumQueueFamilyIndex(
         return ranges::min(queueFamilyIndexes, minQueueFamilyFlags);
     }
 }
+
+std::optional<std::uint32_t>
+vul::QueueFamilyProperties::calcMinimumQueueFamilyIndex(
+        vul::QueueBitMask queueFamilyBits) {
+    auto queueFamilyIndexes = getQueueFamilyIndexes(queueFamilyBits);
+    return findMinimumQueueFamilyIndex(queueFamilyIndexes);
+}
+
+std::optional<std::uint32_t>
+vul::QueueFamilyProperties::calcMinimumPresentationQueueFamilyIndex(
+        const vul::Surface &surface, vul::QueueBitMask queueFamilyBits) {
+    auto queueFamilyIndexes = getPresentationQueueFamilyIndexes(surface, queueFamilyBits);
+    return findMinimumQueueFamilyIndex(queueFamilyIndexes);
+}
+
 
 bool vul::QueueFamilyProperties::contains(
         const std::vector<vul::QueueBitMask> &queueFamilies) const {
@@ -179,6 +194,7 @@ bool vul::QueueFamilyProperties::contains(const vul::Surface &surface,
     }
     return true;
 }
+
 
 
 vul::ExtensionsProperties::ExtensionsProperties(

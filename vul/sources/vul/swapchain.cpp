@@ -152,7 +152,7 @@ vul::SwapchainBuilder::create(const vul::Surface &surface) const {
         }
         imageViews.push_back(std::move(view));
     }
-    return {result, Swapchain(*m_pDevice, swapchain, m_createInfo.imageExtent,
+    return {result, Swapchain(*m_pDevice, surface, swapchain, m_createInfo.imageExtent,
                               static_cast<Format>(m_createInfo.imageFormat),
                               swapChainImages,
                               std::move(imageViews),
@@ -168,12 +168,13 @@ vul::SwapchainBuilder::resize(vul::Swapchain &swapchain, const VkExtent2D &exten
 }
 
 
-vul::Swapchain::Swapchain(const vul::Device &device, VkSwapchainKHR handle,
+vul::Swapchain::Swapchain(const vul::Device &device, const vul::Surface& surface,
+                          VkSwapchainKHR handle,
                           VkExtent2D extent, vul::Format format,
                           std::vector<VkImage> images,
                           std::vector<ImageView> imageViews,
                           const VkAllocationCallbacks *pAllocator)
-        : m_pDevice(&device), m_pAllocator(pAllocator), m_handle(handle),
+        : m_pDevice(&device), m_pSurface(&surface), m_pAllocator(pAllocator), m_handle(handle),
           m_extent(extent),
           m_format(format), m_images(std::move(images)),
           m_imageViews(std::move(imageViews)) {
@@ -193,6 +194,7 @@ vul::Swapchain::~Swapchain() {
 vul::Swapchain::Swapchain(vul::Swapchain &&rhs) noexcept {
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
+    swap(m_pSurface, rhs.m_pSurface);
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
     swap(m_extent, rhs.m_extent);
@@ -204,6 +206,7 @@ vul::Swapchain::Swapchain(vul::Swapchain &&rhs) noexcept {
 vul::Swapchain &vul::Swapchain::operator=(vul::Swapchain &&rhs) noexcept {
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
+    swap(m_pSurface, rhs.m_pSurface);
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);
     swap(m_extent, rhs.m_extent);

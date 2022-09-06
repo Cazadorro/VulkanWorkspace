@@ -6,7 +6,7 @@
 #define VULKANWORKSPACE_KDTREE_H
 
 #include "gul/geometry.h"
-#include <vul/vkassert.h>
+#include <uul/assert.h>
 #include <glm/vec3.hpp>
 #include <range/v3/action/sort.hpp>
 #include <range/v3/view/concat.hpp>
@@ -102,7 +102,7 @@ namespace gul {
                             gul::Axis current_axis,
                             const std::array<predicte_type, 3> &predicates,
                             std::vector<KDTreeIndexPair>& last_indexes, std::vector<std::uint32_t>& parent_indexes) {
-            VUL_ASSERT(!current_segments.empty());
+            UUL_ASSERT(!current_segments.empty());
 
             if (current_segments.size() <= 4) {
                 std::uint32_t lhs_leafs = m_leafs.size();
@@ -155,7 +155,7 @@ namespace gul {
         }
 
         explicit KDTree(const gsl::span<LineSegment<T>> &objects) {
-            VUL_ASSERT(!objects.empty() && objects.size() <
+            UUL_ASSERT(!objects.empty() && objects.size() <
                                            std::numeric_limits<std::int32_t>::max());
             predicte_type predicate_x =
                     [](const LineSegment<T> &lhs, const LineSegment<T> &rhs) {

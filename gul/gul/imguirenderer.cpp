@@ -15,7 +15,7 @@
 #include <vul/expectedresult.h>
 #include <vul/enums.h>
 #include <vul/temparrayproxy.h>
-#include <vul/vkassert.h>
+#include <uul/assert.h>
 #include <vul/containerutils.h>
 
 #include <imgui.h>
@@ -42,7 +42,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
             static_cast<vul::Format>(VK_FORMAT_R8G8B8A8_UNORM),
             static_cast<vul::Format>(VK_FORMAT_B8G8R8_UNORM),
             static_cast<vul::Format>(VK_FORMAT_R8G8B8_UNORM)};
-    VUL_ASSERT(vul::contains(exceptedSurfaceFormats, format),
+    UUL_ASSERT(vul::contains(exceptedSurfaceFormats, format),
                fmt::format(
                        "Format found {} doesn't match valid imgui image formats {}, {}, {} and {}",
                        vul::to_string(format),

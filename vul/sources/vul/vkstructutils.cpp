@@ -3,7 +3,7 @@
 //
 
 #include "vkstructutils.h"
-#include "vkassert.h"
+#include <uul/assert.h>
 #include <fmt/core.h>
 
 vul::Rect2D::Rect2D(const VkOffset2D &offset, const VkExtent2D &extent)
@@ -101,12 +101,12 @@ vul::Extent3D vul::Extent3D::to3D() const {
 }
 
 vul::Extent2D vul::Extent3D::to2D() const {
-    VUL_ASSERT(depth == 1,fmt::format("Depth {} must be 1", depth).c_str());
+    UUL_ASSERT(depth == 1,fmt::format("Depth {} must be 1", depth).c_str());
     return {width, height};
 }
 
 std::uint32_t vul::Extent3D::to1D() const {
-    VUL_ASSERT(depth == 1 && height == 1,fmt::format("Height {} and Depth {} must be 1", height, depth).c_str());
+    UUL_ASSERT(depth == 1 && height == 1,fmt::format("Height {} and Depth {} must be 1", height, depth).c_str());
     return width;
 }
 
@@ -143,6 +143,6 @@ vul::Extent2D vul::Extent2D::to2D() const {
 }
 
 std::uint32_t vul::Extent2D::to1D() const {
-    VUL_ASSERT(height == 1,fmt::format("Height {}must be 1", height).c_str());
+    UUL_ASSERT(height == 1,fmt::format("Height {}must be 1", height).c_str());
     return width;
 }

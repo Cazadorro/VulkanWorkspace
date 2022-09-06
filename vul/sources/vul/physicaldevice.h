@@ -47,7 +47,11 @@ namespace vul {
         [[nodiscard]]
         std::vector<std::uint32_t> getPresentationQueueFamilyIndexes(const vul::Surface& surface) const;
         [[nodiscard]]
-        std::optional<std::uint32_t> getMinimumQueueFamilyIndex(const gsl::span<std::uint32_t>& queueFamilyIndexes) const;
+        std::optional<std::uint32_t> findMinimumQueueFamilyIndex(const gsl::span<std::uint32_t>& queueFamilyIndexes) const;
+        [[nodiscard]]
+        std::optional<std::uint32_t> calcMinimumQueueFamilyIndex(vul::QueueBitMask queueFamilyBits);
+        [[nodiscard]]
+        std::optional<std::uint32_t> calcMinimumPresentationQueueFamilyIndex(const vul::Surface& surface, vul::QueueBitMask queueFamilyBits);
         [[nodiscard]]
         bool contains(const std::vector<vul::QueueBitMask>& queueFamilies) const;
         [[nodiscard]]

@@ -5,7 +5,7 @@
 #include "vul/semaphore.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
-#include "vul/vkassert.h"
+#include <uul/assert.h>
 #include "vul/enums.h"
 #include "vul/bitmasks.h"
 #include <vector>
@@ -121,8 +121,8 @@ vul::TimelineSemaphore::wait(const gsl::span<const TimelineSemaphore *const> &se
           const gsl::span<const std::uint64_t> &waitValues,
           std::uint64_t timeout_ns, SemaphoreWaitBitMask flags) {
 
-    VUL_ASSERT(!semaphores.empty(), "Semaphore array can't be empty");
-    VUL_ASSERT(semaphores.size() == waitValues.size(), "Wait values size differs from semaphore array size");
+    UUL_ASSERT(!semaphores.empty(), "Semaphore array can't be empty");
+    UUL_ASSERT(semaphores.size() == waitValues.size(), "Wait values size differs from semaphore array size");
 
     std::vector<VkSemaphore> vkSemaphores;
     vkSemaphores.reserve(semaphores.size());

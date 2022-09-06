@@ -8,8 +8,8 @@
 #include "vul/vmaallocator.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
-#include "vul/vkassert.h"
-#include "vul/unreachable.h"
+#include <uul/assert.h>
+#include <uul/unreachable.h>
 
 vul::ImageSubresourceRange::ImageSubresourceRange(
         vul::ImageAspectBitMask aspectMask_t, std::uint32_t baseMipLevel_t,
@@ -309,7 +309,7 @@ vul::Image::toImageViewType(const vul::ImageSubresourceRange &subresourceRange,
 
     std::uint32_t arrayLayers = 0;
     if(subresourceRange.layerCount == VK_REMAINING_ARRAY_LAYERS){
-        VUL_ASSERT(m_arrayLayers > subresourceRange.baseArrayLayer, fmt::format("Number of total number of layers {} must be more than the baseArrayLayer {}", m_arrayLayers, subresourceRange.baseArrayLayer).c_str());
+        UUL_ASSERT(m_arrayLayers > subresourceRange.baseArrayLayer, fmt::format("Number of total number of layers {} must be more than the baseArrayLayer {}", m_arrayLayers, subresourceRange.baseArrayLayer).c_str());
         arrayLayers = (m_arrayLayers - subresourceRange.baseArrayLayer);
     }else{
         arrayLayers = subresourceRange.layerCount;
@@ -322,11 +322,11 @@ vul::Image::toImageViewType(const vul::ImageSubresourceRange &subresourceRange,
 vul::ImageViewType
 vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
                 bool isCube) {
-    VUL_ASSERT(arrayLayers != VK_REMAINING_ARRAY_LAYERS, "Can't use 'VK_REMAINING_ARRAY_LAYERS', not enough information to infer remaining array layers");
-    VUL_ASSERT(arrayLayers > 0, "Array layers cannot be zero");
+    UUL_ASSERT(arrayLayers != VK_REMAINING_ARRAY_LAYERS, "Can't use 'VK_REMAINING_ARRAY_LAYERS', not enough information to infer remaining array layers");
+    UUL_ASSERT(arrayLayers > 0, "Array layers cannot be zero");
     if(isCube){
-        VUL_ASSERT(arrayLayers % 6 == 0, "If image view is cube, array layers must be multiple of 6");
-        VUL_ASSERT(type == vul::ImageType::_2D, "If image view is cube, image type must be 2D");
+        UUL_ASSERT(arrayLayers % 6 == 0, "If image view is cube, array layers must be multiple of 6");
+        UUL_ASSERT(type == vul::ImageType::_2D, "If image view is cube, image type must be 2D");
         if(arrayLayers > 6){
             return vul::ImageViewType::CubeArray;
         }else{
@@ -352,11 +352,11 @@ vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
             if(arrayLayers == 1){
                 return vul::ImageViewType::_3D;
             }else{
-                VUL_ASSERT(arrayLayers > 1 && type == vul::ImageType::_3D, "Can't have layered 3D image views");
+                UUL_ASSERT(arrayLayers > 1 && type == vul::ImageType::_3D, "Can't have layered 3D image views");
             }
         }
         default: {
-            unreachable();
+            uul::unreachable();
         }
     }
 

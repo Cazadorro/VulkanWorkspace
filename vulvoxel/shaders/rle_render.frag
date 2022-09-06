@@ -101,6 +101,7 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
             float t = last_t;
             vec3 endpoint = orig + dir * t;
             vec3 fixed_endpoint = endpoint.xzy;
+            dir = dir.xzy;
             fixed_endpoint.y *= -1.0;
             final_crossing_T = fixed_endpoint;
             if(previous_axis == 0){
@@ -156,7 +157,7 @@ uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, ui
     uint mid = 0u;
 
     while(low <= high){
-        uint mid = (high + low); // 2
+        uint mid = (high + low) / 2;
         uint before_arr = mid > 0 ? uint(rle_offsets.data[mid - 1]) : 0;
         //If cell index is greater than last index in LE, ignore left half
         if( uint(rle_offsets.data[mid]) <= cell_index){

@@ -28,7 +28,7 @@ namespace vul {
 //    viewInfo.components = components;
 //
 //    VkImageView imageView;
-//    VUL_EXCEPT_RESULT(
+//    UUL_EXCEPT_RESULT(
 //            vkCreateImageView(device, &viewInfo, nullptr, &imageView));
 //    return vul::make_handle(device, imageView);
     class Sampler;

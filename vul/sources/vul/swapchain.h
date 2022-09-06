@@ -80,7 +80,8 @@ namespace vul {
     public:
         Swapchain() = default;
 
-        Swapchain(const Device &device, VkSwapchainKHR handle,
+        Swapchain(const Device &device, const Surface& surface,
+                  VkSwapchainKHR handle,
                   VkExtent2D extent,
                   vul::Format format,
                   std::vector<VkImage> images,

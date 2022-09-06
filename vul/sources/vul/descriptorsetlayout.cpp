@@ -4,7 +4,7 @@
 
 #include "vul/descriptorsetlayout.h"
 #include "vul/descriptorset.h"
-#include "vul/vkassert.h"
+#include <uul/assert.h>
 #include "vul/enums.h"
 #include "vul/bitmasks.h"
 #include "vul/device.h"
@@ -39,7 +39,7 @@ vul::DescriptorSetLayoutBinding::getDescriptorCount() const {
 
 void vul::DescriptorSetLayoutBinding::setImmutableSamplers(
         const VkSampler *pImmutableSamplers) {
-    VUL_ASSERT(m_layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER,
+    UUL_ASSERT(m_layoutBinding.descriptorType == VK_DESCRIPTOR_TYPE_SAMPLER,
                "Expected descriptor type to be sampler");
     m_layoutBinding.pImmutableSamplers = pImmutableSamplers;
 }
@@ -257,7 +257,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
     m_bindings.clear();
     m_bindings.reserve(descriptorSetBindings.size());
     m_bindingFlags.clear();
-    VUL_ASSERT(bindingFlags.size() == descriptorSetBindings.size() || bindingFlags.size() <= 1, fmt::format(
+    UUL_ASSERT(bindingFlags.size() == descriptorSetBindings.size() || bindingFlags.size() <= 1, fmt::format(
             "Expected binding flags size to be 0,1 or the same size as descriptorSetBindings: flags {} vs {}",
             bindingFlags.size(), descriptorSetBindings.size()).c_str());
     if(bindingFlags.size() == descriptorSetBindings.size()){
@@ -279,7 +279,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
                                        [](auto lhs, auto rhs) {
                                            return lhs.binding < rhs.binding;
                                        });
-    VUL_ASSERT(max_value.binding == (m_bindings.size() - 1), fmt::format(
+    UUL_ASSERT(max_value.binding == (m_bindings.size() - 1), fmt::format(
             "Expected max_value.binding {} to be the same as binding size {} - 1",
             max_value.binding, m_bindings.size()).c_str());
 }
@@ -289,7 +289,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<const std::string> &bindingName,
         const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags) {
 
-    VUL_ASSERT(descriptorSetBindings.size() == bindingName.size(),
+    UUL_ASSERT(descriptorSetBindings.size() == bindingName.size(),
                fmt::format(
                        "Expected descriptor and binding name sizes to be the same\n"
                        "descriptorSetBindings {} vs bindingName {}",
@@ -310,7 +310,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
 
     m_nameBindingMap.clear();
     m_nameBindingMap.reserve(descriptorSetBindings.size());
-    VUL_ASSERT(bindingFlags.size() == descriptorSetBindings.size() || bindingFlags.size() <= 1, fmt::format(
+    UUL_ASSERT(bindingFlags.size() == descriptorSetBindings.size() || bindingFlags.size() <= 1, fmt::format(
             "Expected binding flags size to be 0,1 or the same size as descriptorSetBindings: flags {} vs {}",
             bindingFlags.size(), descriptorSetBindings.size()).c_str());
 
@@ -334,7 +334,7 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
                                        [](auto lhs, auto rhs) {
                                            return lhs.binding < rhs.binding;
                                        });
-    VUL_ASSERT(max_value.binding == (m_bindings.size() - 1), fmt::format(
+    UUL_ASSERT(max_value.binding == (m_bindings.size() - 1), fmt::format(
             "Expected max_value.binding {} to be the same as binding size {} - 1",
             max_value.binding, m_bindings.size()).c_str());
 }

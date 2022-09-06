@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.13)
 project(VulkanWorkspace)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul sources/vul/unreachable.h sources/vul/temparrayproxyfwd.h)
+add_library(vul STATIC)
 target_sources(vul PRIVATE
+        sources/vul/temparrayproxyfwd.h
         sources/vul/instance.cpp
         sources/vul/instance.h
         sources/vul/debugutils.cpp
@@ -30,8 +31,6 @@ target_sources(vul PRIVATE
         sources/vul/swapchain.h
         sources/vul/semaphore.cpp
         sources/vul/semaphore.h
-        sources/vul/vkassert.cpp
-        sources/vul/vkassert.h
         sources/vul/renderpass.cpp
         sources/vul/renderpass.h
         sources/vul/colorformatutils.cpp
@@ -109,6 +108,8 @@ target_include_directories(vul
         )
 
 target_link_libraries(vul
+        PRIVATE
+        uul
         PUBLIC
         glm
         Vulkan::Vulkan
@@ -145,4 +146,4 @@ target_compile_options(vul PRIVATE
         > )
 
 target_link_options (vul PRIVATE -fuse-ld=lld)
-target_compile_definitions(vul PUBLIC $<$<CONFIG:Debug>:VUL_DEBUG> $<$<CONFIG:Release>:VUL_RELEASE>)
+target_compile_definitions(vul PRIVATE $<$<CONFIG:Debug>:VUL_DEBUG> $<$<CONFIG:Release>:VUL_RELEASE>)

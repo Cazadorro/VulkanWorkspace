@@ -3,19 +3,19 @@
 //
 
 #include "vul/descriptorset.h"
-#include "vul/vkassert.h"
-#include "vul/unreachable.h"
+#include <uul/assert.h>
+#include <uul/unreachable.h>
 
 
 vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::Sampler(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
                    "imageInfo.sampler must not be empty");
-        VUL_DEBUG_WARNING(imageInfo.imageView == VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.imageView == VK_NULL_HANDLE,
                           "imageInfo.imageView is not used in sampler descriptor write");
-        VUL_DEBUG_WARNING(imageInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_DEBUG_WARNING(imageInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED,
                           "imageInfo.imageLayout is not used in sampler descriptor write");
     }
     WriteDescriptorSetInfo info;
@@ -29,11 +29,11 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::CombinedImageSampler(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
                    "imageInfo.sampler must not be empty");
-        VUL_DEBUG_WARNING(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.imageView != VK_NULL_HANDLE,
                           "imageInfo.imageView must not be empty");
-        VUL_DEBUG_WARNING(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_DEBUG_WARNING(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                           "imageInfo.imageLayout must not be empty");
     }
     WriteDescriptorSetInfo info;
@@ -47,11 +47,11 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::SampledImage(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE");
-        VUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
                    "imageInfo.imageView must not be empty");
-        VUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                    "imageInfo.imageLayout must not be empty");
     }
     WriteDescriptorSetInfo info;
@@ -65,11 +65,11 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::StorageImage(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
-        VUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
                    "imageInfo.imageView must not be empty");
-        VUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                    "imageInfo.imageLayout must not be empty");
     }
     WriteDescriptorSetInfo info;
@@ -82,7 +82,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::StorageImage(
 vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::UniformTexelBuffer(
         const std::vector<VkBufferView> &texelBufferViews, const void *pNext) {
     for (const auto &texelBufferView :texelBufferViews) {
-        VUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
+        UUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
                    "texelBufferView must not be VK_NULL_HANDLE");
     }
     WriteDescriptorSetInfo info;
@@ -95,7 +95,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::UniformTexelBuffer(
 vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::StorageTexelBuffer(
         const std::vector<VkBufferView> &texelBufferViews, const void *pNext) {
     for (const auto &texelBufferView :texelBufferViews) {
-        VUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
+        UUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
                    "texelBufferView must not be VK_NULL_HANDLE");
     }
     WriteDescriptorSetInfo info;
@@ -109,7 +109,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::UniformBuffer(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
     WriteDescriptorSetInfo info;
@@ -123,7 +123,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::StorageBuffer(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
     WriteDescriptorSetInfo info;
@@ -137,7 +137,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::UniformBufferDynamic(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
     WriteDescriptorSetInfo info;
@@ -151,7 +151,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::StorageBufferDynamic(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
     WriteDescriptorSetInfo info;
@@ -165,11 +165,11 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::InputAttachment(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
-        VUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
                    "imageInfo.imageView must not be empty");
-        VUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                    "imageInfo.imageLayout must not be empty");
     }
     WriteDescriptorSetInfo info;
@@ -219,7 +219,7 @@ vul::WriteDescriptorSetInfo::createWriteDescriptorSet(VkDescriptorSet dstSet,
 
 vul::WriteDescriptorSetInfo &vul::WriteDescriptorSetInfo::operator=(
         vul::WriteDescriptorSetInfo &&rhs) noexcept {
-    VUL_ASSERT(m_descriptorType == rhs.m_descriptorType);
+    UUL_ASSERT(m_descriptorType == rhs.m_descriptorType);
     using std::swap;
     std::swap(m_infoVariant, rhs.m_infoVariant);
     std::swap(m_pNext, rhs.m_pNext);
@@ -229,7 +229,7 @@ vul::WriteDescriptorSetInfo &vul::WriteDescriptorSetInfo::operator=(
 vul::WriteDescriptorSetInfo &
 vul::WriteDescriptorSetInfo::operator=(const vul::WriteDescriptorSetInfo &rhs) {
     if (&rhs != this) {
-        VUL_ASSERT(m_descriptorType == rhs.m_descriptorType);
+        UUL_ASSERT(m_descriptorType == rhs.m_descriptorType);
         m_infoVariant = rhs.m_infoVariant;
         m_pNext = rhs.m_pNext;
     }
@@ -241,14 +241,14 @@ void vul::WriteDescriptorSetInfo::setSampler(
         const void *pNext) {
 
     for (const auto &imageInfo :imageInfos) {
-        VUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
                    "imageInfo.sampler must not be empty");
-        VUL_DEBUG_WARNING(imageInfo.imageView == VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.imageView == VK_NULL_HANDLE,
                           "imageInfo.imageView is not used in sampler descriptor write");
-        VUL_DEBUG_WARNING(imageInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_DEBUG_WARNING(imageInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED,
                           "imageInfo.imageLayout is not used in sampler descriptor write");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::Sampler);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::Sampler);
     m_infoVariant = imageInfos;
     m_pNext = pNext;
 }
@@ -257,14 +257,14 @@ void vul::WriteDescriptorSetInfo::setCombinedImageSampler(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
                    "imageInfo.sampler must not be empty");
-        VUL_DEBUG_WARNING(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.imageView != VK_NULL_HANDLE,
                           "imageInfo.imageView must not be empty");
-        VUL_DEBUG_WARNING(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_DEBUG_WARNING(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                           "imageInfo.imageLayout must not be empty");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::CombinedImageSampler);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::CombinedImageSampler);
     m_infoVariant = imageInfos;
     m_pNext = pNext;
 }
@@ -273,14 +273,14 @@ void vul::WriteDescriptorSetInfo::setSampledImage(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE");
-        VUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
                    "imageInfo.imageView must not be empty");
-        VUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                    "imageInfo.imageLayout must not be empty");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::SampledImage);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::SampledImage);
     m_infoVariant = imageInfos;
     m_pNext = pNext;
 }
@@ -289,14 +289,14 @@ void vul::WriteDescriptorSetInfo::setStorageImage(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
-        VUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
                    "imageInfo.imageView must not be empty");
-        VUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                    "imageInfo.imageLayout must not be empty");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageImage);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageImage);
     m_infoVariant = imageInfos;
     m_pNext = pNext;
 }
@@ -304,10 +304,10 @@ void vul::WriteDescriptorSetInfo::setStorageImage(
 void vul::WriteDescriptorSetInfo::setUniformTexelBuffer(
         const std::vector<VkBufferView> &texelBufferViews, const void *pNext) {
     for (const auto &texelBufferView :texelBufferViews) {
-        VUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
+        UUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
                    "texelBufferView must not be VK_NULL_HANDLE");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::UniformTexelBuffer);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::UniformTexelBuffer);
     m_infoVariant = texelBufferViews;
     m_pNext = pNext;
 
@@ -316,10 +316,10 @@ void vul::WriteDescriptorSetInfo::setUniformTexelBuffer(
 void vul::WriteDescriptorSetInfo::setStorageTexelBuffer(
         const std::vector<VkBufferView> &texelBufferViews, const void *pNext) {
     for (const auto &texelBufferView :texelBufferViews) {
-        VUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
+        UUL_ASSERT(texelBufferView != VK_NULL_HANDLE,
                    "texelBufferView must not be VK_NULL_HANDLE");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageTexelBuffer);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageTexelBuffer);
    m_infoVariant = texelBufferViews;
    m_pNext = pNext;
 }
@@ -328,10 +328,10 @@ void vul::WriteDescriptorSetInfo::setUniformBuffer(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::UniformBuffer);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::UniformBuffer);
     m_infoVariant = bufferInfos;
     m_pNext = pNext;
 }
@@ -340,10 +340,10 @@ void vul::WriteDescriptorSetInfo::setStorageBuffer(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageBuffer);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageBuffer);
    m_infoVariant = bufferInfos;
    m_pNext = pNext;
 }
@@ -352,10 +352,10 @@ void vul::WriteDescriptorSetInfo::setUniformBufferDynamic(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::UniformBufferDynamic);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::UniformBufferDynamic);
     m_infoVariant = bufferInfos;
     m_pNext = pNext;
 }
@@ -364,10 +364,10 @@ void vul::WriteDescriptorSetInfo::setStorageBufferDynamic(
         const std::vector<VkDescriptorBufferInfo> &bufferInfos,
         const void *pNext) {
     for (const auto &bufferInfo :bufferInfos) {
-        VUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
+        UUL_ASSERT(bufferInfo.buffer != VK_NULL_HANDLE,
                    "bufferInfo.buffer must not be VK_NULL_HANDLE");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageBufferDynamic);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageBufferDynamic);
     m_infoVariant = bufferInfos;
     m_pNext = pNext;
 }
@@ -376,14 +376,14 @@ void vul::WriteDescriptorSetInfo::setInputAttachment(
         const std::vector<VkDescriptorImageInfo> &imageInfos,
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
-        VUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
+        UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
-        VUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
+        UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
                    "imageInfo.imageView must not be empty");
-        VUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
+        UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
                    "imageInfo.imageLayout must not be empty");
     }
-    VUL_ASSERT(m_descriptorType == vul::DescriptorType::InputAttachment);
+    UUL_ASSERT(m_descriptorType == vul::DescriptorType::InputAttachment);
     m_infoVariant = imageInfos;
     m_pNext = pNext;
 }
@@ -406,7 +406,7 @@ std::size_t vul::WriteDescriptorSetInfo::infoCount() const {
             return infoArray.size();
         }
         default:{
-                unreachable();
+                uul::unreachable();
         }
     }
 }
@@ -420,7 +420,7 @@ vul::DescriptorSetUpdateBuilder::DescriptorSetUpdateBuilder(
         const std::unordered_map<std::string, std::uint32_t> &nameBindingMap)
         : m_nameBindingMap(nameBindingMap) {
 
-    VUL_ASSERT(
+    UUL_ASSERT(
             bindings.size() == nameBindingMap.size() || nameBindingMap.empty(),
             "Expected name binding map size to either match bindings or be empty");
     m_descriptorTypes.reserve(bindings.size());

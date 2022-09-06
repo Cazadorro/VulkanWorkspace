@@ -3,8 +3,11 @@
 //
 
 #include <gul/imguirenderer.h>
-#include "chunkmanagement.h"
+#include <gul/noise/fbm.h>
+#include <gul/noise/opensimplex.h>
+//#include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
+#include "chunks.h"
 #include <iostream>
 #include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
@@ -54,7 +57,7 @@
 #include <optional>
 #include <chrono>
 #include <thread>
-
+#include <span>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -66,50 +69,6 @@
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
-
-
-
-vul::ExpectedResult<vul::RenderPass>
-createImGuiRenderPass(const vul::Device &device, vul::Format surfaceFormat,
-                      bool clearEnable) {
-    VkAttachmentDescription attachment = {};
-    attachment.format = vul::get(surfaceFormat);
-    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment.loadOp = clearEnable ? VK_ATTACHMENT_LOAD_OP_CLEAR
-                                    : VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    VkAttachmentReference color_attachment = {};
-    color_attachment.attachment = 0;
-    color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment;
-    VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    VkRenderPassCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    info.attachmentCount = 1;
-    info.pAttachments = &attachment;
-    info.subpassCount = 1;
-    info.pSubpasses = &subpass;
-    info.dependencyCount = 1;
-    info.pDependencies = &dependency;
-    VkRenderPass renderPass;
-    auto result = static_cast<vul::Result>(vkCreateRenderPass(device.get(),
-                                                              &info, nullptr,
-                                                              &renderPass));
-    return {result, vul::RenderPass(device, renderPass, 1, nullptr)};
-}
 
 struct Vertex {
     glm::vec3 pos;
@@ -212,38 +171,15 @@ int main() {
                                  vul::QueueFlagBits::TransferBit;
     auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
                                  vul::QueueFlagBits::TransferBit;
-
     auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
 
-    auto graphicsQueueFamilyIndexes = queueFamilyProperties.getQueueFamilyIndexes(
-            graphicsComputeFamily);
-    auto computeQueueFamilyIndexes = queueFamilyProperties.getQueueFamilyIndexes(
-            computeTransferFamily);
-    auto presentationQueueFamilyIndexes = queueFamilyProperties.getPresentationQueueFamilyIndexes(
-            surface, graphicsComputeFamily);
-
-    auto presentFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
-            presentationQueueFamilyIndexes);
-    if (!presentFamilyIndexResult.has_value()) {
-        throw std::runtime_error(
-                "failed to find a suitable presentation queue!");
-    }
-    auto graphicsFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
-            graphicsQueueFamilyIndexes);
-    if (!graphicsFamilyIndexResult.has_value()) {
-        throw std::runtime_error("failed to find a suitable graphics queue!");
-    }
-    auto computeFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
-            computeQueueFamilyIndexes);
-    if (!computeFamilyIndexResult.has_value()) {
-        throw std::runtime_error("failed to find a suitable compute queue!");
-    }
-    std::uint32_t presentQueueIndex = presentFamilyIndexResult.value();
-    std::uint32_t graphicsQueueIndex = graphicsFamilyIndexResult.value();
-    std::uint32_t computeQueueIndex = computeFamilyIndexResult.value();
+    std::uint32_t presentQueueIndex =queueFamilyProperties.calcMinimumPresentationQueueFamilyIndex(surface, graphicsComputeFamily).value();
+    std::uint32_t graphicsQueueIndex = queueFamilyProperties.calcMinimumQueueFamilyIndex(graphicsComputeFamily).value();
+    std::uint32_t computeQueueIndex = queueFamilyProperties.calcMinimumQueueFamilyIndex(computeTransferFamily).value();
     std::vector<vul::SingleQueueCreateInfo> queueCreateInfos = {
             vul::SingleQueueCreateInfo{presentQueueIndex},
-            vul::SingleQueueCreateInfo{computeQueueIndex}};
+            vul::SingleQueueCreateInfo{computeQueueIndex}
+    };
     auto device = physicalDevice.createDevice(queueCreateInfos, deviceExtensions,
                                          features).assertValue();
     //TODO what to do when queue is same for all but we try to parrallelize? only return references to queues? Have internal mutexes etc??
@@ -279,9 +215,7 @@ int main() {
 //        swapchainBuilder.imageSharingMode(vul::SharingMode::Exclusive);
 //    }
 
-    char c;
-    std::cout << "Waiting" << std::endl;
-//    std::cin >> c;
+
     auto swapchain = swapchainBuilder.create(surface).assertValue();
 
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
@@ -351,7 +285,28 @@ int main() {
         }
         total_offset += offset;
     }
+    vul::ChunkSpan chunk_span(vul::make_chunk_span(chunk_data));
+    for(std::size_t y = 0; y < 32; ++y){
+        for(std::size_t z = 0; z < 32; ++z){
+            for(std::size_t x = 0; x < 32; ++x){
+                auto d_x = static_cast<double>(x);
+                auto d_y = static_cast<double>(y);
+                auto d_z = static_cast<double>(z);
+                auto height = gul::fbm2d(d_x, d_z, &gul::Noise2, 2, 0.5f, 1.0/16.0, 2.0, 32.0);
+                std::uint32_t chunk_material = 0;
+                if((31 - d_y) < height){
 
+                    auto solid_value = gul::fbm3d(d_x, d_y, d_z, &gul::Noise3_Fallback, 1, 1.0f, 8.0, 2.0, 1.0);
+                    if(solid_value > 0.0){
+                        chunk_material = 8;
+                    }else{
+                        chunk_material = 8;
+                    }
+                }
+                chunk_span(x,y,z) = chunk_material;
+            }
+        }
+    }
     gul::bitmask bitmask(32 * 32 * 32);
     for (auto[idx, value]: ranges::views::enumerate(chunk_data)) {
         if (value != 0) {
@@ -378,32 +333,10 @@ int main() {
 
     fmt::print("intersectred {}\n", intersected);
     std::cout << std::endl;
-    auto calc_rle = [](const std::vector<std::uint32_t> &chunk) {
-        std::vector<std::uint16_t> offsets;
-        std::vector<std::uint32_t> materials;
-        std::uint16_t running_size = 0;
-        std::uint32_t running_material = chunk.empty() ? 0 : chunk[0];
-        for (const auto &voxel: chunk) {
-            if (running_material != voxel) {
-                offsets.push_back(running_size);
-                materials.push_back(running_material);
-                running_material = voxel;
-            }
-            running_size += 1;
-        }
-        VUL_ASSERT(materials.empty() || materials.back() != running_material,
-                   "Last value shouldn't have actually been set...");
-        if (!chunk.empty()) {
-            VUL_ASSERT(running_size == chunk.size());
-            offsets.push_back(running_size);
-            materials.push_back(running_material);
-        }
-        return std::tuple{materials, offsets};
-    };
 
 
-    auto[chunk_rle_materials, chunk_rle_offsets] = calc_rle(chunk_data);
 
+    auto chunk_rle = vul::ChunkRLE::from_linear(std::span<std::uint32_t,vul::chunk_consts::chunk_size>(chunk_data));
 
     auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
                                                            presentationQueue,
@@ -412,12 +345,11 @@ int main() {
                                                                    bitmask.data()),
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
-    auto rle_staging_materials = allocator.createStagingBuffer(vul::TempArrayProxy(
-            chunk_rle_materials.size(),
-            chunk_rle_materials.data())).assertValue();
-    auto rle_staging_offsets = allocator.createStagingBuffer(vul::TempArrayProxy(
-            chunk_rle_offsets.size(),
-            chunk_rle_offsets.data())).assertValue();
+
+
+
+    auto rle_staging_materials = allocator.createStagingBuffer(vul::TempArrayProxy(chunk_rle.get_material_ids())).assertValue();
+    auto rle_staging_offsets = allocator.createStagingBuffer(vul::TempArrayProxy(chunk_rle.get_offsets())).assertValue();
     auto data_chunk_block_size_bytes = 1024*1024*12;
     auto data_chunk_block_rle_offset_begin = 1024*1024*8;
     auto rle_data_buffer = allocator.createDeviceBuffer(data_chunk_block_size_bytes,
@@ -444,7 +376,7 @@ int main() {
     static_assert(sizeof(RunLengthEncodingPushConstant) == 24);
 
     RunLengthEncodingPushConstant rlePushConstant = {
-            static_cast<std::uint32_t>(chunk_rle_offsets.size()),
+            static_cast<std::uint32_t>(chunk_rle.get_offsets().size()),
             0u,
             rle_data_buffer.getDeviceAddress(),
             rle_bitmask_buffer.getDeviceAddress()
@@ -525,8 +457,8 @@ int main() {
                 framebufferBuilder.create().assertValue());
     }
 
-    auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder, &swapchain,
-            &pipelineBuilder, &graphicsPipeline, &depthImage, &depthImageView,
+    auto resizeSwapchain = [&window, &presentationQueue,  &swapchainBuilder, &swapchain,
+             &depthImage, &depthImageView,
             &allocator, &swapchainFramebuffers, &device, &renderPass]() {
         auto size = window.getFramebufferSize();
         while (size == glm::ivec2(0)) {
@@ -701,6 +633,9 @@ int main() {
         resizeSwapchain();
         resizeImGuiFramebuffers();
     };
+
+
+
 
 
 
@@ -925,7 +860,7 @@ int main() {
                                             vul::ShaderStageFlagBits::FragmentBit,
                                             rlePushConstant);
                 auto vertex_count =
-                        chunk_rle_materials.size() * box_vertex_count *
+                        chunk_rle.get_material_ids().size() * box_vertex_count *
                         vertex_split_pass_count;
                 renderPassBlock.draw(vertex_count);
             }

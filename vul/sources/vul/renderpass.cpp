@@ -7,7 +7,7 @@
 #include "vul/colorformatutils.h"
 #include "vul/enums.h"
 #include "vul/expectedresult.h"
-#include "vul/vkassert.h"
+#include <uul/assert.h>
 #include "vul/containerutils.h"
 #include <fmt/core.h>
 #include <range/v3/view/enumerate.hpp>
@@ -41,7 +41,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::PresentTemp(vul::Format format,
                                         vul::SampleCountFlagBits samples,
                                         vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isColorFormat(format),
+    UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -60,7 +60,7 @@ vul::AttachmentDescription::PresentLast(vul::Format format,
                                         vul::ImageLayout initialLayout,
                                         vul::SampleCountFlagBits samples,
                                         vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isColorFormat(format),
+    UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -79,7 +79,7 @@ vul::AttachmentDescription::ColorFirst(vul::Format format,
                                        vul::ImageLayout finalLayout,
                                        vul::SampleCountFlagBits samples,
                                        vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isColorFormat(format),
+    UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -99,7 +99,7 @@ vul::AttachmentDescription::ColorNext(vul::Format format,
                                       vul::ImageLayout finalLayout,
                                       vul::SampleCountFlagBits samples,
                                       vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isColorFormat(format),
+    UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -118,7 +118,7 @@ vul::AttachmentDescription::DepthStencilFirst(vul::Format format,
                                               vul::ImageLayout finalLayout,
                                               vul::SampleCountFlagBits samples,
                                               vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthStencilFormat(format),
+    UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -138,7 +138,7 @@ vul::AttachmentDescription::DepthStencilNext(vul::Format format,
                                              vul::ImageLayout finalLayout,
                                              vul::SampleCountFlagBits samples,
                                              vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthStencilFormat(format),
+    UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -157,7 +157,7 @@ vul::AttachmentDescription::DepthFirst(vul::Format format,
                                        vul::ImageLayout finalLayout,
                                        vul::SampleCountFlagBits samples,
                                        vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthFormat(format),
+    UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -177,7 +177,7 @@ vul::AttachmentDescription::DepthNext(vul::Format format,
                                       vul::ImageLayout finalLayout,
                                       vul::SampleCountFlagBits samples,
                                       vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthFormat(format),
+    UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -196,7 +196,7 @@ vul::AttachmentDescription::StencilFirst(vul::Format format,
                                          vul::ImageLayout finalLayout,
                                          vul::SampleCountFlagBits samples,
                                          vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isStencilFormat(format),
+    UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -216,7 +216,7 @@ vul::AttachmentDescription::StencilNext(vul::Format format,
                                         vul::ImageLayout finalLayout,
                                         vul::SampleCountFlagBits samples,
                                         vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isStencilFormat(format),
+    UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -234,7 +234,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::ColorTemp(vul::Format format,
                                       vul::SampleCountFlagBits samples,
                                       vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isColorFormat(format),
+    UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -253,7 +253,7 @@ vul::AttachmentDescription::ColorLast(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::SampleCountFlagBits samples,
                                       vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isColorFormat(format),
+    UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -271,7 +271,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::DepthStencilTemp(vul::Format format,
                                              vul::SampleCountFlagBits samples,
                                              vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthStencilFormat(format),
+    UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -290,7 +290,7 @@ vul::AttachmentDescription::DepthStencilLast(vul::Format format,
                                              vul::ImageLayout initialLayout,
                                              vul::SampleCountFlagBits samples,
                                              vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthStencilFormat(format),
+    UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -308,7 +308,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::DepthTemp(vul::Format format,
                                       vul::SampleCountFlagBits samples,
                                       vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthFormat(format),
+    UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -327,7 +327,7 @@ vul::AttachmentDescription::DepthLast(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::SampleCountFlagBits samples,
                                       vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isDepthFormat(format),
+    UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -345,7 +345,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::StencilTemp(vul::Format format,
                                         vul::SampleCountFlagBits samples,
                                         vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isStencilFormat(format),
+    UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -364,7 +364,7 @@ vul::AttachmentDescription::StencilLast(vul::Format format,
                                         vul::ImageLayout initialLayout,
                                         vul::SampleCountFlagBits samples,
                                         vul::AttachmentDescriptionBitMask flags) {
-    VUL_ASSERT(vul::isStencilFormat(format),
+    UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
     return vul::AttachmentDescription(format,
@@ -418,7 +418,7 @@ vul::SubpassNode &vul::SubpassNode::setWrites(
             m_depthAttachmentWriteReference = {index,
                                                vul::ImageLayout::DepthStencilAttachmentOptimal};
         } else {
-            VUL_ASSERT(
+            UUL_ASSERT(
                     m_depthAttachmentWriteReference.value().attachment == index,
                     "Can't write to multiple depth stencils at once");
         }
@@ -449,7 +449,7 @@ vul::SubpassNode &vul::SubpassNode::setWrites(
                                                    vul::ImageLayout::ColorAttachmentOptimal);
     }
     for (auto index : resolveIndices) {
-        VUL_ASSERT(m_parentGraph->getAttachmentAt(index).isColor(),
+        UUL_ASSERT(m_parentGraph->getAttachmentAt(index).isColor(),
                    "Attachment must be color to resolve");
         m_resolveAttachmentReferences[index] = AttachmentReference(index,
                                                                    vul::ImageLayout::ColorAttachmentOptimal);

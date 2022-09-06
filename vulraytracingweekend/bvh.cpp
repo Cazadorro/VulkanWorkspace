@@ -3,7 +3,7 @@
 //
 
 #include "bvh.h"
-#include <vul/vkassert.h>
+#include <uul/assert.h>
 #include <glm/common.hpp>
 #include <range/v3/view/zip.hpp>
 #include <random>

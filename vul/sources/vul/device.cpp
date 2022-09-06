@@ -14,7 +14,7 @@
 #include "vul/descriptorpool.h"
 #include "vul/descriptorsetlayout.h"
 #include "vul/queue.h"
-#include "vul/vkassert.h"
+#include <uul/assert.h>
 #include "vul/temparrayproxy.h"
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
@@ -300,7 +300,7 @@ vul::Result vul::Device::wait(
         const vul::TempArrayProxy<const uint64_t> &values,
         std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
         const void *pNext) const {
-    VUL_ASSERT(semaphores.size() == values.size(),
+    UUL_ASSERT(semaphores.size() == values.size(),
                "Expected semaphore count to match value count");
     auto rawSemaphores = semaphores | ranges::views::transform(
             [](auto &semaphore) { return semaphore->get(); }) |
@@ -320,7 +320,7 @@ vul::Result vul::Device::wait(
         const vul::TempArrayProxy<const uint64_t> &values,
         std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
         const void *pNext) const {
-    VUL_ASSERT(semaphores.size() == values.size(),
+    UUL_ASSERT(semaphores.size() == values.size(),
                "Expected semaphore count to match value count");
     auto rawSemaphores = semaphores | ranges::views::transform(
             [](auto &semaphore) { return semaphore.get().get(); }) |

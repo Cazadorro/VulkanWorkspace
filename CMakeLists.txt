@@ -51,6 +51,7 @@ add_subdirectory(external/msdfgen)
 #add_subdirectory(external/glslang)
 
 add_subdirectory(vulgenerated)
+add_subdirectory(uul)
 add_subdirectory(vul)
 add_subdirectory(gul)
 

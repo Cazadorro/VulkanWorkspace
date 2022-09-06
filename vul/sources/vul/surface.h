@@ -124,18 +124,6 @@ namespace vul {
         Surface &operator=(const Surface &rhs) = delete;
 
         [[nodiscard]]
-        bool hasSwapchain() const;
-
-        [[nodiscard]]
-        const Swapchain *getSwapchain() const;
-
-        Result createSwapchain(const SwapchainBuilder &builder);
-
-        //TODO need to account for old swapchain when doing other swapchain things (probably put some members on swapchain that tell if images are acquired/still in flight)
-        Result resizeSwapchain(const SwapchainBuilder &builder,
-                               const VkExtent2D &extent);
-
-        [[nodiscard]]
         VkSurfaceKHR get() const;
 
         Result
@@ -145,10 +133,6 @@ namespace vul {
         const Instance *m_pInstance = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkSurfaceKHR m_handle = VK_NULL_HANDLE;
-        bool m_hasSwapchain = false;
-
-        friend class SwapchainBuilder;
-        std::unique_ptr<Swapchain> m_pSwapchain;
     };
 
 
