@@ -285,10 +285,15 @@ int main() {
         }
         total_offset += offset;
     }
+    bool clear = false;
     vul::ChunkSpan chunk_span(vul::make_chunk_span(chunk_data));
     for(std::size_t y = 0; y < 32; ++y){
         for(std::size_t z = 0; z < 32; ++z){
             for(std::size_t x = 0; x < 32; ++x){
+                if(clear){
+                    chunk_span(x,y,z) = 0;
+                    continue;
+                }
                 auto d_x = static_cast<double>(x);
                 auto d_y = static_cast<double>(y);
                 auto d_z = static_cast<double>(z);
@@ -307,12 +312,21 @@ int main() {
             }
         }
     }
-    gul::bitmask bitmask(32 * 32 * 32);
-    for (auto[idx, value]: ranges::views::enumerate(chunk_data)) {
-        if (value != 0) {
-            bitmask.set(idx);
-        }
-    }
+
+    chunk_span(0,0,0) = 8;
+
+//    chunk_span(2,0,0) = 8;
+//    chunk_span(0,2,0) = 8;
+    chunk_span(0,0,2) = 8;
+//    chunk_span(2,2,0) = 8;
+//    chunk_span(0,2,2) = 8;
+//    chunk_span(2,2,2) = 8;
+
+    auto bitmask = vul::ChunkBitmask::from_filled(chunk_span);
+
+    auto bitmask2 = vul::ChunkBitmaskByteRLE::from_filled(chunk_span);
+    auto bitmask3 = vul::ChunkBitmaskBitRLE::from_filled(chunk_span);
+    auto bitmask4 = vul::ChunkBitmaskLayerTableBitRLE::from_filled(chunk_span);
     //counter per chunk,
     //index to which chunk you're refering to.
     //chunks rendering (what about large memory chunks?, maybe just allocate large memory chunks, put other stuff at the end).
@@ -328,11 +342,12 @@ int main() {
     auto org_offset = glm::vec3(0.0f, 1.0f, 0.0f) * 0.001f;
     auto block_offset = glm::vec3(0.0f);
     std::uint32_t voxel_index;
-    auto intersected = bitmask_intersect(bitmask, org + org_offset, dir,
-                                         block_offset, voxel_index);
-
-    fmt::print("intersectred {}\n", intersected);
-    std::cout << std::endl;
+    //TODO get to work with interesected.
+//    auto intersected = bitmask_intersect(bitmask, org + org_offset, dir,
+//                                         block_offset, voxel_index);
+//
+//    fmt::print("intersectred {}\n", intersected);
+//    std::cout << std::endl;
 
 
 

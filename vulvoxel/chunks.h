@@ -10,11 +10,15 @@
 #include <span>
 #include <cstdint>
 
+#include<bit>
+#include<uul/array.h>
+#include<uul/bit.h>
+
 
 namespace vul {
     namespace chunk_consts {
         static constexpr std::uint16_t chunk_size = 32u * 32u * 32u;
-        static constexpr std::uint16_t chunk_layer_size = 32u*32u;
+        static constexpr std::uint16_t chunk_layer_size = 32u * 32u;
         static constexpr std::uint8_t chunk_width = 32u;
         static constexpr std::uint8_t chunk_far_edge = 31;
 
@@ -38,38 +42,41 @@ namespace vul {
             return {x, y, z};
         }
 
-        constexpr std::uint8_t extract_x_idx(std::uint16_t idx){
+        constexpr std::uint8_t extract_x_idx(std::uint16_t idx) {
             return idx % chunk_width;
         }
 
-        constexpr std::uint8_t extract_y_idx(std::uint16_t idx){
+        constexpr std::uint8_t extract_y_idx(std::uint16_t idx) {
             return idx / (chunk_width * chunk_width);
         }
 
-        constexpr std::uint8_t extract_z_idx(std::uint16_t idx){
+        constexpr std::uint8_t extract_z_idx(std::uint16_t idx) {
             return (idx / (chunk_width)) % chunk_width;
         }
     }
 
     [[nodiscard]]
-    std::span<std::uint32_t, chunk_consts::chunk_size> make_chunk_span(const std::span<std::uint32_t>& span);
+    std::span<std::uint32_t, chunk_consts::chunk_size>
+    make_chunk_span(const std::span<std::uint32_t> &span);
+
     class ChunkSpan {
     public:
-        explicit ChunkSpan(std::span<std::uint32_t, chunk_consts::chunk_size> ref_span);
+        explicit ChunkSpan(
+                std::span<std::uint32_t, chunk_consts::chunk_size> ref_span);
 
         [[nodiscard]]
-        std::uint32_t&
+        std::uint32_t &
         operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z);
 
         [[nodiscard]]
-        std::uint32_t& operator[](std::uint16_t idx);
+        std::uint32_t &operator[](std::uint16_t idx);
 
         [[nodiscard]]
-        std::uint32_t& at(std::uint8_t x, std::uint8_t y,
-                         std::uint8_t z) noexcept(false);
+        std::uint32_t &at(std::uint8_t x, std::uint8_t y,
+                          std::uint8_t z) noexcept(false);
 
         [[nodiscard]]
-        std::uint32_t& at(std::uint16_t idx) noexcept(false);
+        std::uint32_t &at(std::uint16_t idx) noexcept(false);
 
         [[nodiscard]]
         std::uint32_t
@@ -178,7 +185,7 @@ namespace vul {
     public:
         ChunkRLEAssisted() = default;
 
-       explicit ChunkRLEAssisted(ChunkRLE chunk_rle);
+        explicit ChunkRLEAssisted(ChunkRLE chunk_rle);
 
         [[nodiscard]]
         static ChunkRLEAssisted from_linear(
@@ -208,10 +215,188 @@ namespace vul {
     private:
         //assists in search.
         std::array<std::uint16_t, chunk_consts::chunk_width> m_index_assist;
+
         [[nodiscard]]
-        std::uint16_t binary_search_rle_segment_assisted(std::uint16_t linear_idx) const;
+        std::uint16_t
+        binary_search_rle_segment_assisted(std::uint16_t linear_idx) const;
+
         [[nodiscard]]
-        static std::array<std::uint16_t, chunk_consts::chunk_width> construct_index_assist(const std::span<const std::uint16_t>&  offsets) noexcept;
+        static std::array<std::uint16_t, chunk_consts::chunk_width>
+        construct_index_assist(
+                const std::span<const std::uint16_t> &offsets) noexcept;
+    };
+
+    class ChunkBitmask {
+    public:
+        static constexpr auto bits_per_word = (sizeof(std::uint32_t) * 8);
+        static constexpr auto word_count =
+                chunk_consts::chunk_size / bits_per_word;
+        static constexpr auto byte_count = chunk_consts::chunk_size / 8;
+
+        class BitReference {
+        public:
+            BitReference &operator=(bool value);
+
+            operator bool() const;
+
+        private:
+            friend class ChunkBitmask;
+
+            BitReference(ChunkBitmask *parent_ptr, std::uint16_t bit_idx);
+
+            ChunkBitmask *m_parent_ptr;
+            std::uint16_t m_bit_idx;
+        };
+
+        explicit ChunkBitmask(bool value = false);
+        [[nodiscard]]
+        static ChunkBitmask from_filled(const ChunkSpan& chunk_span, std::uint32_t empty_id = 0);
+
+        [[nodiscard]]
+        bool operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+
+        [[nodiscard]]
+        bool operator[](std::uint16_t idx) const;
+
+        [[nodiscard]]
+        BitReference operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z);
+
+        [[nodiscard]]
+        BitReference operator[](std::uint16_t idx);
+
+        [[nodiscard]]
+        bool get(std::uint16_t idx) const;
+
+        void set(std::uint16_t idx);
+
+        void clear(std::uint16_t idx);
+
+        void toggle(std::uint16_t idx);
+
+        void assign(std::uint16_t idx, bool value);
+
+        [[nodiscard]]
+        const std::uint32_t * data() const;
+        [[nodiscard]]
+        std::uint16_t size() const;
+
+        [[nodiscard]]
+        std::span<const std::uint8_t, byte_count> byte_span() const;
+    private:
+        std::array<std::uint32_t, word_count> m_bits;
+    };
+
+
+    class ChunkBitmaskByteRLE {
+    public:
+        static constexpr auto bits_per_word = (sizeof(std::uint32_t) * 8);
+        static constexpr auto word_count =
+                chunk_consts::chunk_size / bits_per_word;
+        ChunkBitmaskByteRLE() = default;
+        ChunkBitmaskByteRLE(std::vector<std::uint8_t> empty_segments,
+                            std::vector<std::uint8_t> multibyte_offset_pairs,
+                            std::vector<std::uint8_t> multibyte_array);
+        [[nodiscard]]
+        static ChunkBitmaskByteRLE from_filled(const ChunkSpan& chunk_span, std::uint32_t empty_id = 0);
+
+        [[nodiscard]]
+        bool operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+
+        [[nodiscard]]
+        bool operator[](std::uint16_t idx) const;
+
+        [[nodiscard]]
+        bool is_empty() const noexcept;
+
+        [[nodiscard]]
+        std::uint16_t size() const noexcept;
+
+        [[nodiscard]]
+        std::span<const std::uint8_t> get_byte_segments() const noexcept;
+
+        [[nodiscard]]
+        std::span<const std::uint16_t> m_heterogenous_segments() const noexcept;
+
+    private:
+        //if anything isn't empty it's assumed to be filled with something.
+        //empty segments are a series of 3 byte pairs or two 12 bit values that correspond to
+        //the start and stop of an empty segment.
+        std::vector<std::uint8_t> m_empty_segments;
+        //contains any multibyte segments to sets of bytes not just 0x00 or 0xFF.
+        std::vector<std::uint8_t> m_multibyte_offset_pairs;
+        //all the byte sequences which are not just 0x00 and 0xFF.
+        std::vector<std::uint8_t> m_multibyte_array;
+    };
+
+
+    struct RLEPair{
+        std::uint16_t start;
+        std::uint16_t stop;
+    };
+
+
+    //TODO Changes when we remove single bit possibilities?
+    class ChunkBitmaskBitRLE {
+    public:
+        ChunkBitmaskBitRLE() = default;
+        ChunkBitmaskBitRLE(std::vector<RLEPair> empty_segments);
+        [[nodiscard]]
+        static ChunkBitmaskBitRLE from_filled(const ChunkSpan& chunk_span, std::uint32_t empty_id = 0);
+
+        [[nodiscard]]
+        bool operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+
+        [[nodiscard]]
+        bool operator[](std::uint16_t idx) const;
+
+        [[nodiscard]]
+        bool is_empty() const noexcept;
+
+        [[nodiscard]]
+        std::uint16_t size() const noexcept;
+
+        [[nodiscard]]
+        std::span<const std::uint8_t> get_byte_segments() const noexcept;
+
+        [[nodiscard]]
+        std::span<const std::uint16_t> m_heterogenous_segments() const noexcept;
+    private:
+        std::vector<RLEPair> m_empty_segments;
+    };
+    struct RLEPair8{
+        std::uint8_t start;
+        std::uint8_t stop;
+    };
+
+    class ChunkBitmaskLayerTableBitRLE {
+    public:
+        static constexpr auto layer_size = 256;
+        static constexpr auto table_size = chunk_consts::chunk_size / layer_size;
+        ChunkBitmaskLayerTableBitRLE() = default;
+        ChunkBitmaskLayerTableBitRLE(std::vector<RLEPair8> empty_segments, std::array<std::uint16_t, table_size> layer_table_offsets);
+        [[nodiscard]]
+        static ChunkBitmaskLayerTableBitRLE from_filled(const ChunkSpan& chunk_span, std::uint32_t empty_id = 0);
+
+        [[nodiscard]]
+        bool operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+
+        [[nodiscard]]
+        bool operator[](std::uint16_t idx) const;
+
+        [[nodiscard]]
+        bool is_empty() const noexcept;
+
+        [[nodiscard]]
+        std::uint16_t size() const noexcept;
+
+        [[nodiscard]]
+        std::span<const std::uint8_t> get_byte_segments() const noexcept;
+
+        [[nodiscard]]
+        std::span<const std::uint16_t> m_heterogenous_segments() const noexcept;
+    private:
+        std::vector<RLEPair8> m_empty_segments;
+        std::array<std::uint16_t, table_size> m_layer_table_offsets;
     };
     //TODO need -1 size voxels removed
     //TODO need -2->4 size RLEs removed?

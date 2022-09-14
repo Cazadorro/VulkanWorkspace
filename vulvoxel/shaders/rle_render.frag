@@ -99,22 +99,27 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
         if (get(u_bitmask, o)) {
             voxel_index = o;
             float t = last_t;
+            orig.z *= -1.0;
+            dir.z *= -1.0;
+            dir = dir.xzy;
+            orig = orig.xzy;
             vec3 endpoint = orig + dir * t;
             vec3 fixed_endpoint = endpoint.xzy;
-            dir = dir.xzy;
-            fixed_endpoint.y *= -1.0;
+            fixed_endpoint =endpoint;
             final_crossing_T = fixed_endpoint;
             if(previous_axis == 0){
-                texcoord = fixed_endpoint.zy; //zy?
-                hit_normal = dot(vec3(1.0,0.0,0.0), dir) > 0.0 ? vec3(1.0,0.0,0.0) : vec3(-1.0,0.0,0.0);
+                texcoord = fixed_endpoint.zy;
+                //if facing oposite direction, set normal to the opposite direction.
+                hit_normal = dot(vec3(1.0,0.0,0.0), dir) < 0.0 ? vec3(1.0,0.0,0.0) : vec3(-1.0,0.0,0.0);
             }
             else if(previous_axis == 1){
+//                fixed_endpoint.y *= -1.0;
                 texcoord = fixed_endpoint.xy; //xy?
-                hit_normal = dot(vec3(0.0,0.0,1.0), dir) > 0.0 ? vec3(0.0,0.0,1.0) : vec3(0.0,0.0,-1.0);
+                hit_normal = dot(vec3(0.0,0.0,1.0), dir) < 0.0 ? vec3(0.0,0.0,1.0) : vec3(0.0,0.0,-1.0);
             }
             else if(previous_axis == 2){
                 texcoord = fixed_endpoint.xz; //xz?
-                hit_normal = dot(vec3(0.0,1.0,0.0), dir) > 0.0 ? vec3(0.0,1.0,0.0) : vec3(0.0,-1.0,0.0);
+                hit_normal = dot(vec3(0.0,1.0,0.0), dir) < 0.0 ? vec3(0.0,1.0,0.0) : vec3(0.0,-1.0,0.0);
             }
             return true;
         }
@@ -179,13 +184,13 @@ void main() {
     uint32_array u_rle_materials = uint32_array(u_data_block_ptr);
     uint16_array u_rle_offsets = uint16_array(u_data_block_ptr + RLE_OFFSET_BEGIN);
     vec3 color = get_material_color(block_material_id, block_tex_coord);
-
+    vec3 temp_color = color;
     color += vec3(0.001,0.001,0.001);
 
     vec3 light_dir_normal = vec3(0.0,1.0,0.0);
     vec3 light_color = vec3(1.0,1.0,1.0);
     float diff = max(dot(block_world_normal, light_dir_normal), 0.0);
-    vec3 ambient = color.rgb * 0.1;
+    vec3 ambient = color.rgb * 0.2;
     vec3 diffuse = light_color * diff * color.rgb * 0.5;
 
     vec3 view_dir = normalize(ubo.camera_pos - block_world_position);
@@ -210,11 +215,12 @@ void main() {
     vec3 ray_world_normal = block_world_normal;
 
     uint iteration = 0;
-    uint max_iteration = 1;
-    while(iteration <= max_iteration && bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
+    uint max_iteration = 4;
+    while(iteration < max_iteration && bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
         uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
         uint material_id = u_rle_materials.data[uint(material_id_index)];
         result *= get_material_color(material_id, hit_texcoord) * 0.99;
+
         ray_normal = reflect(ray_normal, hit_normal);
         ray_world_position = hit_position;
         ray_world_normal = hit_normal;
