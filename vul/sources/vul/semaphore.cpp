@@ -47,7 +47,7 @@ vul::Result vul::BinarySemaphore::setObjectName(const std::string &string) {
 }
 
 VkSemaphoreSubmitInfoKHR
-vul::BinarySemaphore::createSubmitInfo(vul::PipelineStageFlagBitMask stageMask,
+vul::BinarySemaphore::createSubmitInfo(vul::PipelineStage2BitMask stageMask,
                                        std::uint32_t deviceIndex,
                                        const void *pNext) const{
     VkSemaphoreSubmitInfoKHR submitInfo = {};
@@ -165,7 +165,7 @@ vul::Result vul::TimelineSemaphore::signal(std::uint64_t signalValue) {
 
 VkSemaphoreSubmitInfoKHR
 vul::TimelineSemaphore::createSubmitInfo(std::uint64_t value,
-                                         vul::PipelineStageFlagBitMask stageMask,
+                                         vul::PipelineStage2BitMask stageMask,
                                          std::uint32_t deviceIndex,
                                          const void *pNext) const{
     VkSemaphoreSubmitInfoKHR submitInfo = {};

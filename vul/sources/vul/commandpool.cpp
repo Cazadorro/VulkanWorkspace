@@ -125,7 +125,7 @@ vul::Result vul::CommandPool::singleTimeSubmit(const vul::Queue &queue,
     auto timelineSemaphore = std::move(expectedSemaphore.value);
     std::uint64_t waitValue = 1;
     auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue,
-                                                         vul::PipelineStageFlagBits2KHR::AllTransferBit);
+                                                         vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};

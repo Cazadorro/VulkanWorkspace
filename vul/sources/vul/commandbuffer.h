@@ -33,10 +33,10 @@ namespace vul {
 
     [[nodiscard]]
     VkMemoryBarrier2KHR
-    createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                        vul::AccessFlagBitMask srcAccessMask,
-                        vul::PipelineStageFlagBitMask dstStageMask,
-                        vul::AccessFlagBitMask dstAccessMask,
+    createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
+                        vul::Access2BitMask srcAccessMask,
+                        vul::PipelineStage2BitMask dstStageMask,
+                        vul::Access2BitMask dstAccessMask,
                         const void *pNext = nullptr);
 
     VkDependencyInfoKHR createDependencyInfo(const TempArrayProxy<VkMemoryBarrier2KHR>& memoryBarriers,

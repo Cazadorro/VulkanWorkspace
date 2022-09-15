@@ -20,14 +20,14 @@ namespace vul{
     Result copy(const Buffer& src, Buffer& dst, CommandPool& commandPool, Queue& queue,std::uint32_t srcIndex, std::uint32_t dstIndex,  VkDeviceSize offset = 0);
     Result copy(const Buffer& src, Image& dst, CommandPool& commandPool, Queue& queue,
                 vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStageFlagBitMask dstStageMask,
-                vul::AccessFlagBitMask dstAccessMask,
+                vul::PipelineStage2BitMask dstStageMask,
+                vul::Access2BitMask dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0);
     Result transition(Image& image, CommandPool& commandPool, Queue& queue,
                       vul::ImageAspectBitMask aspectMask,
-                      vul::PipelineStageFlagBitMask dstStageMask,
-                      vul::AccessFlagBitMask dstAccessMask,
+                      vul::PipelineStage2BitMask dstStageMask,
+                      vul::Access2BitMask dstAccessMask,
                       vul::ImageLayout dstLayout);
     Result transition(const VkImageMemoryBarrier2KHR& barrier, CommandPool& commandPool, Queue& queue);
 }

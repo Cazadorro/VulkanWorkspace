@@ -72,10 +72,10 @@ vul::Buffer::createDescriptorInfo(VkDeviceSize offset, VkDeviceSize range) const
 }
 
 VkBufferMemoryBarrier2KHR
-vul::Buffer::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                                 vul::AccessFlagBitMask srcAccessMask,
-                                 vul::PipelineStageFlagBitMask dstStageMask,
-                                 vul::AccessFlagBitMask dstAccessMask,
+vul::Buffer::createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
+                                 vul::Access2BitMask srcAccessMask,
+                                 vul::PipelineStage2BitMask dstStageMask,
+                                 vul::Access2BitMask dstAccessMask,
                                  VkDeviceSize offset, VkDeviceSize size,
                                  std::uint32_t srcQueueFamilyIndex,
                                  std::uint32_t dstQueueFamilyIndex,

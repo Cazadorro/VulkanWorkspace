@@ -37,32 +37,26 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
     float time;
 } ubo;
 
-
-layout(location = 0) flat out uint v_block_material_id;
-layout(location = 1) flat out uint v_block_index;
-layout(location = 2) out vec2 v_block_tex_coord;
-layout(location = 3) out vec3 v_block_world_normal;
-layout(location = 4) out vec3 v_block_world_position;
+layout(location = 0) flat out uint block_material_id;
+layout(location = 1) flat out CellIDX cell_idx;
+layout(location = 2) out vec3 block_world_position;
+layout(location = 3) out vec3 block_world_normal;
+layout(location = 4) out vec2 block_tex_coord;
 
 layout(push_constant) uniform PushConstantBlock{
-    uint64_t u_material_data_block_ptr;
-    uint32_array u_cumulaive_block_offsets;
-    uint32_array u_bitmasks_ref;
-    uint u_cumulative_block_offsets_size;
-//    uint u_rle_size;
-//    uint u_rle_padding;
-//    uint64_t u_data_block_ptr;
-//    uint32_array u_bitmask;
+    uint u_rle_size;
+    uint u_rle_padding;
+    uint64_t u_data_block_ptr;
+    uint32_array u_bitmask;
 };
 layout (constant_id = 0) const uint64_t RLE_OFFSET_BEGIN = 1024ul*1024ul*8ul;
+
 
 struct VertCoord{
     vec3 vertex;
     vec3 normal;
     vec2 tex_coord;
 };
-
-
 
 VertCoord create_cube_vertex(uint cube_vertex_index){
     uint quad_vert_idx = cube_vertex_index % 6;
@@ -115,28 +109,23 @@ VertCoord create_cube_vertex(uint cube_vertex_index){
 
 
 void main() {
-
-    uint total_rle_size = u_cumulaive_block_offsets.data[u_cumulative_block_offsets_size - 1];
+    uint32_array u_rle_materials = uint32_array(u_data_block_ptr);
+    uint16_array u_rle_offsets = uint16_array(u_data_block_ptr + RLE_OFFSET_BEGIN);
     uint rle_by_rounds_idx = gl_VertexIndex / 36;
     //a "round" is a full processing of the whole rle for the next "box"
-    uint rle_round_idx = rle_by_rounds_idx / total_rle_size;
-    uint global_rle_idx = rle_by_rounds_idx % total_rle_size;
-    uint block_index = extract_block_index(u_cumulaive_block_offsets, u_cumulative_block_offsets_size, global_rle_idx);
-    v_block_index = block_index;
-    uint block_start_index = get_start_index_at(u_cumulaive_block_offsets, block_index);
-    uint rle_idx = global_rle_idx - block_start_index;
-    RLEData rle_data = extract_rle_data(block_index, u_cumulaive_block_offsets, u_material_data_block_ptr, u_bitmasks_ref, RLE_OFFSET_BEGIN);
-    uint material_id = rle_data.materials.data[rle_idx];
-    v_block_material_id = material_id;
+    uint rle_round_idx = rle_by_rounds_idx / u_rle_size;
+    uint rle_idx = rle_by_rounds_idx % u_rle_size;
+    uint material_id = u_rle_materials.data[rle_idx];
     if(material_id == 0u){
+        block_material_id = 33;
         //create degenerate geometry, no need to render empty sky.
         gl_Position = vec4(0.0,0.0,0.0,1.0);
         return;
     }
+    block_material_id = material_id;
 
-
-    uint16_t current_offset =  rle_data.offsets.data[rle_idx];
-    uint16_t previous_offset = (rle_idx > 0) ? rle_data.offsets.data[rle_idx - 1] : 0us;
+    uint16_t current_offset = u_rle_offsets.data[rle_idx];
+    uint16_t previous_offset = rle_idx > 0 ? u_rle_offsets.data[rle_idx - 1] : 0us;
     uvec3 offset_vec3;
     uvec3 offset_dim3;
     for(uint i = 0; i <= rle_round_idx; ++i){
@@ -174,7 +163,7 @@ void main() {
     uint cube_vertex_index = gl_VertexIndex % 36;
     VertCoord vert_coord = create_cube_vertex(cube_vertex_index);
     vec3 vertex = vert_coord.vertex;
-    v_block_tex_coord = vert_coord.tex_coord;
+    block_tex_coord = vert_coord.tex_coord;
 // halve, because vertex is between -1 and 1
     vertex += 1;
     vertex *= 0.5;
@@ -188,29 +177,29 @@ void main() {
     vertex.y *= -1.0;
     vec3 temp_normal = vert_coord.normal;
     temp_normal.y *= -1.0;
-    v_block_world_normal = temp_normal;
-    v_block_world_position = vertex;
+    block_world_normal = temp_normal;
+    block_world_position = vertex;
 
-    if(v_block_world_normal == vec3(0.0,1.0,0.0) || v_block_world_normal == vec3(0.0,-1.0,0.0)){
+    if(block_world_normal == vec3(0.0,1.0,0.0) || block_world_normal == vec3(0.0,-1.0,0.0)){
         vec2 temp_coord = vert_coord.tex_coord;
         temp_coord.x *= offset_dim3.x;
         temp_coord.y *= offset_dim3.z;
-        v_block_tex_coord = temp_coord;
+        block_tex_coord = temp_coord;
     }
-    else if(v_block_world_normal == vec3(1.0,0.0,0.0) || v_block_world_normal == vec3(-1.0,0.0,0.0)){
+    else if(block_world_normal == vec3(1.0,0.0,0.0) || block_world_normal == vec3(-1.0,0.0,0.0)){
         vec2 temp_coord = vert_coord.tex_coord;
         temp_coord.x *= offset_dim3.z;
         temp_coord.y *= offset_dim3.y;
-        v_block_tex_coord = temp_coord;
+        block_tex_coord = temp_coord;
     }
-    else if(v_block_world_normal == vec3(0.0,0.0,1.0) || v_block_world_normal == vec3(0.0,0.0,-1.0)){
+    else if(block_world_normal == vec3(0.0,0.0,1.0) || block_world_normal == vec3(0.0,0.0,-1.0)){
         vec2 temp_coord = vert_coord.tex_coord;
         temp_coord.x *= offset_dim3.x;
         temp_coord.y *= offset_dim3.y;
-        v_block_tex_coord = temp_coord;
+        block_tex_coord = temp_coord;
     }
 
-
+    cell_idx = CellIDX(0,0,0,rle_idx);
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(vertex, 1.0);
 
 }

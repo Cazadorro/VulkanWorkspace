@@ -49,7 +49,7 @@ vul::EnumInfo::append(const pugi::xml_node& child_node,  const std::string_view&
         m_already_set.insert(child_vk_name.string());
     }
     auto child_alias_string = child_node.attribute("alias").as_string();
-    std::size_t prefix_count = vk_name_info.prefix_count();
+    std::size_t prefix_count = vk_name_info.prefix_count() + (vk_name_info.get_suffix_number().empty() ? 0 : 1);
     if (removes_prefix) {
         prefix_count += raw_name.element_count();
         if (type == EnumType::Bitmask) {

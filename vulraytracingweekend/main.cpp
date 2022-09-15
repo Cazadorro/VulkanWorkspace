@@ -621,8 +621,8 @@ int main() {
             vul::transition(raytracedImages.back(), commandPool,
                             presentationQueue,
                             vul::ImageAspectFlagBits::ColorBit,
-                            vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                            vul::AccessFlagBits2KHR::ShaderWriteBit,
+                            vul::PipelineStageFlagBits2::AllCommandsBit,
+                            vul::AccessFlagBits2::ShaderWriteBit,
                             vul::ImageLayout::General);
             raytracedImagesViews.push_back(
                     raytracedImages.back().createImageView(
@@ -1111,13 +1111,13 @@ int main() {
                         vul::PipelineBindPoint::Compute, raytracePipelineLayout,
                         raytraceDescriptorSet);
                 auto computeComputeBarrier = vul::createMemoryBarrier(
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit |
-                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit |
-                        vul::AccessFlagBits2KHR::ShaderReadBit,
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit |
-                        vul::AccessFlagBits2KHR::ShaderReadBit);
+                        vul::PipelineStageFlagBits2::ComputeShaderBit |
+                        vul::PipelineStageFlagBits2::FragmentShaderBit,
+                        vul::AccessFlagBits2::ShaderWriteBit |
+                        vul::AccessFlagBits2::ShaderReadBit,
+                        vul::PipelineStageFlagBits2::ComputeShaderBit,
+                        vul::AccessFlagBits2::ShaderWriteBit |
+                        vul::AccessFlagBits2::ShaderReadBit);
                 auto computeComputeDepInfo = vul::createDependencyInfo(
                         computeComputeBarrier, {}, {});
                 {
@@ -1132,10 +1132,10 @@ int main() {
 
                 }
                 auto computeGraphicsBarrier = vul::createMemoryBarrier(
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit,
-                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderReadBit);
+                        vul::PipelineStageFlagBits2::ComputeShaderBit,
+                        vul::AccessFlagBits2::ShaderWriteBit,
+                        vul::PipelineStageFlagBits2::FragmentShaderBit,
+                        vul::AccessFlagBits2::ShaderReadBit);
                 auto dependencyInfo = vul::createDependencyInfo(
                         computeGraphicsBarrier, {}, {});
                 commandBuffer.pipelineBarrier(dependencyInfo);
@@ -1175,13 +1175,13 @@ int main() {
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
+                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit);
         std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
         signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
                 frameCounters[currentFrameIndex],
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
 

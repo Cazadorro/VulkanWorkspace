@@ -83,6 +83,7 @@ int main() {
     std::vector<std::string> accepted_feature_types = {
             "VkPhysicalDeviceVulkan11Features",
             "VkPhysicalDeviceVulkan12Features",
+            "VkPhysicalDeviceVulkan13Features",
             "VkPhysicalDeviceShaderAtomicFloatFeaturesEXT",
             "VkPhysicalDeviceSynchronization2FeaturesKHR"
     };
@@ -128,6 +129,9 @@ int main() {
 
     for (pugi::xml_node enums: root.children("enums")) {
         std::string name = enums.attribute("name").as_string();
+        if(name == "VkAccessFlagBits2"){
+            std::cout << name << std::endl;
+        }
         if (name == "API Constants") {
             continue;
         }

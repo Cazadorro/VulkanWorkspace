@@ -118,10 +118,10 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                            vul::AccessFlagBitMask srcAccessMask,
-                            vul::PipelineStageFlagBitMask dstStageMask,
-                            vul::AccessFlagBitMask dstAccessMask,
+        createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
+                            vul::Access2BitMask srcAccessMask,
+                            vul::PipelineStage2BitMask dstStageMask,
+                            vul::Access2BitMask dstAccessMask,
                             vul::ImageLayout oldLayout,
                             vul::ImageLayout newLayout,
                             const ImageSubresourceRange &subresourceRange,
@@ -130,8 +130,8 @@ namespace vul {
                             const void *pNext = nullptr) const;
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createToTransferBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                                vul::AccessFlagBitMask srcAccessMask,
+        createToTransferBarrier(vul::PipelineStage2BitMask srcStageMask,
+                                vul::Access2BitMask srcAccessMask,
                                 const ImageSubresourceRange &subresourceRange,
                                 vul::ImageLayout oldLayout = vul::ImageLayout::Undefined,
                                 std::uint32_t srcQueueFamilyIndex = 0,
@@ -139,8 +139,8 @@ namespace vul {
                                 const void *pNext = nullptr) const;
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createFromnTransferBarrier(vul::PipelineStageFlagBitMask dstStageMask,
-                                   vul::AccessFlagBitMask dstAccessMask,
+        createFromnTransferBarrier(vul::PipelineStage2BitMask dstStageMask,
+                                   vul::Access2BitMask dstAccessMask,
                                    vul::ImageLayout newLayout,
                                    const ImageSubresourceRange &subresourceRange,
                                    std::uint32_t srcQueueFamilyIndex = 0,
@@ -149,8 +149,8 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createTransitionBarrier( vul::PipelineStageFlagBitMask dstStageMask,
-                                 vul::AccessFlagBitMask dstAccessMask,
+        createTransitionBarrier( vul::PipelineStage2BitMask dstStageMask,
+                                 vul::Access2BitMask dstAccessMask,
                                  vul::ImageLayout newLayout,
                                  const ImageSubresourceRange &subresourceRange,
                                  std::uint32_t srcQueueFamilyIndex = 0,

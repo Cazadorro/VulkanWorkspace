@@ -264,9 +264,9 @@ namespace vul {
         SubpassNode& setDependsWriteAfterWrite(const std::initializer_list<const std::uint32_t>& subpassIndices);
 
 
-        //TODO PipelineStageFlagBitMask should be PipelineStageBitMask2 or something, conflicts with
+        //TODO PipelineStage2BitMask should be PipelineStageBitMask2 or something, conflicts with
         // PipelineStageBitMask
-        //TODO same with AccessFlagBitMask AccessBitMask
+        //TODO same with Access2BitMask AccessBitMask
         //set subpass depend on external
         SubpassNode& setPreDependExternal(vul::PipelineStageBitMask srcStageMask,
                                     vul::PipelineStageBitMask dstStageMask,

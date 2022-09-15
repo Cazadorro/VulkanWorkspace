@@ -205,10 +205,10 @@ vul::Image::createImageView(vul::ImageViewType viewType,
 
 
 VkImageMemoryBarrier2KHR
-vul::Image::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                                vul::AccessFlagBitMask srcAccessMask,
-                                vul::PipelineStageFlagBitMask dstStageMask,
-                                vul::AccessFlagBitMask dstAccessMask,
+vul::Image::createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
+                                vul::Access2BitMask srcAccessMask,
+                                vul::PipelineStage2BitMask dstStageMask,
+                                vul::Access2BitMask dstAccessMask,
                                 vul::ImageLayout oldLayout,
                                 vul::ImageLayout newLayout,
                                 const vul::ImageSubresourceRange &subresourceRange,
@@ -232,16 +232,16 @@ vul::Image::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
 }
 
 VkImageMemoryBarrier2KHR
-vul::Image::createToTransferBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                                    vul::AccessFlagBitMask srcAccessMask,
+vul::Image::createToTransferBarrier(vul::PipelineStage2BitMask srcStageMask,
+                                    vul::Access2BitMask srcAccessMask,
                                     const vul::ImageSubresourceRange &subresourceRange,
                                     vul::ImageLayout oldLayout,
                                     std::uint32_t srcQueueFamilyIndex,
                                     std::uint32_t dstQueueFamilyIndex,
                                     const void *pNext) const {
     return createMemoryBarrier(srcStageMask, srcAccessMask,
-                                   vul::PipelineStageFlagBits2KHR::TransferBit,
-                                   vul::AccessFlagBits2KHR::TransferWriteBit,
+                                   vul::PipelineStageFlagBits2::TransferBit,
+                                   vul::AccessFlagBits2::TransferWriteBit,
                                    oldLayout,
                                    vul::ImageLayout::TransferDstOptimal,
                                    subresourceRange,
@@ -251,12 +251,12 @@ vul::Image::createToTransferBarrier(vul::PipelineStageFlagBitMask srcStageMask,
 }
 
 VkImageMemoryBarrier2KHR vul::Image::createFromnTransferBarrier(
-        vul::PipelineStageFlagBitMask dstStageMask,
-        vul::AccessFlagBitMask dstAccessMask, vul::ImageLayout newLayout,
+        vul::PipelineStage2BitMask dstStageMask,
+        vul::Access2BitMask dstAccessMask, vul::ImageLayout newLayout,
         const vul::ImageSubresourceRange &subresourceRange,
         std::uint32_t srcQueueFamilyIndex, std::uint32_t dstQueueFamilyIndex,
         const void *pNext) const {
-    return createMemoryBarrier(vul::PipelineStageFlagBits2KHR::TransferBit, vul::AccessFlagBits2KHR::TransferWriteBit,
+    return createMemoryBarrier(vul::PipelineStageFlagBits2::TransferBit, vul::AccessFlagBits2::TransferWriteBit,
                                dstStageMask,
                                dstAccessMask,
                                vul::ImageLayout::TransferDstOptimal,
@@ -292,14 +292,14 @@ void vul::Image::invalidate(VkDeviceSize offset, VkDeviceSize size) {
 }
 
 VkImageMemoryBarrier2KHR
-vul::Image::createTransitionBarrier(vul::PipelineStageFlagBitMask dstStageMask,
-        vul::AccessFlagBitMask dstAccessMask,
+vul::Image::createTransitionBarrier(vul::PipelineStage2BitMask dstStageMask,
+        vul::Access2BitMask dstAccessMask,
                                     vul::ImageLayout newLayout,
                                     const vul::ImageSubresourceRange &subresourceRange,
                                     std::uint32_t srcQueueFamilyIndex,
                                     std::uint32_t dstQueueFamilyIndex,
                                     const void *pNext) {
-    return createMemoryBarrier(PipelineStageFlagBits2KHR::TopOfPipeBit,
+    return createMemoryBarrier(PipelineStageFlagBits2::TopOfPipeBit,
                         {}, dstStageMask, dstAccessMask, ImageLayout::Undefined, newLayout, subresourceRange, srcQueueFamilyIndex, dstQueueFamilyIndex, pNext);
 }
 

@@ -30,6 +30,16 @@ vul::VkEnumNameInfo::VkEnumNameInfo(const vul::UpperCamelCaseStr &enum_name,
             m_number = second_to_last_section;
         }
     }
+    bool back_is_number = false;
+    try{
+        auto number = std::stoi(sections.back());
+        back_is_number =true;
+    }catch(std::exception&e){
+        back_is_number = false;
+    }
+    if(back_is_number){
+        m_suffix_number = sections.back();
+    }
 }
 
 std::string vul::VkEnumNameInfo::get_prefix() const {
@@ -104,6 +114,10 @@ vul::UpperCamelCaseStr vul::VkEnumNameInfo::extract_name(
         name += vul::UpperCamelCaseStr(sections[i]);
     }
     return name;
+}
+
+std::string vul::VkEnumNameInfo::get_suffix_number() const {
+    return m_suffix_number;
 }
 
 std::string vul::vk_value_name(const std::string_view &string) {

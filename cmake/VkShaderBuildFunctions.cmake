@@ -29,7 +29,7 @@ function(target_shader_postbuild SHADER_TARGET)
 
                 COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADER_BINARY_DIRECTORY}
                 #                COMMAND ${GLSL_VALIDATOR} -V ${SHADER_SOURCE_FILEPATH_ABS} -o ${SHADER_BINARY_FILEPATH}
-                COMMAND ${GLSLC} -MD -MF ${SHADER_DEPFILE_FILEPATH} -O ${SHADER_SOURCE_FILEPATH_ABS} -o ${SHADER_FINAL_BINARY_FILEPATH} --target-env=vulkan1.2 -I ${CMAKE_SOURCE_DIR}/shaderutils
+                COMMAND ${GLSLC} -MD -MF ${SHADER_DEPFILE_FILEPATH} -O ${SHADER_SOURCE_FILEPATH_ABS} -o ${SHADER_FINAL_BINARY_FILEPATH} --target-env=vulkan1.3 -I ${CMAKE_SOURCE_DIR}/shaderutils
 #                COMMAND ${SPIRV_OPT} -O ${SHADER_BINARY_FILEPATH} -o ${SHADER_FINAL_BINARY_FILEPATH}  --skip-validation
                 DEPENDS ${SHADER_SOURCE_FILEPATH_ABS}
                 DEPFILE  ${SHADER_DEPFILE_FILEPATH}

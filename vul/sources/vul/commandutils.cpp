@@ -29,7 +29,7 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
     auto timelineSemaphore = std::move(expectedSemaphore.value);
 
     std::uint64_t waitValue = 1;
-    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2KHR::AllTransferBit);
+    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
@@ -56,10 +56,10 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
     commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
     commandBuffer.copyBuffer(src, dst, offset);
-    auto memoryBarrier = dst.createMemoryBarrier(vul::PipelineStageFlagBits2KHR::TransferBit,
-                            vul::AccessFlagBits2KHR::MemoryWriteBit,
-                            vul::PipelineStageFlagBits2KHR::AllTransferBit,
-                            vul::AccessFlagBits2KHR::None,
+    auto memoryBarrier = dst.createMemoryBarrier(vul::PipelineStageFlagBits2::TransferBit,
+                            vul::AccessFlagBits2::MemoryWriteBit,
+                            vul::PipelineStageFlagBits2::AllTransferBit,
+                            vul::AccessFlagBits2::None,
                             0, VK_WHOLE_SIZE, srcIndex, dstIndex);
 
     {
@@ -84,7 +84,7 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
     auto timelineSemaphore = std::move(expectedSemaphore.value);
 
     std::uint64_t waitValue = 1;
-    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2KHR::AllTransferBit);
+    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
@@ -107,15 +107,15 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
 
 vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Queue &queue,
                       vul::ImageAspectBitMask aspectMask,
-                      vul::PipelineStageFlagBitMask dstStageMask,
-                      vul::AccessFlagBitMask dstAccessMask,
+                      vul::PipelineStage2BitMask dstStageMask,
+                      vul::Access2BitMask dstAccessMask,
                       vul::ImageLayout dstLayout,
                       std::uint32_t mipLevel) {
 
 
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
-    auto toTransferBarrier = dst.createToTransferBarrier(vul::PipelineStageFlagBits2KHR::None,
-                                                         vul::AccessFlagBits2KHR::None,
+    auto toTransferBarrier = dst.createToTransferBarrier(vul::PipelineStageFlagBits2::None,
+                                                         vul::AccessFlagBits2::None,
                                                          vul::ImageSubresourceRange(aspectMask));
     auto fromTransferBarrier = dst.createFromnTransferBarrier(dstStageMask,
                                                               dstAccessMask,
@@ -158,7 +158,7 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
     auto timelineSemaphore = std::move(expectedSemaphore.value);
 
     std::uint64_t waitValue = 1;
-    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2KHR::AllTransferBit);
+    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
@@ -203,7 +203,7 @@ vul::Result transition(const VkImageMemoryBarrier2KHR& barrier, vul::CommandPool
     auto timelineSemaphore = std::move(expectedSemaphore.value);
 
     std::uint64_t waitValue = 1;
-    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2KHR::BottomOfPipeBit);
+    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::BottomOfPipeBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};
@@ -226,8 +226,8 @@ vul::Result transition(const VkImageMemoryBarrier2KHR& barrier, vul::CommandPool
 
 vul::Result vul::transition(vul::Image &image, vul::CommandPool &commandPool, vul::Queue &queue,
                        vul::ImageAspectBitMask aspectMask,
-                       vul::PipelineStageFlagBitMask dstStageMask,
-                       vul::AccessFlagBitMask dstAccessMask,
+                       vul::PipelineStage2BitMask dstStageMask,
+                       vul::Access2BitMask dstAccessMask,
                        vul::ImageLayout dstLayout) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
 
@@ -256,7 +256,7 @@ vul::Result vul::transition(vul::Image &image, vul::CommandPool &commandPool, vu
     auto timelineSemaphore = std::move(expectedSemaphore.value);
 
     std::uint64_t waitValue = 1;
-    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2KHR::AllTransferBit);
+    auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
     VkSubmitInfo2KHR submitInfo = {};

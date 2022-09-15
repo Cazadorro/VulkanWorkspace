@@ -41,7 +41,7 @@ namespace vul {
         Result setObjectName(const std::string &string);
         [[nodiscard]]
         VkSemaphoreSubmitInfoKHR createSubmitInfo(
-                vul::PipelineStageFlagBitMask stageMask,
+                vul::PipelineStage2BitMask stageMask,
                 std::uint32_t deviceIndex = 0, const void* pNext = nullptr) const;
     private:
         const Device *m_pDevice = nullptr;
@@ -97,7 +97,7 @@ namespace vul {
 
         [[nodiscard]]
         VkSemaphoreSubmitInfoKHR createSubmitInfo(
-                std::uint64_t value, vul::PipelineStageFlagBitMask stageMask,
+                std::uint64_t value, vul::PipelineStage2BitMask stageMask,
                 std::uint32_t deviceIndex = 0, const void* pNext = nullptr) const;
 
 

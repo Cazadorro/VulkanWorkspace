@@ -270,8 +270,8 @@ vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
                                      const vul::TempConstVoidArrayProxy &array,
                                      const VkImageCreateInfo &imageInfo,
                                      vul::ImageAspectBitMask aspectMask,
-                                     vul::PipelineStageFlagBitMask dstStageMask,
-                                     vul::AccessFlagBitMask dstAccessMask,
+                                     vul::PipelineStage2BitMask dstStageMask,
+                                     vul::Access2BitMask dstAccessMask,
                                      vul::ImageLayout dstLayout,
                                      std::uint32_t mipLevel)const {
     auto expectedStageBuffer = createStagingBuffer(array);
@@ -296,8 +296,8 @@ vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
                                      const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &arrayList,
                                      const VkImageCreateInfo &imageInfo,
                                      vul::ImageAspectBitMask aspectMask,
-                                     vul::PipelineStageFlagBitMask dstStageMask,
-                                     vul::AccessFlagBitMask dstAccessMask,
+                                     vul::PipelineStage2BitMask dstStageMask,
+                                     vul::Access2BitMask dstAccessMask,
                                      vul::ImageLayout dstLayout,
                                      std::uint32_t mipLevel) const {
     auto expectedStageBuffer = createStagingBuffer(arrayList);
@@ -328,8 +328,8 @@ vul::VmaAllocator::createDeviceTexture(vul::CommandPool &commandPool,
                                        const VkImageCreateInfo &imageInfo,
                                        std::uint32_t mipLevel) const {
     return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
-                             vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                             vul::AccessFlagBits2KHR::ShaderReadBit,
+                             vul::PipelineStageFlagBits2::AllCommandsBit,
+                             vul::AccessFlagBits2::ShaderReadBit,
                              vul::ImageLayout::ShaderReadOnlyOptimal,
                              mipLevel);
 }
@@ -341,8 +341,8 @@ vul::VmaAllocator::createDeviceTexture(vul::CommandPool &commandPool,
                                        const VkImageCreateInfo &imageInfo,
                                        std::uint32_t mipLevel) const{
     return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
-                             vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                             vul::AccessFlagBits2KHR::ShaderReadBit,
+                             vul::PipelineStageFlagBits2::AllCommandsBit,
+                             vul::AccessFlagBits2::ShaderReadBit,
                              vul::ImageLayout::ShaderReadOnlyOptimal,
                              mipLevel);
 }
@@ -354,8 +354,8 @@ vul::VmaAllocator::createStorageImage(vul::CommandPool &commandPool,
                                       const VkImageCreateInfo &imageInfo,
                                       std::uint32_t mipLevel) const {
     return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
-                             vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                             vul::AccessFlagBits2KHR::ShaderReadBit | vul::AccessFlagBits2KHR::ShaderWriteBit,
+                             vul::PipelineStageFlagBits2::AllCommandsBit,
+                             vul::AccessFlagBits2::ShaderReadBit | vul::AccessFlagBits2::ShaderWriteBit,
                              vul::ImageLayout::General,
                              mipLevel);
 }

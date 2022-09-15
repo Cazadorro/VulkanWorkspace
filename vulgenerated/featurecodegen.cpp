@@ -124,12 +124,20 @@ vul::CodeGen vul::generate_feature_struct_code(
     std::string constructor_definitions = fmt::format(
             "{0}void**prev_pNext = &(physicalDeviceFeatures2.pNext);\n",
             indent);
+    std::string linkAllPNext_definitions = fmt::format(
+            "{0}void**prev_pNext = &(physicalDeviceFeatures2.pNext);\n",
+            indent);
+    std::string copy_constructor_body = fmt::format("{0}physicalDeviceFeatures2 = rhs.physicalDeviceFeatures2;\n",indent);
+    std::string move_constructor_body;
+    std::string copy_assignment_operator_body;
+    std::string move_assignment_operator_body;
     std::string feature_match_definition = fmt::format(
             "bool {0}::matches(const {0}::Features& lhs, const {0}::Features& rhs){{\n",
             namespace_str);
     feature_match_definition += fmt::format(
             "{0}return matches(lhs.{1}, rhs.{1})", indent, "getPhysicalDeviceFeatures()");
     std::unordered_map<std::string, std::string> previous_non_version_feature_struct;
+
     for (const auto &feature_info : feature_infos) {
         auto feature_type_name = feature_info.get_name();
         auto feature_value_name = vk_value_name(feature_type_name);
@@ -137,6 +145,7 @@ vul::CodeGen vul::generate_feature_struct_code(
         auto platform_itr = type_platform_define_map.find(feature_type_name);
         if (platform_itr != type_platform_define_map.end()) {
             constructor_definitions += start_define(platform_itr->second);
+            linkAllPNext_definitions += start_define(platform_itr->second);
             feature_match_definition +=
                     "\n" + start_define(platform_itr->second);
             match_definitions += start_define(platform_itr->second);
@@ -149,6 +158,15 @@ vul::CodeGen vul::generate_feature_struct_code(
                                                feature_value_name);
         constructor_definitions += fmt::format(
                 "{0}prev_pNext = &({1}.pNext);\n", indent, feature_value_name);
+
+        linkAllPNext_definitions += fmt::format("{0}*prev_pNext = &{1};\n",
+                                                indent,
+                                                feature_value_name);
+        linkAllPNext_definitions += fmt::format(
+                "{0}prev_pNext = &({1}.pNext);\n", indent, feature_value_name);
+
+        copy_constructor_body += fmt::format("{0}{1} = rhs.{1};\n", indent, feature_value_name);
+
         match_definitions += generate_member_compare(feature_info, indent,
                                                      namespace_str);
         feature_match_definition += fmt::format(
@@ -156,14 +174,21 @@ vul::CodeGen vul::generate_feature_struct_code(
                 feature_value_name);
         if (platform_itr != type_platform_define_map.end()) {
             constructor_definitions += end_define(platform_itr->second);
+            linkAllPNext_definitions += end_define(platform_itr->second);
             feature_match_definition += "\n" + end_define(platform_itr->second);
             match_definitions += end_define(platform_itr->second);
         }
     }
+
     feature_match_definition += fmt::format(";\n"
                                             "}}\n");
     constructor_definitions += fmt::format("{0}*prev_pNext = {1};\n", indent,
                                            "nullptr");
+    linkAllPNext_definitions += fmt::format("{0}*prev_pNext = {1};\n", indent,
+                                           "nullptr");
+    copy_constructor_body += fmt::format("{0}linkAllPNext();\n", indent);
+    copy_assignment_operator_body = copy_constructor_body;
+    copy_assignment_operator_body += fmt::format("{0}return *this;\n",indent);
     std::string definition = fmt::format(
             "{1}::Features::Features(){{\n"
             "{0}physicalDeviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;\n"
@@ -173,6 +198,43 @@ vul::CodeGen vul::generate_feature_struct_code(
             indent,
             namespace_str,
             constructor_definitions);
+
+    definition += fmt::format(
+            "void {1}::Features::linkAllPNext(){{\n"
+            "{2}"
+            "}}\n",
+            indent,
+            namespace_str,
+            linkAllPNext_definitions);
+
+    definition += fmt::format(
+            "{0}::Features::Features(const {0}::Features &rhs){{\n"
+            "{1}"
+            "}}\n",
+            namespace_str,
+            copy_constructor_body);
+
+    definition += fmt::format(
+            "{0}::Features::Features({0}::Features &&rhs) noexcept{{\n"
+            "{1}"
+            "}}\n",
+            namespace_str,
+            copy_constructor_body);
+
+    definition += fmt::format(
+            "{0}::Features &{0}::Features::operator=(const {0}::Features &rhs) {{\n"
+            "{1}"
+            "}}\n",
+            namespace_str,
+            copy_assignment_operator_body);
+
+    definition += fmt::format(
+            "{0}::Features &{0}::Features::operator=({0}::Features &&rhs) noexcept{{\n"
+            "{1}"
+            "}}\n",
+            namespace_str,
+            copy_assignment_operator_body);
+
 
     definition += fmt::format(
             "{1}::Features::Features(VkPhysicalDevice physicalDevice) : vul::Features() {{\n"
@@ -235,63 +297,11 @@ vul::CodeGen vul::generate_feature_struct_code(
             "{0}features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;\n"
             "{0}features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;\n"
             "\n"
-            "{0}features.physicalDeviceSynchronization2FeaturesKHR.synchronization2 = VK_TRUE;\n"
+            "{0}features.physicalDeviceVulkan13Features.synchronization2 = VK_TRUE;\n"
+            "{0}features.physicalDeviceVulkan13Features.maintenance4 = VK_TRUE;\n"
             "{0}return features;\n"
             "}}\n"
-            "{1}::Features::Features(const {1}::Features &rhs) {{\n"
-            "{0}physicalDeviceFeatures2 = rhs.physicalDeviceFeatures2;\n"
-            "{0}physicalDeviceShaderAtomicFloatFeaturesEXT = rhs.physicalDeviceShaderAtomicFloatFeaturesEXT;\n"
-            "{0}physicalDeviceVulkan11Features = rhs.physicalDeviceVulkan11Features;\n"
-            "{0}physicalDeviceVulkan12Features = rhs.physicalDeviceVulkan12Features;\n"
-            "{0}physicalDeviceSynchronization2FeaturesKHR = rhs.physicalDeviceSynchronization2FeaturesKHR;\n"
-            "{0}linkAllPNext();\n"
-            "}}\n"
-            "\n"
-            "{1}::Features::Features({1}::Features &&rhs) noexcept {{\n"
-            "{0}physicalDeviceFeatures2 = rhs.physicalDeviceFeatures2;\n"
-            "{0}physicalDeviceShaderAtomicFloatFeaturesEXT = rhs.physicalDeviceShaderAtomicFloatFeaturesEXT;\n"
-            "{0}physicalDeviceVulkan11Features = rhs.physicalDeviceVulkan11Features;\n"
-            "{0}physicalDeviceVulkan12Features = rhs.physicalDeviceVulkan12Features;\n"
-            "{0}physicalDeviceSynchronization2FeaturesKHR = rhs.physicalDeviceSynchronization2FeaturesKHR;\n"
-            "{0}linkAllPNext();\n"
-            "}}\n"
-            "\n"
-            "{1}::Features &{1}::Features::operator=(const {1}::Features &rhs) {{\n"
-            "{0}physicalDeviceFeatures2 = rhs.physicalDeviceFeatures2;\n"
-            "{0}physicalDeviceShaderAtomicFloatFeaturesEXT = rhs.physicalDeviceShaderAtomicFloatFeaturesEXT;\n"
-            "{0}physicalDeviceVulkan11Features = rhs.physicalDeviceVulkan11Features;\n"
-            "{0}physicalDeviceVulkan12Features = rhs.physicalDeviceVulkan12Features;\n"
-            "{0}physicalDeviceSynchronization2FeaturesKHR = rhs.physicalDeviceSynchronization2FeaturesKHR;\n"
-            "{0}linkAllPNext();\n"
-            "{0}return *this;\n"
-            "}}\n"
-            "\n"
-            "{1}::Features &{1}::Features::operator=({1}::Features &&rhs) noexcept{{\n"
-            "{0}physicalDeviceFeatures2 = rhs.physicalDeviceFeatures2;\n"
-            "{0}physicalDeviceShaderAtomicFloatFeaturesEXT = rhs.physicalDeviceShaderAtomicFloatFeaturesEXT;\n"
-            "{0}physicalDeviceVulkan11Features = rhs.physicalDeviceVulkan11Features;\n"
-            "{0}physicalDeviceVulkan12Features = rhs.physicalDeviceVulkan12Features;\n"
-            "{0}physicalDeviceSynchronization2FeaturesKHR = rhs.physicalDeviceSynchronization2FeaturesKHR;\n"
-            "{0}linkAllPNext();\n"
-            "{0}return *this;\n"
-            "}}\n"
-            "\n"
-            "void {1}::Features::linkAllPNext() {{\n"
-            "{0}void **prev_pNext = &(physicalDeviceFeatures2.pNext);\n"
-            "{0}*prev_pNext = &physicalDeviceShaderAtomicFloatFeaturesEXT;\n"
-            "\n"
-            "{0}prev_pNext = &(physicalDeviceShaderAtomicFloatFeaturesEXT.pNext);\n"
-            "{0}*prev_pNext = &physicalDeviceVulkan11Features;\n"
-            "\n"
-            "{0}prev_pNext = &(physicalDeviceVulkan11Features.pNext);\n"
-            "{0}*prev_pNext = &physicalDeviceVulkan12Features;\n"
-            "\n"
-            "{0}prev_pNext = &(physicalDeviceVulkan12Features.pNext);\n"
-            "{0}*prev_pNext = &physicalDeviceSynchronization2FeaturesKHR;\n"
-            "\n"
-            "{0}prev_pNext = &(physicalDeviceSynchronization2FeaturesKHR.pNext);\n"
-            "{0}*prev_pNext = nullptr;\n"
-            "}}\n",
+            "\n",
             indent, namespace_str);
 
     definition += match_definitions;

@@ -146,4 +146,5 @@ target_compile_options(vul PRIVATE
         > )
 
 target_link_options (vul PRIVATE -fuse-ld=lld)
+target_compile_features(vul PUBLIC cxx_std_20)
 target_compile_definitions(vul PRIVATE $<$<CONFIG:Debug>:VUL_DEBUG> $<$<CONFIG:Release>:VUL_RELEASE>)

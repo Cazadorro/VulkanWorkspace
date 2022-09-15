@@ -792,13 +792,13 @@ int main() {
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
+                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit);
         std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
         signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
                 frameCounters[currentFrameIndex],
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
 

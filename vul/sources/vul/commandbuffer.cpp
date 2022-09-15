@@ -20,10 +20,10 @@
 #include "vul/extensionfunctions.h"
 
 VkMemoryBarrier2KHR
-vul::createMemoryBarrier(vul::PipelineStageFlagBitMask srcStageMask,
-                         vul::AccessFlagBitMask srcAccessMask,
-                         vul::PipelineStageFlagBitMask dstStageMask,
-                         vul::AccessFlagBitMask dstAccessMask,
+vul::createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
+                         vul::Access2BitMask srcAccessMask,
+                         vul::PipelineStage2BitMask dstStageMask,
+                         vul::Access2BitMask dstAccessMask,
                          const void *pNext) {
     VkMemoryBarrier2KHR barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2_KHR;

@@ -25,7 +25,7 @@
 #extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
 
 #include "bitmask.glsl"
-
+#include "chunk_render_utils.glsl"
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 model;
@@ -36,22 +36,35 @@ layout(set = 0, binding = 0) uniform UniformBufferObject {
 } ubo;
 layout(binding = 1) uniform sampler2DArray texSampler;
 
-layout(location = 0) flat in uint block_material_id;
-layout(location = 1) in vec2 block_tex_coord;
-layout(location = 2) in vec3 block_world_normal;
-layout(location = 3) in vec3 block_world_position;
+layout(location = 0) flat in uint v_block_material_id;
+layout(location = 1) flat in uint v_block_index;
+layout(location = 2) in vec2 v_block_tex_coord;
+layout(location = 3) in vec3 v_block_world_normal;
+layout(location = 4) in vec3 v_block_world_position;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) out vec4 out_color;
+//https://www.khronos.org/opengl/wiki/Early_Fragment_Test
+//layout(early_fragment_tests) in //not sure what exactly this implies?
+//https://www.khronos.org/opengl/wiki/Fragment_Shader#Conservative_Depth
+//layout (depth_<condition>) out float gl_FragDepth;
 
 layout(push_constant) uniform PushConstantBlock{
-    uint u_rle_size;
-    uint u_rle_padding;
-    uint64_t u_data_block_ptr;
-    uint32_array u_bitmask;
+    uint64_t u_material_data_block_ptr;
+    uint32_array u_cumulaive_block_offsets;
+    uint32_array u_bitmasks_ref;
+    uint u_cumulative_block_offsets_size;
+//    uint u_rle_size;
+//    uint u_rle_padding;
+//    uint64_t u_material_data_block_ptr;
+//    uint32_array u_bitmask;
 };
 layout (constant_id = 0) const uint64_t RLE_OFFSET_BEGIN = 1024ul*1024ul*8ul;
 
-bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord){
+bool get_bitmask(uint32_array bitmask, uint cell_index){
+    return get(bitmask, cell_index);
+}
+
+bool bitmask_intersect(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord){
     orig = orig.xzy;
     orig.z *= -1.0;
     dir = dir.xzy;
@@ -96,7 +109,7 @@ bool bitmask_intersect(vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_in
             return false;
         }
         uint32_t o = cell.z * resolution.x * resolution.y + cell.y * resolution.x + cell.x;
-        if (get(u_bitmask, o)) {
+        if (get_bitmask(bitmask, o)) {
             voxel_index = o;
             float t = last_t;
             orig.z *= -1.0;
@@ -156,16 +169,18 @@ vec3 get_material_color(uint material_id, vec2 tex_coord){
     return color.rgb;
 }
 
-uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, uint cell_index){
+uint16_t binary_search_known(RLEData rle_data,uint cell_index){
+
     uint low = 0u;
-    uint high = rle_offsets_size - 1u;
+    uint high = rle_data.size - 1u;
     uint mid = 0u;
+
 
     while(low <= high){
         uint mid = (high + low) / 2;
-        uint before_arr = mid > 0 ? uint(rle_offsets.data[mid - 1]) : 0;
+        uint before_arr = mid > 0 ? uint(rle_data.materials.data[mid - 1]) : 0;
         //If cell index is greater than last index in LE, ignore left half
-        if( uint(rle_offsets.data[mid]) <= cell_index){
+        if( uint(rle_data.materials.data[mid]) <= cell_index){
             low = mid + 1u;
         }
         //If x is smaller than RLE range, ignore right half
@@ -179,27 +194,33 @@ uint16_t binary_search_known(uint16_array rle_offsets, uint rle_offsets_size, ui
     }
     // We would never reach here, If we reach here, then the element was not present
 }
+uint get_material_id(RLEData rle_data, uint cell_index){
+    uint16_t material_id_index = binary_search_known(rle_data, cell_index);
+    uint material_id = rle_data.materials.data[uint(material_id_index)];
+    return material_id;
+}
 
 void main() {
-    uint32_array u_rle_materials = uint32_array(u_data_block_ptr);
-    uint16_array u_rle_offsets = uint16_array(u_data_block_ptr + RLE_OFFSET_BEGIN);
-    vec3 color = get_material_color(block_material_id, block_tex_coord);
+
+    RLEData rle_data = extract_rle_data(v_block_index, u_cumulaive_block_offsets, u_material_data_block_ptr, u_bitmasks_ref, RLE_OFFSET_BEGIN);
+
+    vec3 color = get_material_color(v_block_material_id, v_block_tex_coord);
     vec3 temp_color = color;
     color += vec3(0.001,0.001,0.001);
 
     vec3 light_dir_normal = vec3(0.0,1.0,0.0);
     vec3 light_color = vec3(1.0,1.0,1.0);
-    float diff = max(dot(block_world_normal, light_dir_normal), 0.0);
+    float diff = max(dot(v_block_world_normal, light_dir_normal), 0.0);
     vec3 ambient = color.rgb * 0.2;
     vec3 diffuse = light_color * diff * color.rgb * 0.5;
 
-    vec3 view_dir = normalize(ubo.camera_pos - block_world_position);
-    vec3 reflect_dir = reflect(-light_dir_normal, block_world_normal);
+    vec3 view_dir = normalize(ubo.camera_pos - v_block_world_position);
+    vec3 reflect_dir = reflect(-light_dir_normal, v_block_world_normal);
     float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0f);
     vec3 specular = light_color * spec * color.rgb;
 
     vec3 result = ambient + diffuse + specular;
-    vec3 ray_normal = normalize(reflect(normalize(block_world_position - ubo.camera_pos), block_world_normal));
+    vec3 ray_normal = normalize(reflect(normalize(v_block_world_position - ubo.camera_pos), v_block_world_normal));
     uint cell_position;
     vec3 hit_position;
     vec3 hit_normal;
@@ -211,34 +232,19 @@ void main() {
     //texture array for materials.
     //sample from sky if make it to sky.
     //fix the actual ray tracing?
-    vec3 ray_world_position = block_world_position;
-    vec3 ray_world_normal = block_world_normal;
+    vec3 ray_world_position = v_block_world_position;
+    vec3 ray_world_normal = v_block_world_normal;
 
     uint iteration = 0;
-    uint max_iteration = 4;
-    while(iteration < max_iteration && bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
-        uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
-        uint material_id = u_rle_materials.data[uint(material_id_index)];
-        result *= get_material_color(material_id, hit_texcoord) * 0.99;
 
+    uint max_iteration = 4;
+    while(iteration < max_iteration && bitmask_intersect(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
+        uint material_id = get_material_id(rle_data, cell_position);
+        result *= get_material_color(material_id, hit_texcoord) * 0.99;
         ray_normal = reflect(ray_normal, hit_normal);
         ray_world_position = hit_position;
         ray_world_normal = hit_normal;
         iteration += 1;
     }
-//    if(bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
-//        uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
-//        uint material_id = u_rle_materials.data[uint(material_id_index)];
-//        result *= get_material_color(material_id, hit_texcoord) * 0.9;
-//        ray_normal = reflect(ray_normal, hit_normal);
-//        ray_world_position = hit_position;
-//        ray_world_normal = hit_normal;
-//        if(bitmask_intersect(ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord)){
-//            uint16_t material_id_index = binary_search_known(u_rle_offsets, u_rle_size, cell_position);
-//            uint material_id = u_rle_materials.data[uint(material_id_index)];
-//            result *= get_material_color(material_id, hit_texcoord) * 0.8;
-//        }
-//    }
-
-    outColor = vec4(result, 1.0);
+    out_color = vec4(result, 1.0);
 }

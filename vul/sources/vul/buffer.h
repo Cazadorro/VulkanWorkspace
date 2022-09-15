@@ -60,10 +60,10 @@ namespace vul {
         [[nodiscard]]
         VkDescriptorBufferInfo createDescriptorInfo(VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE) const;
 
-        VkBufferMemoryBarrier2KHR createMemoryBarrier( vul::PipelineStageFlagBitMask srcStageMask,
-                                                       vul::AccessFlagBitMask srcAccessMask,
-                                                       vul::PipelineStageFlagBitMask dstStageMask,
-                                                       vul::AccessFlagBitMask dstAccessMask,
+        VkBufferMemoryBarrier2KHR createMemoryBarrier( vul::PipelineStage2BitMask srcStageMask,
+                                                       vul::Access2BitMask srcAccessMask,
+                                                       vul::PipelineStage2BitMask dstStageMask,
+                                                       vul::Access2BitMask dstAccessMask,
                                                        VkDeviceSize offset = 0,
                                                        VkDeviceSize size = VK_WHOLE_SIZE,
                                                        std::uint32_t srcQueueFamilyIndex = 0,

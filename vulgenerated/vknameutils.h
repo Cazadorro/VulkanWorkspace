@@ -20,6 +20,9 @@ namespace vul{
         std::string get_tag()const;
         [[nodiscard]]
         std::string get_number()const;
+        [[nodiscard]]
+        std::string get_suffix_number()const;
+
 
         [[nodiscard]]
         vul::UpperCamelCaseStr extract_raw_name(const vul::UpperCamelCaseStr& enum_name)const;
@@ -33,6 +36,7 @@ namespace vul{
         std::string m_prefix;
         std::string m_tag;
         std::string m_number;
+        std::string m_suffix_number;
     };
     [[nodiscard]]
     std::string vk_value_name(const std::string_view& string);

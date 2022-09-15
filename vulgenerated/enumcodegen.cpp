@@ -239,6 +239,9 @@ vul::CodeGen vul::generate_bitmask_wrapper(const vul::EnumInfo &info,
                                            const std::string_view &namespace_str,
                                            const std::string_view &indent) {
     std::string bitmask_name = std::string(info.name.strip_elements(0, 2).string());
+    if(!(info.vk_name_info.get_suffix_number().empty())){
+        bitmask_name += info.vk_name_info.get_suffix_number();
+    }
     std::string declaration = fmt::format("{2}class {0}BitMask {{\n"
                 "{2}public:\n"
                 "{2}{2}using UnderlyingType = std::underlying_type_t<{1}>;\n"
@@ -459,6 +462,8 @@ vul::CodeGen vul::generate_bitmask_wrapper(const vul::EnumInfo &info,
 std::string vul::generate_bitmask_forward(const vul::EnumInfo &info,
                                           const std::string_view &indent) {
     std::string bitmask_name = std::string(info.name.strip_elements(0, 2).string());
-
+    if(!(info.vk_name_info.get_suffix_number().empty())){
+        bitmask_name += info.vk_name_info.get_suffix_number();
+    }
     return fmt::format("{1}class {0}BitMask;\n", bitmask_name, indent);
 }

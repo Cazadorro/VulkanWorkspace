@@ -117,8 +117,8 @@ namespace vul {
                 const TempConstVoidArrayProxy &array,
                 const VkImageCreateInfo &imageInfo,
                 vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStageFlagBitMask dstStageMask,
-                vul::AccessFlagBitMask dstAccessMask,
+                vul::PipelineStage2BitMask dstStageMask,
+                vul::Access2BitMask dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0)const;
 
@@ -128,8 +128,8 @@ namespace vul {
                 const TempArrayProxy<TempConstVoidArrayProxy> &arrayList,
                 const VkImageCreateInfo &imageInfo,
                 vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStageFlagBitMask dstStageMask,
-                vul::AccessFlagBitMask dstAccessMask,
+                vul::PipelineStage2BitMask dstStageMask,
+                vul::Access2BitMask dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0) const;
 

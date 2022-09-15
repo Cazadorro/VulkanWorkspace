@@ -70,12 +70,6 @@
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
 
-struct Vertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-    glm::vec2 texCoord;
-};
-
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
@@ -85,25 +79,13 @@ struct UniformBufferObject {
 };
 static_assert(sizeof(UniformBufferObject) == 16 * 4 * 3 + 16);
 
-const std::vector<Vertex> vertices = {
-        {{-0.5f, 0.0f,  -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  0.0f,  -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  0.0f,  0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.0f,  0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-
-        {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f,  -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f,  -0.5f, 0.5f},  {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, -0.5f, 0.5f},  {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+struct alignas(8) RunLengthEncodingPushConstant {
+    std::uint64_t u_material_data_block_ptr;
+    std::uint64_t u_cumulaive_block_offsets;
+    std::uint64_t u_bitmasks_ref;
+    std::uint32_t u_cumulative_block_offsets_size;
 };
-
-
-const std::vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-};
-
-
+static_assert(sizeof(RunLengthEncodingPushConstant) == 32);
 
 int main() {
 
@@ -131,7 +113,7 @@ int main() {
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "No Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_2;
+    appInfo.apiVersion = VK_API_VERSION_1_3;
     vul::Instance instance = vul::Instance::withDebugCallback(
             appInfo, vul::Instance::validationLayers,
             instanceExtensions).assertValue();
@@ -352,13 +334,22 @@ int main() {
 
 
     auto chunk_rle = vul::ChunkRLE::from_linear(std::span<std::uint32_t,vul::chunk_consts::chunk_size>(chunk_data));
+    std::vector<std::uint32_t> cumulative_rle_sizes = {chunk_rle.size()};
+    auto device_cumulative_rle_sizes =  allocator.createDeviceBuffer(commandPool,
+                                                                     presentationQueue,
+                                                                     cumulative_rle_sizes,
+                                                                     vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+//    allocator.createDeviceBuffer(
+//            commandPool,
+//            presentationQueue,
+//            kdtree.get_aabb(),
+//            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
     auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
                                                            presentationQueue,
-                                                           vul::TempArrayProxy(
-                                                                   bitmask.size(),
-                                                                   bitmask.data()),
+                                                           bitmask,
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
 
 
 
@@ -367,6 +358,9 @@ int main() {
     auto rle_staging_offsets = allocator.createStagingBuffer(vul::TempArrayProxy(chunk_rle.get_offsets())).assertValue();
     auto data_chunk_block_size_bytes = 1024*1024*12;
     auto data_chunk_block_rle_offset_begin = 1024*1024*8;
+
+
+
     auto rle_data_buffer = allocator.createDeviceBuffer(data_chunk_block_size_bytes,
                                                         vul::BufferUsageFlagBits::ShaderDeviceAddressBit
                                                         | vul::BufferUsageFlagBits::TransferDstBit).assertValue();
@@ -382,19 +376,13 @@ int main() {
 
 
     vul::GraphicsPipeline graphicsPipeline;
-    struct alignas(8) RunLengthEncodingPushConstant {
-        std::uint32_t size;
-        std::uint32_t padding;
-        std::uint64_t data_block_address;
-        std::uint64_t bitmask;
-    };
-    static_assert(sizeof(RunLengthEncodingPushConstant) == 24);
+
 
     RunLengthEncodingPushConstant rlePushConstant = {
-            static_cast<std::uint32_t>(chunk_rle.get_offsets().size()),
-            0u,
             rle_data_buffer.getDeviceAddress(),
-            rle_bitmask_buffer.getDeviceAddress()
+            device_cumulative_rle_sizes.getDeviceAddress(),
+            rle_bitmask_buffer.getDeviceAddress(),
+            static_cast<std::uint32_t>(cumulative_rle_sizes.size())
     };
 
     auto pipelineLayout = device.createPipelineLayout(
@@ -410,7 +398,6 @@ int main() {
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
 
 
-//    pipelineBuilder.setVertexBinding<Vertex>(0);
     pipelineBuilder.setPrimitiveStateInfo(
             vul::PrimitiveTopology::TriangleList);
     pipelineBuilder.setViewportStateFromExtent(
@@ -592,19 +579,6 @@ int main() {
 
     auto sampler = samplerBuilder.create().assertValue();
 
-
-    //TODO enable non const vector/array to convert to TempArrayProxy automatically.
-    auto vertexBuffer = allocator.createDeviceBuffer(
-            commandPool, presentationQueue,
-            vul::TempArrayProxy(vertices.size(), vertices.data()),
-            vul::BufferUsageFlagBits::TransferDstBit |
-            vul::BufferUsageFlagBits::VertexBufferBit).assertValue();
-
-    auto indexBuffer = allocator.createDeviceBuffer(
-            commandPool, presentationQueue,
-            vul::TempArrayProxy(indices.size(), indices.data()),
-            vul::BufferUsageFlagBits::TransferDstBit |
-            vul::BufferUsageFlagBits::IndexBufferBit).assertValue();
 
     std::vector<vul::Buffer> uniformBuffers;
     for (std::size_t i = 0; i < swapchainSize; ++i) {
@@ -862,9 +836,6 @@ int main() {
                         VkRect2D{{0, 0}, extent},
                         clearValues);
                 commandBuffer.bindPipeline(graphicsPipeline);
-//                commandBuffer.bindVertexBuffers(vertexBuffer, 0ull);
-//                commandBuffer.bindIndexBuffer(indexBuffer,
-//                                              vul::IndexType::Uint16);
                 commandBuffer.bindDescriptorSets(
                         vul::PipelineBindPoint::Graphics, pipelineLayout,
                         descriptorSets[swapchainImageIndex]);
@@ -875,7 +846,7 @@ int main() {
                                             vul::ShaderStageFlagBits::FragmentBit,
                                             rlePushConstant);
                 auto vertex_count =
-                        chunk_rle.get_material_ids().size() * box_vertex_count *
+                        cumulative_rle_sizes.front() * box_vertex_count *
                         vertex_split_pass_count;
                 renderPassBlock.draw(vertex_count);
             }
@@ -886,13 +857,13 @@ int main() {
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
+                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit);
         std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
         signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
                 frameCounters[currentFrameIndex],
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
         VkSubmitInfo2KHR submitInfo = {};

@@ -4,20 +4,28 @@
 
 #ifndef VULKANWORKSPACE_QUEUE_H
 #define VULKANWORKSPACE_QUEUE_H
+
 #include "vul/temparrayproxyfwd.h"
-#include<vulkan/vulkan.hpp>
-#include<vul/enumsfwd.h>
+#include <vulkan/vulkan.h>
+#include <vul/enumsfwd.h>
+#include <string>
+
 namespace vul {
     class Device;
+
     class Queue {
     public:
         Queue() = default;
-        Queue(const Device& device, VkQueue handle);
+
+        Queue(const Device &device, VkQueue handle);
+
         [[nodiscard]]
         VkQueue get() const;
+
         Result setObjectName(const std::string &string);
 
-        Result submit(const TempArrayProxy<const VkSubmitInfo2KHR>& submitInfos) const;
+        Result
+        submit(const TempArrayProxy<const VkSubmitInfo2KHR> &submitInfos) const;
 
         Queue(Queue &&rhs) noexcept = default;
 
@@ -28,6 +36,7 @@ namespace vul {
         Queue &operator=(const Queue &rhs) = delete;
 
         Result waitIdle() const;
+
     private:
         const Device *m_pDevice = nullptr;
         VkQueue m_handle = VK_NULL_HANDLE;

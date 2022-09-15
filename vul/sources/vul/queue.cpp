@@ -5,7 +5,7 @@
 #include "vul/queue.h"
 #include "vul/device.h"
 #include "vul/temparrayproxy.h"
-#include "vul/enums.h"
+//#include "vul/enums.h"
 #include "vul/extensionfunctions.h"
 
 VkQueue vul::Queue::get() const {
