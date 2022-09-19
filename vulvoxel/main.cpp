@@ -4,6 +4,7 @@
 
 #include <gul/imguirenderer.h>
 #include <gul/noise/fbm.h>
+#include <uul/bit.h>
 #include <gul/noise/opensimplex.h>
 //#include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
@@ -63,6 +64,7 @@
 #include <imgui_impl_vulkan.h>
 
 #include <vul/traitutils.h>
+#include <bitset>
 
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
@@ -636,6 +638,66 @@ int main() {
                                              0);
 
 
+    std::uint32_t bits_2 = 0x3;
+    std::uint32_t bits_3 = 0x7;
+    std::uint32_t bits_4 = 0xF;
+    std::uint32_t bits_5 = 0x1F;
+    std::uint32_t bits_6 = 0x3F;
+    std::uint32_t bits_7 = 0x7F;
+    std::uint32_t bits_8 = 0xFF;
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_2)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_2)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_2)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_2)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_2)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_3)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_3)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_3)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_3)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_3)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 2>(bits_7)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 3>(bits_7)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 4>(bits_7)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 2>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 3>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 4>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 5>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 6>(bits_4)) << '\n';
+    std::cout << "test: " << std::bitset<64>(
+            uul::bit_interlace<std::uint64_t, std::uint32_t, 21, 3>(0xFFFFu)) << '\n';
+    auto temp_interleave =(uul::bit_interlace<std::uint64_t, std::uint32_t, 21, 3>(
+            0xFF7Fu));
+    std::cout << "test: " << std::bitset<32>(
+            uul::bit_de_interlace<std::uint64_t, std::uint32_t, 21, 3>(
+                    temp_interleave)) << '\n';
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
@@ -846,7 +908,7 @@ int main() {
                                             vul::ShaderStageFlagBits::FragmentBit,
                                             rlePushConstant);
                 auto vertex_count =
-                        cumulative_rle_sizes.front() * box_vertex_count *
+                        cumulative_rle_sizes.back() * box_vertex_count *
                         vertex_split_pass_count;
                 renderPassBlock.draw(vertex_count);
             }

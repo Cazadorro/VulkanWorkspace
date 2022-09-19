@@ -1,0 +1,21 @@
+>
+and or;
+Hello
+"Hello"
+==
+!=
+10234
+0x0536
+0b11_00
+1.3242E+455
+"Hello 234234lsdfa9#Q$@^%"
+////
+/*
+
+asdfasdgagqwhou4tbh2io5ub2
+234812b45
+592
+194
+-----234
+*/
+333E+4
