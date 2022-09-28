@@ -267,7 +267,7 @@ std::span<const std::uint16_t> vul::ChunkRLE::get_offsets() const noexcept {
 std::uint16_t vul::ChunkRLE::binary_search_rle_segment(std::uint16_t linear_idx,
                                                        std::uint16_t low_idx,
                                                        std::uint16_t high_idx) const {
-    UUL_DEBUG_ASSERT(!is_empty(), "Can't search an empty array");
+    UUL_DEBUG_ASSERT(!is_empty(), "Can't search an is_empty array");
     std::uint16_t low = low_idx;
     std::uint16_t high = high_idx;
     while (low <= high) {

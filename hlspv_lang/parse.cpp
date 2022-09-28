@@ -82,28 +82,29 @@ namespace hlspv{
         }
 
     };
-    std::optional<Expression> parse_unary_operator(ParseState& parse_state){
-        if(auto unary_terminal = parse_state.consume_if_next_matches({TokenType::Minus, TokenType::Plus, TokenType::Not}); unary_terminal.has_value()){
-            return UnaryOperator{unary_terminal.value()};
-        }
-        return std::nullopt;
-    }
-    std::optional<Expression> parse_unary(ParseState& parse_state){
-        auto current_parse_state = parse_state;
-        if(auto unary_operator = parse_unary_operator(current_parse_state); unary_operator.has_value()){
-            if(auto right_side = parse_unary(current_parse_state); right_side.has_value()){
-                parse_state = current_parse_state;
-                return UnaryExpression{unary_operator.value(), right_side.value()};
-            }
-        }
-        return std::nullopt;
-    }
+//    std::optional<Expression> parse_unary_operator(ParseState& parse_state){
+//        if(auto unary_terminal = parse_state.consume_if_next_matches({TokenType::Minus, TokenType::Plus, TokenType::Not}); unary_terminal.has_value()){
+//            return UnaryOperator{unary_terminal.value()};
+//        }
+//        return std::nullopt;
+//    }
+//    std::optional<Expression> parse_unary(ParseState& parse_state){
+//        auto current_parse_state = parse_state;
+//        if(auto unary_operator = parse_unary_operator(current_parse_state); unary_operator.has_value()){
+//            if(auto right_side = parse_unary(current_parse_state); right_side.has_value()){
+//                parse_state = current_parse_state;
+//                return UnaryExpression{unary_operator.value(), right_side.value()};
+//            }
+//        }
+//        return std::nullopt;
+//    }
     ParseResult parse(std::span<const Token> tokens){
         ParseState parse_state(tokens);
 
         while(!parse_state.at_end()){
 
         }
+        return {};
     }
 
 }

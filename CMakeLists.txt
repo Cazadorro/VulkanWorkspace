@@ -47,6 +47,7 @@ add_subdirectory(external/range)
 add_subdirectory(external/vma)
 add_subdirectory(external/stb)
 add_subdirectory(external/msdfgen)
+add_subdirectory(external/expected)
 
 #add_subdirectory(external/glslang)
 

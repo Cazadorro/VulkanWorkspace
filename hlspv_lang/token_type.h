@@ -37,7 +37,6 @@ namespace hlspv{
         LessThanEquals,
 
         //Literals
-
         String,
         DecimalUnsignedLiteral,
         DecimalIntegerLiteral,

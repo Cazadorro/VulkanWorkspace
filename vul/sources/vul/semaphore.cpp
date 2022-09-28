@@ -121,7 +121,7 @@ vul::TimelineSemaphore::wait(const gsl::span<const TimelineSemaphore *const> &se
           const gsl::span<const std::uint64_t> &waitValues,
           std::uint64_t timeout_ns, SemaphoreWaitBitMask flags) {
 
-    UUL_ASSERT(!semaphores.empty(), "Semaphore array can't be empty");
+    UUL_ASSERT(!semaphores.empty(), "Semaphore array can't be is_empty");
     UUL_ASSERT(semaphores.size() == waitValues.size(), "Wait values size differs from semaphore array size");
 
     std::vector<VkSemaphore> vkSemaphores;

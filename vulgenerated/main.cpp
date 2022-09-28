@@ -263,10 +263,10 @@ int main() {
                                              namespace_str);
     std::string bitmask_source = fmt::format("#include \"{}.h\"\n", "bitmasks");
     for (auto[key, enum_info] : enum_infos) {
-        if (enum_info.get_enum_values().empty()) {
+        if (enum_info.get_enum_values().is_empty()) {
             continue;
         }
-        if (!enum_info.define_string.empty()) {
+        if (!enum_info.define_string.is_empty()) {
             auto define_str = vul::start_define(enum_info.define_string);
             enum_source += define_str;
             enum_header += define_str;
@@ -315,7 +315,7 @@ int main() {
             bitmask_source += definition;
             bitmask_forward += vul::generate_bitmask_forward(enum_info, indent);
         }
-        if (!enum_info.define_string.empty()) {
+        if (!enum_info.define_string.is_empty()) {
             auto define_str = vul::end_define(enum_info.define_string);
             enum_source += define_str;
             enum_header += define_str;
@@ -394,7 +394,7 @@ int main() {
 
     {
         for (const auto&[type_name, values]: objtypeenum_map) {
-            if (!values.platform.empty()) {
+            if (!values.platform.is_empty()) {
                 auto define_str = vul::start_define(values.platform);
                 object_type_header += define_str;
                 object_type_source += define_str;
@@ -408,7 +408,7 @@ int main() {
                                               "}}\n",
                                               indent, type_name, namespace_str,
                                               values.objtypeenum);
-            if (!values.platform.empty()) {
+            if (!values.platform.is_empty()) {
                 auto define_str = vul::end_define(values.platform);
                 object_type_header += define_str;
                 object_type_source += define_str;

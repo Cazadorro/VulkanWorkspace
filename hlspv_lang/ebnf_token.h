@@ -1,29 +1,28 @@
 //
-// Created by Shae Bolt on 9/18/2022.
+// Created by Shae Bolt on 9/26/2022.
 //
 
-#ifndef VULKANWORKSPACE_TOKEN_H
-#define VULKANWORKSPACE_TOKEN_H
-
-#include "token_type.h"
+#ifndef VULKANWORKSPACE_EBNF_TOKEN_H
+#define VULKANWORKSPACE_EBNF_TOKEN_H
+#include "ebnf_token_type.h"
 #include "lexeme_view.h"
-#include <string>
-#include <string_view>
 #include <variant>
+#include <string_view>
+#include <string>
 #include <cstdint>
 
-namespace hlspv {
-
-    using TokenLiteralVariant = std::variant<std::monostate, std::string, std::uint64_t, std::int64_t, double, bool>;
-    class Token {
+namespace hlspv{
+    //technically we could replace with std::optional, but may need numbers in future.
+    using EbnfTokenLiteralVariant = std::variant<std::monostate, std::string>;
+    class EbnfToken {
     public:
-        Token(TokenType type, LexemeView lexeme_view, TokenLiteralVariant literal, std::size_t line_number);
+        EbnfToken(EbnfTokenType type, LexemeView lexeme_view, EbnfTokenLiteralVariant literal, std::size_t line_number);
         [[nodiscard]]
         std::string lexeme() const;
         [[nodiscard]]
         hlspv::LexemeView lexeme_view() const;
         [[nodiscard]]
-        TokenType type() const;
+        EbnfTokenType type() const;
         template<typename T>
         [[nodiscard]]
         auto value() const{
@@ -41,10 +40,10 @@ namespace hlspv {
         [[nodiscard]]
         std::size_t line_number() const;
     private:
-        TokenType m_type;
+        EbnfTokenType m_type;
         LexemeView m_lexeme_view;
-        TokenLiteralVariant m_literal;
+        EbnfTokenLiteralVariant m_literal;
         std::size_t m_line_number;
     };
 }
-#endif //VULKANWORKSPACE_TOKEN_H
+#endif //VULKANWORKSPACE_EBNF_TOKEN_H

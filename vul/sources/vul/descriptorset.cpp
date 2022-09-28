@@ -12,7 +12,7 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::Sampler(
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
         UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
-                   "imageInfo.sampler must not be empty");
+                   "imageInfo.sampler must not be is_empty");
         UUL_DEBUG_WARNING(imageInfo.imageView == VK_NULL_HANDLE,
                           "imageInfo.imageView is not used in sampler descriptor write");
         UUL_DEBUG_WARNING(imageInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED,
@@ -30,11 +30,11 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::CombinedImageSampler(
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
         UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
-                   "imageInfo.sampler must not be empty");
+                   "imageInfo.sampler must not be is_empty");
         UUL_DEBUG_WARNING(imageInfo.imageView != VK_NULL_HANDLE,
-                          "imageInfo.imageView must not be empty");
+                          "imageInfo.imageView must not be is_empty");
         UUL_DEBUG_WARNING(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                          "imageInfo.imageLayout must not be empty");
+                          "imageInfo.imageLayout must not be is_empty");
     }
     WriteDescriptorSetInfo info;
     info.m_descriptorType = vul::DescriptorType::CombinedImageSampler;
@@ -50,9 +50,9 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::SampledImage(
         UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE");
         UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
-                   "imageInfo.imageView must not be empty");
+                   "imageInfo.imageView must not be is_empty");
         UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                   "imageInfo.imageLayout must not be empty");
+                   "imageInfo.imageLayout must not be is_empty");
     }
     WriteDescriptorSetInfo info;
     info.m_descriptorType = vul::DescriptorType::SampledImage;
@@ -68,9 +68,9 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::StorageImage(
         UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
         UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
-                   "imageInfo.imageView must not be empty");
+                   "imageInfo.imageView must not be is_empty");
         UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                   "imageInfo.imageLayout must not be empty");
+                   "imageInfo.imageLayout must not be is_empty");
     }
     WriteDescriptorSetInfo info;
     info.m_descriptorType = vul::DescriptorType::StorageImage;
@@ -168,9 +168,9 @@ vul::WriteDescriptorSetInfo vul::WriteDescriptorSetInfo::InputAttachment(
         UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
         UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
-                   "imageInfo.imageView must not be empty");
+                   "imageInfo.imageView must not be is_empty");
         UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                   "imageInfo.imageLayout must not be empty");
+                   "imageInfo.imageLayout must not be is_empty");
     }
     WriteDescriptorSetInfo info;
     info.m_descriptorType = vul::DescriptorType::InputAttachment;
@@ -242,7 +242,7 @@ void vul::WriteDescriptorSetInfo::setSampler(
 
     for (const auto &imageInfo :imageInfos) {
         UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
-                   "imageInfo.sampler must not be empty");
+                   "imageInfo.sampler must not be is_empty");
         UUL_DEBUG_WARNING(imageInfo.imageView == VK_NULL_HANDLE,
                           "imageInfo.imageView is not used in sampler descriptor write");
         UUL_DEBUG_WARNING(imageInfo.imageLayout == VK_IMAGE_LAYOUT_UNDEFINED,
@@ -258,11 +258,11 @@ void vul::WriteDescriptorSetInfo::setCombinedImageSampler(
         const void *pNext) {
     for (const auto &imageInfo :imageInfos) {
         UUL_ASSERT(imageInfo.sampler != VK_NULL_HANDLE,
-                   "imageInfo.sampler must not be empty");
+                   "imageInfo.sampler must not be is_empty");
         UUL_DEBUG_WARNING(imageInfo.imageView != VK_NULL_HANDLE,
-                          "imageInfo.imageView must not be empty");
+                          "imageInfo.imageView must not be is_empty");
         UUL_DEBUG_WARNING(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                          "imageInfo.imageLayout must not be empty");
+                          "imageInfo.imageLayout must not be is_empty");
     }
     UUL_ASSERT(m_descriptorType == vul::DescriptorType::CombinedImageSampler);
     m_infoVariant = imageInfos;
@@ -276,9 +276,9 @@ void vul::WriteDescriptorSetInfo::setSampledImage(
         UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE");
         UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
-                   "imageInfo.imageView must not be empty");
+                   "imageInfo.imageView must not be is_empty");
         UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                   "imageInfo.imageLayout must not be empty");
+                   "imageInfo.imageLayout must not be is_empty");
     }
     UUL_ASSERT(m_descriptorType == vul::DescriptorType::SampledImage);
     m_infoVariant = imageInfos;
@@ -292,9 +292,9 @@ void vul::WriteDescriptorSetInfo::setStorageImage(
         UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
         UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
-                   "imageInfo.imageView must not be empty");
+                   "imageInfo.imageView must not be is_empty");
         UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                   "imageInfo.imageLayout must not be empty");
+                   "imageInfo.imageLayout must not be is_empty");
     }
     UUL_ASSERT(m_descriptorType == vul::DescriptorType::StorageImage);
     m_infoVariant = imageInfos;
@@ -379,9 +379,9 @@ void vul::WriteDescriptorSetInfo::setInputAttachment(
         UUL_DEBUG_WARNING(imageInfo.sampler != VK_NULL_HANDLE,
                           "imageInfo.sampler is not used in VK_DESCRIPTOR_TYPE_STORAGE_IMAGE");
         UUL_ASSERT(imageInfo.imageView != VK_NULL_HANDLE,
-                   "imageInfo.imageView must not be empty");
+                   "imageInfo.imageView must not be is_empty");
         UUL_ASSERT(imageInfo.imageLayout != VK_IMAGE_LAYOUT_UNDEFINED,
-                   "imageInfo.imageLayout must not be empty");
+                   "imageInfo.imageLayout must not be is_empty");
     }
     UUL_ASSERT(m_descriptorType == vul::DescriptorType::InputAttachment);
     m_infoVariant = imageInfos;
@@ -422,7 +422,7 @@ vul::DescriptorSetUpdateBuilder::DescriptorSetUpdateBuilder(
 
     UUL_ASSERT(
             bindings.size() == nameBindingMap.size() || nameBindingMap.empty(),
-            "Expected name binding map size to either match bindings or be empty");
+            "Expected name binding map size to either match bindings or be is_empty");
     m_descriptorTypes.reserve(bindings.size());
     m_writeDescriptorInfos.reserve(bindings.size());
     for (const auto &binding : bindings) {
