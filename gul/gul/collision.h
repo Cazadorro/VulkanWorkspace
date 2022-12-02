@@ -9,6 +9,9 @@
 namespace gul{
 
 
+
+
+
     struct Box{
         glm::vec3 pos; //origin
         glm::vec3 dim; //half way dim.

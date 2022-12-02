@@ -1,0 +1,61 @@
+#version 450
+////https://www.khronos.org/blog/vulkan-subgroup-tutorial
+//#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup: enable
+//#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+//#extension GL_KHR_shader_subgroup_arithmetic: enable
+//#extension GL_KHR_shader_subgroup_shuffle: enable
+//#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+//#extension GL_KHR_shader_subgroup_clustered
+//#extension GL_KHR_shader_subgroup_quad
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+//#include "mathutils.glsl"
+//#include "basicreftypes.glsl"
+//#include "bitmask.glsl"
+//#include "bounds.glsl"
+#include "chunk_render_utils.glsl"
+#include "basicreftypes.glsl"
+#include "bitmask.glsl"
+#include "algorithm.glsl"
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+
+layout(push_constant) uniform PushConstantBlock{
+    uint u_block_idx;
+    uint u_padding;
+    uint32_array u_bitmask_ref;
+    uint16_array u_voxel_jfa_out;
+};
+
+void main() {
+    uvec3 tid = gl_GlobalInvocationID;
+    if(tid.x > chunk_width || tid.y > chunk_width || tid.z > chunk_width){
+        return;
+    }
+    uint linear_tid = to_voxel_idx(tid);
+    uint32_array bitmask = extract_bitmask_data(u_block_idx, u_bitmask_ref);
+    bool filled = get(bitmask, linear_tid);
+    if(filled){
+        u_voxel_jfa_out.data[linear_tid] = uint16_t(linear_tid);
+    }else{
+        u_voxel_jfa_out.data[linear_tid] = uint16_t(0xFFFF);
+    }
+
+}

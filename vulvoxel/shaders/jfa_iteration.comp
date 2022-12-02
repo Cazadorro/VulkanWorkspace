@@ -1,0 +1,100 @@
+#version 450
+////https://www.khronos.org/blog/vulkan-subgroup-tutorial
+//#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup: enable
+//#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+//#extension GL_KHR_shader_subgroup_arithmetic: enable
+//#extension GL_KHR_shader_subgroup_shuffle: enable
+//#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+//#extension GL_KHR_shader_subgroup_clustered
+//#extension GL_KHR_shader_subgroup_quad
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+//#include "mathutils.glsl"
+//#include "basicreftypes.glsl"
+//#include "bitmask.glsl"
+//#include "bounds.glsl"
+#include "chunk_render_utils.glsl"
+#include "basicreftypes.glsl"
+#include "bitmask.glsl"
+#include "algorithm.glsl"
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 8) in;
+
+const uint JUMP_STEP_X = 0;
+const uint JUMP_STEP_Y = 1;
+const uint JUMP_STEP_Z = 2;
+const uint JUMP_STEP_END = JUMP_STEP_Z;
+const uint JUMP_STEP_SIZE_LAST = 1;
+layout(push_constant) uniform PushConstantBlock{
+    uint u_jump_step_size;
+    uint u_jump_step_type;
+    uint16_array u_voxel_jfa_in;
+    uint16_array u_voxel_jfa_out;
+    uint8_array u_voxel_sdf_out;
+};
+
+uint get_jfa_value_at(ivec3 idx){
+    return (u_voxel_jfa_in.data[to_voxel_idx(wrap(idx, int(chunk_width)))]);
+}
+
+void main() {
+    uvec3 tid = gl_GlobalInvocationID;
+    if(tid.x > chunk_width || tid.y > chunk_width || tid.z > chunk_width){
+        return;
+    }
+    uint linear_tid = to_voxel_idx(tid);
+    uint seed_idx = get_jfa_value_at(ivec3(tid));
+    if(seed_idx == linear_tid){
+        return;
+    }
+    ivec3 offset_p = ivec3(tid);
+    ivec3 offset_n = ivec3(tid);
+    offset_p[u_jump_step_type] += int(u_jump_step_size);
+    offset_n[u_jump_step_type] -= int(u_jump_step_size);
+
+    uint seed_idx_p = get_jfa_value_at(offset_p);
+    uint seed_idx_n = get_jfa_value_at(offset_n);
+
+    ivec3 seed = ivec3(to_voxel_xyz(seed_idx));
+    ivec3 seed_p = ivec3(to_voxel_xyz(seed_idx_p));
+    ivec3 seed_n = ivec3(to_voxel_xyz(seed_idx_n));
+
+    ivec3[3] seed_list = ivec3[3](seed_n, seed, seed_p);
+    uint[3] seed_idx_list = uint[3](seed_idx_n, seed_idx, seed_idx_p);
+
+    ivec3 location = ivec3(tid);
+
+    uint min_dist = 0xFFFFFFFF;
+    uint min_idx;
+    for(int i = 0; i < 3; ++i){
+        if(seed_idx_list[i] < 0xFFFF){
+            uint dist = uint(min_v(abs(seed_list[i] - location)));
+            if(min_dist > dist){
+                min_dist = dist;
+                min_idx = seed_idx_list[i];
+            }
+        }
+    }
+
+    if((u_jump_step_type == JUMP_STEP_END) && (u_jump_step_size == JUMP_STEP_SIZE_LAST)){
+        u_voxel_sdf_out.data[linear_tid] = uint8_t(min_dist);
+    }else{
+        u_voxel_jfa_out.data[linear_tid] = uint16_t(min_idx);
+    }
+}

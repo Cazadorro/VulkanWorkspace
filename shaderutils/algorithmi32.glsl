@@ -212,6 +212,21 @@ i32vec4 sort_dsc(i32vec4 value){
 int32_t median(int32_t a, int32_t b, int32_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+int32_t wrap(int32_t value, int32_t max){
+    return ((value % max) + max) % max;
+}
+i32vec2 wrap(i32vec2 value, int32_t max){
+    return i32vec2(wrap(value.x, max), wrap(value.y, max));
+}
+i32vec3 wrap(i32vec3 value, int32_t max){
+    return i32vec3(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max));
+}
+i32vec4 wrap(i32vec4 value, int32_t max){
+    return i32vec4(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max), wrap(value.w, max));
+}
+
+
     //////
 
 #endif //ALGORITHMI32_GLSL

@@ -212,6 +212,19 @@ u64vec4 sort_dsc(u64vec4 value){
 uint64_t median(uint64_t a, uint64_t b, uint64_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+uint64_t wrap(uint64_t value, uint64_t max){
+    return ((value % max) + max) % max;
+}
+u64vec2 wrap(u64vec2 value, uint64_t max){
+    return u64vec2(wrap(value.x, max), wrap(value.y, max));
+}
+u64vec3 wrap(u64vec3 value, uint32_t max){
+    return u64vec3(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max));
+}
+u64vec4 wrap(u64vec4 value, uint32_t max){
+    return u64vec4(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max), wrap(value.w, max));
+}
     //////
 
     #endif //ALGORITHMU64_GLSL

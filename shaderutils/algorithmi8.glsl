@@ -212,6 +212,7 @@ i8vec4 sort_dsc(i8vec4 value){
 int8_t median(int8_t a, int8_t b, int8_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
     //////
 
 #endif //ALGORITHMI8_GLSL

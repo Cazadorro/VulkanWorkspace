@@ -19,7 +19,7 @@ add_executable(hlspv_lang
         ebnf_parse.cpp ebnf_parse.h
         ebnf_ast_printer.cpp ebnf_ast_printer.h
         ebnf_semantics.cpp ebnf_semantics.h
-        lexeme_view.cpp lexeme_view.h parse_state.h)
+        lexeme_view.cpp lexeme_view.h parse_state.h code_generation.cpp code_generation.h)
 
 target_include_directories(hlspv_lang
         PRIVATE

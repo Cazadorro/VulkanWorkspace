@@ -39,6 +39,22 @@ namespace vul {
                         vul::Access2BitMask dstAccessMask,
                         const void *pNext = nullptr);
 
+    [[nodiscard]]
+    VkMemoryBarrier2KHR createComputeBarrierRAW(vul::PipelineStage2BitMask srcStageMaskExtra = {},
+                                                vul::Access2BitMask srcAccessMaskExtra = {},
+                                                vul::PipelineStage2BitMask dstStageMaskExtra = {},
+                                                vul::Access2BitMask dstAccessMaskExtra = {});
+    [[nodiscard]]
+    VkMemoryBarrier2KHR createComputeBarrierRWARW(vul::PipelineStage2BitMask srcStageMaskExtra = {},
+                                                vul::Access2BitMask srcAccessMaskExtra = {},
+                                                vul::PipelineStage2BitMask dstStageMaskExtra = {},
+                                                vul::Access2BitMask dstAccessMaskExtra = {});
+    [[nodiscard]]
+    VkMemoryBarrier2KHR createComputeFragmentBarrierRAW(vul::PipelineStage2BitMask srcStageMaskExtra = {},
+                                                        vul::Access2BitMask srcAccessMaskExtra = {},
+                                                        vul::PipelineStage2BitMask dstStageMaskExtra = {},
+                                                        vul::Access2BitMask dstAccessMaskExtra = {});
+
     VkDependencyInfoKHR createDependencyInfo(const TempArrayProxy<VkMemoryBarrier2KHR>& memoryBarriers,
                                              const TempArrayProxy<VkBufferMemoryBarrier2KHR>& bufferMemoryBarriers,
                                              const TempArrayProxy<VkImageMemoryBarrier2KHR>& imageMemoryBarriers,

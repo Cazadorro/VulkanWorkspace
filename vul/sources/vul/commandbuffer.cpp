@@ -53,6 +53,39 @@ VkDependencyInfoKHR vul::createDependencyInfo(
     return dependencyInfo;
 }
 
+VkMemoryBarrier2KHR
+vul::createComputeBarrierRAW(vul::PipelineStage2BitMask srcStageMaskExtra,
+                             vul::Access2BitMask srcAccessMaskExtra,
+                             vul::PipelineStage2BitMask dstStageMaskExtra,
+                             vul::Access2BitMask dstAccessMaskExtra) {
+    return createMemoryBarrier(vul::PipelineStageFlagBits2::ComputeShaderBit | srcStageMaskExtra,
+                               vul::AccessFlagBits2::ShaderWriteBit | srcAccessMaskExtra,
+                               vul::PipelineStageFlagBits2::ComputeShaderBit | dstStageMaskExtra,
+                               vul::AccessFlagBits2::ShaderReadBit | dstAccessMaskExtra);
+}
+
+VkMemoryBarrier2KHR vul::createComputeFragmentBarrierRAW(
+        vul::PipelineStage2BitMask srcStageMaskExtra,
+        vul::Access2BitMask srcAccessMaskExtra,
+        vul::PipelineStage2BitMask dstStageMaskExtra,
+        vul::Access2BitMask dstAccessMaskExtra) {
+    return createMemoryBarrier(vul::PipelineStageFlagBits2::ComputeShaderBit | srcStageMaskExtra,
+                               vul::AccessFlagBits2::ShaderWriteBit | srcAccessMaskExtra,
+                               vul::PipelineStageFlagBits2::FragmentShaderBit | dstStageMaskExtra,
+                               vul::AccessFlagBits2::ShaderReadBit | dstAccessMaskExtra);
+}
+
+VkMemoryBarrier2KHR
+vul::createComputeBarrierRWARW(vul::PipelineStage2BitMask srcStageMaskExtra,
+                                vul::Access2BitMask srcAccessMaskExtra,
+                                vul::PipelineStage2BitMask dstStageMaskExtra,
+                                vul::Access2BitMask dstAccessMaskExtra) {
+    return createMemoryBarrier(vul::PipelineStageFlagBits2::ComputeShaderBit | srcStageMaskExtra,
+                               vul::AccessFlagBits2::ShaderReadBit | vul::AccessFlagBits2::ShaderWriteBit | srcAccessMaskExtra,
+                               vul::PipelineStageFlagBits2::ComputeShaderBit | dstStageMaskExtra,
+                               vul::AccessFlagBits2::ShaderReadBit | vul::AccessFlagBits2::ShaderWriteBit | dstAccessMaskExtra);
+}
+
 
 vul::CommandBuffer::CommandBuffer(const vul::CommandPool &commandPool,
                                   VkCommandBuffer handle)

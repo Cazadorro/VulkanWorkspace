@@ -212,6 +212,19 @@ i64vec4 sort_dsc(i64vec4 value){
 int64_t median(int64_t a, int64_t b, int64_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+int64_t wrap(int64_t value, int64_t max){
+    return ((value % max) + max) % max;
+}
+i64vec2 wrap(i64vec2 value, int64_t max){
+    return i64vec2(wrap(value.x, max), wrap(value.y, max));
+}
+i64vec3 wrap(i64vec3 value, int32_t max){
+    return i64vec3(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max));
+}
+i64vec4 wrap(i64vec4 value, int32_t max){
+    return i64vec4(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max), wrap(value.w, max));
+}
     //////
 
 #endif //ALGORITHMI64_GLSL

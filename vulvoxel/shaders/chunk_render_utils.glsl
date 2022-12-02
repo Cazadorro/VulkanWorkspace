@@ -10,6 +10,8 @@ const uint chunk_size = chunk_width*chunk_width*chunk_width;
 const uvec3 chunk_dim = uvec3(chunk_width,chunk_width,chunk_width);
 const uint full_chunk_bitmask_size_bytes = (chunk_size / 8);
 const uint full_chunk_bitmask_size_words = full_chunk_bitmask_size_bytes / 4;
+const uint dim_bitmask = 0x1F; //0b0001'1111
+const uint dim_bit_size = 5;
 
 const uint CUBE_FACE_BACK = 0;
 const uint CUBE_FACE_LEFT = 1;
@@ -17,6 +19,23 @@ const uint CUBE_FACE_FRONT = 2;
 const uint CUBE_FACE_RIGHT = 3;
 const uint CUBE_FACE_UP = 4;
 const uint CUBE_FACE_DOWN = 5;
+
+
+uvec3 to_voxel_xyz(uint idx){
+    uint x = (idx & dim_bitmask);
+    uint y = (idx >> dim_bit_size) & dim_bitmask;
+    uint z = (idx >> (2*dim_bit_size)) & dim_bitmask;
+    return uvec3(x,y,z);
+}
+
+uint to_voxel_idx(uvec3 idx){
+    return idx.z * chunk_width * chunk_width + idx.y * chunk_width + idx.x;
+}
+uint to_voxel_idx(ivec3 idx){
+    return idx.z * chunk_width * chunk_width + idx.y * chunk_width + idx.x;
+}
+
+
 
 struct CellIDX{
     uint16_t world_block_idx_x;
@@ -85,6 +104,10 @@ struct RLEData{
     uint size;
 };
 
+uint32_array extract_bitmask_data(uint block_idx, uint32_array bitmasks_ref){
+    return  uint32_array(uint64_t(bitmasks_ref) + full_chunk_bitmask_size_bytes * block_idx);
+}
+
 RLEData extract_rle_data(
     uint block_idx,
     uint32_array cumulative_block_offsets,
@@ -96,7 +119,7 @@ RLEData extract_rle_data(
     uint64_t offset_byte_offset = rle_data_bounds.offset * 2;
     uint32_array materials = uint32_array(uint64_t(material_data_block_ptr + material_byte_offset));
     uint16_array offsets = uint16_array(uint64_t(material_data_block_ptr + offset_byte_offset + rle_offset_begin));
-    uint32_array bitmask = uint32_array(uint64_t(bitmasks_ref) + full_chunk_bitmask_size_bytes * block_idx);
+    uint32_array bitmask = extract_bitmask_data(block_idx, bitmasks_ref);
     return RLEData(materials, offsets, bitmask, rle_data_bounds.size);
 }
 

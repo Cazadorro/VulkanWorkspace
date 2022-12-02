@@ -5,6 +5,7 @@
 #include <gul/imguirenderer.h>
 #include <gul/noise/fbm.h>
 #include <uul/bit.h>
+#include <uul/math.h>
 #include <gul/noise/opensimplex.h>
 //#include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
@@ -65,6 +66,7 @@
 
 #include <vul/traitutils.h>
 #include <bitset>
+#include <bit>
 
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
@@ -88,6 +90,23 @@ struct alignas(8) RunLengthEncodingPushConstant {
     std::uint32_t u_cumulative_block_offsets_size;
 };
 static_assert(sizeof(RunLengthEncodingPushConstant) == 32);
+
+struct alignas(8) JFAInitPushConstant{
+    std::uint32_t u_block_idx;
+    std::uint32_t u_padding;
+    std::uint64_t u_bitmask_ref;
+    std::uint64_t u_voxel_jfa_out;
+};
+static_assert(sizeof(JFAInitPushConstant) == 24);
+
+struct alignas(8) JFAIterationPushConstant{
+    std::uint32_t u_jump_step_size;
+    std::uint32_t u_jump_step_type;
+    std::uint64_t u_voxel_jfa_in;
+    std::uint64_t u_voxel_jfa_out;
+    std::uint64_t u_voxel_sdf_out;
+};
+static_assert(sizeof(JFAIterationPushConstant) == 32);
 
 int main() {
 
@@ -375,6 +394,67 @@ int main() {
     auto rle_offsets_address = rle_materials_address + data_chunk_block_rle_offset_begin;
 
 
+
+
+
+    std::array voxel_jfa_buffers = {
+            allocator.createDeviceBuffer(sizeof(std::uint16_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue(),
+            allocator.createDeviceBuffer(sizeof(std::uint16_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue()
+    };
+
+    auto voxel_df_buffer = allocator.createDeviceBuffer(sizeof(std::uint8_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+    JFAInitPushConstant jfa_init_push_constant = {
+            0,
+            0,
+            rle_bitmask_buffer.getDeviceAddress(),
+            voxel_jfa_buffers[0].getDeviceAddress(),
+
+    };
+
+    JFAIterationPushConstant jfa_iteration_push_constant = {
+            0,
+            0,
+            voxel_jfa_buffers[0].getDeviceAddress(),
+            voxel_jfa_buffers[1].getDeviceAddress(),
+            voxel_df_buffer.getDeviceAddress()
+    };
+
+    auto jfaInitPipelineLayout = device.createPipelineLayout(
+            vul::TempArrayProxy<const vul::DescriptorSetLayout *>{},
+            VkPushConstantRange{
+                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::ComputeBit),
+                    0,
+                    sizeof(JFAInitPushConstant)
+            }).assertValue();
+    auto jfaInitComputeBuilder = vul::ComputePipelineBuilder(device);
+    vul::ComputePipeline jfaInitPipleline;
+    {
+        auto computeShader = device.createShaderModule(
+                vul::readSPIRV("spirv/jfa_init.comp.spv")).assertValue();
+        jfaInitComputeBuilder.setShaderCreateInfo(
+                computeShader.createComputeStageInfo());
+        jfaInitComputeBuilder.setPipelineLayout(jfaInitPipelineLayout);
+        jfaInitPipleline = jfaInitComputeBuilder.create().assertValue();
+    }
+
+    auto jfaIterationPipelineLayout = device.createPipelineLayout(
+            vul::TempArrayProxy<const vul::DescriptorSetLayout *>{},
+            VkPushConstantRange{
+                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::ComputeBit),
+                    0,
+                    sizeof(JFAIterationPushConstant)
+            }).assertValue();
+    auto jfaIterationComputeBuilder = vul::ComputePipelineBuilder(device);
+    vul::ComputePipeline jfaIterationPipleline;
+    {
+        auto computeShader = device.createShaderModule(
+                vul::readSPIRV("spirv/jfa_iteration.comp.spv")).assertValue();
+        jfaIterationComputeBuilder.setShaderCreateInfo(
+                computeShader.createComputeStageInfo());
+        jfaIterationComputeBuilder.setPipelineLayout(jfaIterationPipelineLayout);
+        jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
+    }
 
 
     vul::GraphicsPipeline graphicsPipeline;
@@ -881,6 +961,38 @@ int main() {
         {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
+            {
+                commandBuffer.bindPipeline(jfaInitPipleline);
+                auto computeComputeBarrier = vul::createComputeBarrierRWARW();
+                auto computeComputeDepInfo = vul::createDependencyInfo(
+                        computeComputeBarrier, {}, {});
+                commandBuffer.pushConstants(jfaInitPipelineLayout,
+                                            vul::ShaderStageFlagBits::ComputeBit,
+                                            jfa_init_push_constant);
+                auto workgroup_dim = uul::integer_ceil(vul::chunk_consts::chunk_width,8);
+                commandBuffer.pipelineBarrier(computeComputeDepInfo);
+                commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
+                commandBuffer.bindPipeline(jfaIterationPipleline);
+                jfa_iteration_push_constant.u_voxel_jfa_in = voxel_jfa_buffers[0].getDeviceAddress();
+                jfa_iteration_push_constant.u_voxel_jfa_out = voxel_jfa_buffers[1].getDeviceAddress();
+                for(std::uint32_t i = 0; i < 3; ++i){
+                    for(std::int32_t j = std::bit_width(31u) - 1; j >= 0; --j){
+                        jfa_iteration_push_constant.u_jump_step_size = 1u << static_cast<std::uint32_t>(j);
+                        jfa_iteration_push_constant.u_jump_step_type = i;
+                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
+                        commandBuffer.pushConstants(jfaIterationPipelineLayout,
+                                                    vul::ShaderStageFlagBits::ComputeBit,
+                                                    jfa_iteration_push_constant);
+                        commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
+                        std::swap(jfa_iteration_push_constant.u_voxel_jfa_in, jfa_iteration_push_constant.u_voxel_jfa_out);
+                    }
+                    //break;
+                }
+                auto computeGraphicsBarrier = vul::createComputeFragmentBarrierRAW();
+                auto computeGraphicsDepInfo = vul::createDependencyInfo(
+                        computeGraphicsBarrier, {}, {});
+                commandBuffer.pipelineBarrier(computeGraphicsDepInfo);
+            }
             {
                 auto extent = swapchain.getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
