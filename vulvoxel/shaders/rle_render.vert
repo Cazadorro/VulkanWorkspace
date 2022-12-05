@@ -48,6 +48,7 @@ layout(push_constant) uniform PushConstantBlock{
     uint64_t u_material_data_block_ptr;
     uint32_array u_cumulaive_block_offsets;
     uint32_array u_bitmasks_ref;
+    uint8_array u_voxel_sdf_out;
     uint u_cumulative_block_offsets_size;
 //    uint u_rle_size;
 //    uint u_rle_padding;

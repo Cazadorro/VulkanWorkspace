@@ -87,9 +87,10 @@ struct alignas(8) RunLengthEncodingPushConstant {
     std::uint64_t u_material_data_block_ptr;
     std::uint64_t u_cumulaive_block_offsets;
     std::uint64_t u_bitmasks_ref;
+    std::uint64_t u_voxel_sdf_out;
     std::uint32_t u_cumulative_block_offsets_size;
 };
-static_assert(sizeof(RunLengthEncodingPushConstant) == 32);
+static_assert(sizeof(RunLengthEncodingPushConstant) == 40);
 
 struct alignas(8) JFAInitPushConstant{
     std::uint32_t u_block_idx;
@@ -464,6 +465,7 @@ int main() {
             rle_data_buffer.getDeviceAddress(),
             device_cumulative_rle_sizes.getDeviceAddress(),
             rle_bitmask_buffer.getDeviceAddress(),
+            voxel_df_buffer.getDeviceAddress(),
             static_cast<std::uint32_t>(cumulative_rle_sizes.size())
     };
 

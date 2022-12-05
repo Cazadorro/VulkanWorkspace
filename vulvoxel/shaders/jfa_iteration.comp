@@ -93,7 +93,11 @@ void main() {
     }
 
     if((u_jump_step_type == JUMP_STEP_END) && (u_jump_step_size == JUMP_STEP_SIZE_LAST)){
-        u_voxel_sdf_out.data[linear_tid] = uint8_t(min_dist);
+        if(min_dist == 0xFFFFFFFF){
+            u_voxel_sdf_out.data[linear_tid] = uint8_t(0);
+        }else{
+            u_voxel_sdf_out.data[linear_tid] = uint8_t(min_dist);
+        }
     }else{
         u_voxel_jfa_out.data[linear_tid] = uint16_t(min_idx);
     }
