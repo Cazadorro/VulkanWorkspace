@@ -4,6 +4,9 @@
 
 #ifndef VULKANPROJECT_CASESTRINGS_H
 #define VULKANPROJECT_CASESTRINGS_H
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <gsl/span>
 #include <string>
 #include <string_view>
@@ -13,6 +16,9 @@
 
 
 namespace vul{
+
+
+
 
     class UpperSnakeCaseStr;
     [[nodiscard]]
@@ -106,5 +112,23 @@ namespace vul{
     [[nodiscard]]
     UpperSnakeCaseStr operator+(const UpperSnakeCaseStr& lhs, const UpperSnakeCaseStr& rhs);
     std::ostream& operator<< (std::ostream& os, const UpperSnakeCaseStr& str);
+
+
 }
+
+template <> struct fmt::formatter<vul::UpperCamelCaseStr>: fmt::formatter<std::string_view> {
+    // parse is inherited from formatter<string_view>.
+    template <typename FormatContext>
+    auto format(const vul::UpperCamelCaseStr& str, FormatContext& ctx) const {
+        return formatter<string_view>::format(str.string_view(), ctx);
+    }
+};
+
+template <> struct fmt::formatter<vul::UpperSnakeCaseStr>: fmt::formatter<std::string_view> {
+    // parse is inherited from formatter<string_view>.
+    template <typename FormatContext>
+    auto format(const vul::UpperSnakeCaseStr& str, FormatContext& ctx) const {
+        return formatter<string_view>::format(str.string_view(), ctx);
+    }
+};
 #endif //VULKANPROJECT_CASESTRINGS_H

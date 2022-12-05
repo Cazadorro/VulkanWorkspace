@@ -4,7 +4,9 @@
 
 #include "casestrings.h"
 #include <fmt/core.h>
+#include <fmt/format.h>
 #include <fmt/ostream.h>
+#include <ostream>
 #include <algorithm>
 
 

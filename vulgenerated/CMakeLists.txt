@@ -53,7 +53,7 @@ target_compile_options(vulgenerated PRIVATE
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g -ggdb>)
 target_link_options(vulgenerated PUBLIC -g -ggdb)
 
-target_compile_definitions(vulgenerated PRIVATE VUL_GEN_RESOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_definitions(vulgenerated PRIVATE -DVUL_GEN_RESOURCE_PATH="${CMAKE_CURRENT_SOURCE_DIR}")
 
 #glslext_target_generate_add(vkjupiter2 PRIVATE
 #        SOURCE_OUTPUT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders/

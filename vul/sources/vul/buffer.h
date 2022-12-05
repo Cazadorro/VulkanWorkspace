@@ -15,6 +15,7 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 #include <functional>
+#include <string>
 
 namespace vul {
     class Device;

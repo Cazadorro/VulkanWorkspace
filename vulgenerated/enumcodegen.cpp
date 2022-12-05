@@ -4,6 +4,7 @@
 
 #include "enumcodegen.h"
 #include <fmt/ostream.h>
+#include <iostream>
 
 vul::CodeGen vul::generate_to_string_vk_enum(const vul::EnumInfo &info,
                                              const std::string_view &namespace_str,

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <unordered_map>
 #include <unordered_set>
+#include <filesystem>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan.hpp>
@@ -263,10 +264,10 @@ int main() {
                                              namespace_str);
     std::string bitmask_source = fmt::format("#include \"{}.h\"\n", "bitmasks");
     for (auto[key, enum_info] : enum_infos) {
-        if (enum_info.get_enum_values().is_empty()) {
+        if (enum_info.get_enum_values().empty()) {
             continue;
         }
-        if (!enum_info.define_string.is_empty()) {
+        if (!enum_info.define_string.empty()) {
             auto define_str = vul::start_define(enum_info.define_string);
             enum_source += define_str;
             enum_header += define_str;
@@ -315,7 +316,7 @@ int main() {
             bitmask_source += definition;
             bitmask_forward += vul::generate_bitmask_forward(enum_info, indent);
         }
-        if (!enum_info.define_string.is_empty()) {
+        if (!enum_info.define_string.empty()) {
             auto define_str = vul::end_define(enum_info.define_string);
             enum_source += define_str;
             enum_header += define_str;
@@ -336,6 +337,8 @@ int main() {
 
     //TODO need a make directory thing here if doesn't exist.
     std::string output_dir = std::string(VUL_GEN_RESOURCE_PATH) + "/../vul/generated_sources/vul/";
+    std::filesystem::create_directories(std::filesystem::path(output_dir));
+
     std::ofstream enum_forward_file(output_dir + "enumsfwd.h");
     std::ofstream enum_header_file(output_dir + "enums.h");
     std::ofstream enum_source_file(output_dir + "enums.cpp");
@@ -394,7 +397,7 @@ int main() {
 
     {
         for (const auto&[type_name, values]: objtypeenum_map) {
-            if (!values.platform.is_empty()) {
+            if (!values.platform.empty()) {
                 auto define_str = vul::start_define(values.platform);
                 object_type_header += define_str;
                 object_type_source += define_str;
@@ -408,7 +411,7 @@ int main() {
                                               "}}\n",
                                               indent, type_name, namespace_str,
                                               values.objtypeenum);
-            if (!values.platform.is_empty()) {
+            if (!values.platform.empty()) {
                 auto define_str = vul::end_define(values.platform);
                 object_type_header += define_str;
                 object_type_source += define_str;
