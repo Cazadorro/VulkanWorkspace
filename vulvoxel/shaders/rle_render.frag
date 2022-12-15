@@ -61,6 +61,10 @@ layout(push_constant) uniform PushConstantBlock{
 };
 layout (constant_id = 0) const uint64_t RLE_OFFSET_BEGIN = 1024ul*1024ul*8ul;
 
+bool get_bitmask(uint32_array bitmask, ivec3 cell_xyz){
+    return get(bitmask, to_voxel_idx(cell_xyz));
+}
+
 bool get_bitmask(uint32_array bitmask, uint cell_index){
     return get(bitmask, cell_index);
 }
@@ -73,6 +77,87 @@ struct DebugColor{
     bool is_set;
     vec4 color;
 };
+
+//https://www.shadertoy.com/view/4dX3zl
+bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord, out DebugColor debug_color){
+    debug_color.is_set = false;
+    orig = orig.xzy;
+    orig.z *= -1.0;
+    dir = dir.xzy;
+    dir.z *= -1.0;
+    ivec3 cell = ivec3(floor(orig + 0.));
+    vec3 inv_dir = 1 / dir;
+    if(dir.x == 0){
+        inv_dir.x = 1e30;
+    }
+    if(dir.y == 0){
+        inv_dir.y = 1e30;
+    }
+    if(dir.z == 0){
+        inv_dir.z = 1e30;
+    }
+    vec3 delta_dist = abs(inv_dir);
+
+    ivec3 ray_step = ivec3(sign(dir));
+    vec3 side_dist = (sign(dir) * (vec3(cell) - orig) + (sign(dir) * 0.5) + 0.5) * delta_dist;
+    uvec3 resolution = uvec3(32u,32u,32u);
+    bvec3 mask = bvec3(false,false,false);
+    int i = 0;
+    while (true) {
+        if(!inside_chunk(cell)){
+            return false;
+        }
+        if (get_bitmask(bitmask, cell)){
+            float t = length(vec3(mask) * (side_dist - delta_dist)) / length(dir);
+            voxel_index = to_voxel_idx(cell);
+            orig.z *= -1.0;
+            dir.z *= -1.0;
+            cell.z *= -1;
+            dir = dir.xzy;
+            orig = orig.xzy;
+            mask = mask.xzy;
+            cell = cell.xzy;
+
+            vec3 endpoint;
+            if(mask.x){
+                hit_normal = dot(vec3(1.0,0.0,0.0), dir) < 0.0 ? vec3(1.0,0.0,0.0) : vec3(-1.0,0.0,0.0);
+
+                endpoint = orig + dir * t;
+                texcoord = endpoint.zy;
+            }
+            else if(mask.z){
+                hit_normal =  dot(vec3(0.0,0.0,1.0), dir) < 0.0 ? vec3(0.0,0.0,1.0) : vec3(0.0,0.0,-1.0);
+                endpoint = orig + dir * t;
+                texcoord = endpoint.xy;
+            }
+            else if(mask.y){
+                hit_normal = dot(vec3(0.0,1.0,0.0), dir) < 0.0 ? vec3(0.0,1.0,0.0) : vec3(0.0,-1.0,0.0);
+                endpoint = orig + dir * t;
+                texcoord = endpoint.xz;
+            }
+            final_crossing_T = endpoint;
+
+            return true;
+        }else{
+            mask = lessThanEqual(side_dist.xyz, min(side_dist.yzx, side_dist.zxy));
+            side_dist += vec3(mask) * delta_dist;
+            ivec3 old_cell = cell;
+            cell += ivec3(vec3(mask)) * ray_step;
+
+
+            if(!any(mask) || old_cell == cell){
+                debug_color.is_set = true;
+                debug_color.color = vec4(1.0,1.0,0.0,1.0);
+                return false;
+            }
+        }
+        i += 1;
+    }
+    debug_color.is_set = true;
+    debug_color.color = vec4(1.0,0.0,1.0,1.0);
+    return false;
+
+}
 
 bool bitmask_intersect(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord, out DebugColor debug_color){
     debug_color.is_set = false;
@@ -150,7 +235,7 @@ bool bitmask_intersect(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block_off
 
         uint sdf_value = uint(get_sdf(o));
 
-        if(sdf_value > 2){
+        if(sdf_value > 2 && false){
             debug_color.is_set =true;
             debug_color.color = vec4(1.0,1.0,1.0,1.0);
             vec3 rayOrigCell = vec3(cell) + dir * (sdf_value - 1);
@@ -265,10 +350,10 @@ void main() {
 
     uint iteration = 0;
 
-    uint max_iteration = 4;
+    uint max_iteration = 64;
     DebugColor debug_color;
     debug_color.is_set = false;
-    while(iteration < max_iteration && bitmask_intersect(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, debug_color)){
+    while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, debug_color)){
         uint material_id = get_material_id(rle_data, cell_position);
         result *= get_material_color(material_id, hit_texcoord) * 0.99;
         ray_normal = reflect(ray_normal, hit_normal);

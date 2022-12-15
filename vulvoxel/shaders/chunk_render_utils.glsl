@@ -35,6 +35,14 @@ uint to_voxel_idx(ivec3 idx){
     return idx.z * chunk_width * chunk_width + idx.y * chunk_width + idx.x;
 }
 
+bool inside_chunk(ivec3 idx){
+    return (idx.x < 32 && idx.y < 32 && idx.z < 32) && (idx.x >= 0 && idx.y >= 0 && idx.z >= 0);
+}
+
+bool inside_chunk(uvec3 idx){
+    return (idx.x < 32u && idx.y < 32u && idx.z < 32u);
+}
+
 
 
 struct CellIDX{
