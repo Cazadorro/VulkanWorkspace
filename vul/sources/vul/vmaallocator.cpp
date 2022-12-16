@@ -142,6 +142,27 @@ vul::VmaAllocator::createStagingBuffer(VkDeviceSize size,
     return createBuffer(allocInfo, bufferInfo);
 }
 
+vul::ExpectedResult<vul::Buffer>
+vul::VmaAllocator::createHostDestinationBuffer(VkDeviceSize size, vul::BufferUsageBitMask otherUsages) const {
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
+                      | VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT
+                      | VMA_ALLOCATION_CREATE_MAPPED_BIT
+                      | VMA_ALLOCATION_CREATE_STRATEGY_MIN_TIME_BIT;
+    allocInfo.usage = VMA_MEMORY_USAGE_CPU_ONLY;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = size;
+    bufferInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | otherUsages.to_underlying();
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+
+    return createBuffer(allocInfo, bufferInfo);
+}
 
 
 vul::ExpectedResult<vul::Buffer>
@@ -359,3 +380,5 @@ vul::VmaAllocator::createStorageImage(vul::CommandPool &commandPool,
                              vul::ImageLayout::General,
                              mipLevel);
 }
+
+

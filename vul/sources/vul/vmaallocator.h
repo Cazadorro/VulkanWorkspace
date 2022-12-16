@@ -78,6 +78,10 @@ namespace vul {
                                                    vul::BufferUsageBitMask otherUsages = {}) const;
 
         [[nodiscard]]
+        ExpectedResult<Buffer> createHostDestinationBuffer(VkDeviceSize size,
+                                                   vul::BufferUsageBitMask otherUsages = {}) const;
+
+        [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(VkDeviceSize size,
                                                    vul::BufferUsageBitMask usages) const;
 
@@ -91,10 +95,12 @@ namespace vul {
         createStagingBuffer(const TempConstVoidArrayProxy &array,
                             vul::BufferUsageBitMask otherUsages = {}) const;
 
+
         [[nodiscard]]
         ExpectedResult<Buffer>
         createStagingBuffer(const TempArrayProxy<TempConstVoidArrayProxy> &arrayList,
                             vul::BufferUsageBitMask otherUsages = {}) const;
+
 
         [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(

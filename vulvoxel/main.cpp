@@ -403,7 +403,9 @@ int main() {
             allocator.createDeviceBuffer(sizeof(std::uint16_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue()
     };
 
-    auto voxel_df_buffer = allocator.createDeviceBuffer(sizeof(std::uint8_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto voxel_df_buffer = allocator.createDeviceBuffer(sizeof(std::uint8_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::ShaderDeviceAddressBit | vul::BufferUsageFlagBits::TransferSrcBit).assertValue();
+
+    auto voxel_df_host_buffer = allocator.createMappedCoherentBuffer(sizeof(std::uint8_t) * vul::chunk_consts::chunk_size, vul::BufferUsageFlagBits::TransferDstBit).assertValue();
 
     JFAInitPushConstant jfa_init_push_constant = {
             0,
@@ -1053,6 +1055,23 @@ int main() {
         submitInfo.signalSemaphoreInfoCount = signalInfos.size();
         submitInfo.pSignalSemaphoreInfos = signalInfos.data();
 
+        if(false) {
+            vul::copy(voxel_df_buffer, voxel_df_host_buffer, commandPool, presentationQueue);
+
+            auto mapped_memory = reinterpret_cast<const std::uint8_t*>(voxel_df_host_buffer.mapMemory());
+            std::cout << "\nSTART\n";
+            for (std::size_t z = 0; z < 32; z++) {
+                std::cout << "\n";
+                for (std::size_t y = 0; y < 32; y++) {
+                    std::cout << "\n";
+                    for (std::size_t x = 0; x < 32; x++) {
+                        std::cout << static_cast<std::uint32_t>(mapped_memory[z * 32 * 32 + y * 32 + x]) << ", ";
+                    }
+                }
+            }
+            std::cout << "\nEND\n";
+        }
+
         presentationQueue.submit(submitInfo);
         //TODO do actual render here
 
@@ -1061,6 +1080,8 @@ int main() {
         auto presentResult = swapchain.present(presentationQueue,
                                                              binaryRenderFinishedSemaphore,
                                                              swapchainImageIndex);
+
+
 
         if (presentResult == vul::Result::ErrorOutOfDateKhr ||
             presentResult == vul::Result::SuboptimalKhr || framebufferResized) {

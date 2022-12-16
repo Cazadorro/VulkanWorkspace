@@ -22,9 +22,12 @@ const uint CUBE_FACE_DOWN = 5;
 
 
 uvec3 to_voxel_xyz(uint idx){
-    uint x = (idx & dim_bitmask);
-    uint y = (idx >> dim_bit_size) & dim_bitmask;
-    uint z = (idx >> (2*dim_bit_size)) & dim_bitmask;
+    uint x = idx % chunk_width;
+    uint y = (idx / chunk_width) % 32;
+    uint z = (idx / (chunk_width * chunk_width));
+//    uint x = (idx & dim_bitmask);
+//    uint y = (idx >> dim_bit_size) & dim_bitmask;
+//    uint z = (idx >> (2*dim_bit_size)) & dim_bitmask;
     return uvec3(x,y,z);
 }
 

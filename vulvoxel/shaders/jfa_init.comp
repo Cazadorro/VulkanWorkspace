@@ -46,7 +46,7 @@ layout(push_constant) uniform PushConstantBlock{
 
 void main() {
     uvec3 tid = gl_GlobalInvocationID;
-    if(tid.x > chunk_width || tid.y > chunk_width || tid.z > chunk_width){
+    if(!inside_chunk(tid)){
         return;
     }
     uint linear_tid = to_voxel_idx(tid);

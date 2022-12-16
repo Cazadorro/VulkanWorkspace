@@ -55,12 +55,17 @@ uint get_jfa_value_at(ivec3 idx){
 
 void main() {
     uvec3 tid = gl_GlobalInvocationID;
-    if(tid.x > chunk_width || tid.y > chunk_width || tid.z > chunk_width){
+    if(!inside_chunk(tid)){
         return;
     }
     uint linear_tid = to_voxel_idx(tid);
     uint seed_idx = get_jfa_value_at(ivec3(tid));
     if(seed_idx == linear_tid){
+        if((u_jump_step_type == JUMP_STEP_END) && (u_jump_step_size == JUMP_STEP_SIZE_LAST)){
+            u_voxel_sdf_out.data[linear_tid] = uint8_t(0);
+        }else{
+            u_voxel_jfa_out.data[linear_tid] = uint16_t(seed_idx);
+        }
         return;
     }
     ivec3 offset_p = ivec3(tid);
@@ -81,10 +86,11 @@ void main() {
     ivec3 location = ivec3(tid);
 
     uint min_dist = 0xFFFFFFFF;
-    uint min_idx;
+    uint min_idx = seed_idx;
     for(int i = 0; i < 3; ++i){
         if(seed_idx_list[i] < 0xFFFF){
-            uint dist = uint(min_v(abs(seed_list[i] - location)));
+            uint dist = uint(max_v(abs(seed_list[i] - location)));
+//            uint dist = uint(abs(seed_list[i][u_jump_step_type] - location[u_jump_step_type]));
             if(min_dist > dist){
                 min_dist = dist;
                 min_idx = seed_idx_list[i];
