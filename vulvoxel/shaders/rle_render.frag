@@ -27,6 +27,7 @@
 #include "bitmask.glsl"
 #include "chunk_render_utils.glsl"
 #include "algorithm.glsl"
+#include "mathconstants.glsl"
 
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     mat4 model;
@@ -40,8 +41,11 @@ layout(binding = 1) uniform sampler2DArray texSampler;
 layout(location = 0) flat in uint v_block_material_id;
 layout(location = 1) flat in uint v_block_index;
 layout(location = 2) in vec2 v_block_tex_coord;
-layout(location = 3) in vec3 v_block_world_normal;
+//TODO this should probably be a bvec or something? bvec4, 3 for position 1 for negative, or some small int value?
+layout(location = 3) flat in vec3 v_block_world_normal;
 layout(location = 4) in vec3 v_block_world_position;
+
+
 
 layout(location = 0) out vec4 out_color;
 //https://www.khronos.org/opengl/wiki/Early_Fragment_Test
@@ -83,9 +87,15 @@ struct DebugColor{
     vec4 color;
 };
 
+struct LightInfo{
+    bool hit;
+    vec4 color;
+};
+
 //https://www.shadertoy.com/view/4dX3zl
-bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord, out DebugColor debug_color){
+bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block_offset, out uint voxel_index, out vec3 final_crossing_T, out vec3 hit_normal, out vec2 texcoord, out float out_t, out LightInfo light_info, out DebugColor debug_color){
     debug_color.is_set = false;
+    light_info.hit = false;
     orig = orig.xzy;
     orig.z *= -1.0;
     dir = dir.xzy;
@@ -123,6 +133,7 @@ bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block
             return false;
         }
         uint sdf_value = uint(get_sdf(cell));
+
 //        if (get_bitmask(bitmask, cell)){
 //            if(sdf_value != 0){
 //                debug_color.is_set = true;
@@ -165,6 +176,26 @@ bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block
 //            return true;
 //        }
 
+        ivec3 light_pos = ivec3(15,15,15);
+        bool hit_light_pos = cell == light_pos;
+        if(hit_light_pos){
+            light_info = LightInfo(true, vec4(1.0,0.8,0.8,1.0) * 1.0);
+            float t = length(vec3(mask) * (side_dist - delta_dist)) / length(dir);
+            voxel_index = to_voxel_idx(cell);
+            orig.z *= -1.0;
+            dir.z *= -1.0;
+            cell.z *= -1;
+            dir = dir.xzy;
+            orig = orig.xzy;
+            mask = mask.xzy;
+            cell = cell.xzy;
+            out_t = t;
+            vec3 endpoint;
+            endpoint = orig + dir * t;
+            texcoord = endpoint.zy;
+            final_crossing_T = endpoint;
+            return true;
+        }
         if(sdf_value == 0){
             if(at_start){
                 return false;
@@ -202,18 +233,19 @@ bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block
                 texcoord = endpoint.xz;
             }
             final_crossing_T = endpoint;
-
+            out_t = t;
             return true;
-        }else if(sdf_value > 3){
+        }else if(sdf_value > 3 && false){
 //            debug_color.is_set =true;
 //            debug_color.color = vec4(1.0,1.0,1.0,1.0);
 
-
+            //chebsheyv distance
             vec3 cheb_dir = dir / max_v(abs(dir));
 //            float sdf_dist = float(sdf_value - 1) * sqrt(cheb_dir.x*cheb_dir.x + cheb_dir.y*cheb_dir.y + cheb_dir.z*cheb_dir.z);
-            cell = ivec3(floor(vec3(cell) + 0.0 + cheb_dir * ( 0.1 + float(sdf_value - 2))));
+            cell = ivec3(floor(vec3(cell) + 0.0 + cheb_dir * (float(sdf_value - 2))));
 //            cell = ivec3(floor(vec3(cell) + 0.0 + dir * float(sdf_value - 2)));
             side_dist = (sign(dir) * (vec3(cell) - orig) + (sign(dir) * 0.5) + 0.5) * delta_dist;
+            side_dist += cheb_dir * (sdf_value - 2);
 //            if(!inside_chunk(cell)){
 //                debug_color.is_set = true;
 //                debug_color.color = vec4(0.0,0.0,1.0,1.0);
@@ -229,9 +261,21 @@ bool bitmask_intersect_dda(uint32_array bitmask, vec3 orig, vec3 dir, vec3 block
                 debug_color.color = vec4(1.0,1.0,1.0,1.0);
                 return false;
             }
+        }else if(false){
+            for(int j = 0; j < sdf_value; ++j){
+                mask = lessThanEqual(side_dist.xyz, min(side_dist.yzx, side_dist.zxy));
+                side_dist += vec3(mask) * delta_dist;
+                cell += ivec3(vec3(mask)) * ray_step;
+
+                if(!any(mask) || old_cell == cell){
+                    debug_color.is_set = true;
+                    debug_color.color = vec4(1.0,1.0,0.0,1.0);
+                    return false;
+                }
+            }
         }
         //should always happen otherwise?
-        else {
+         else {
             mask = lessThanEqual(side_dist.xyz, min(side_dist.yzx, side_dist.zxy));
             side_dist += vec3(mask) * delta_dist;
             cell += ivec3(vec3(mask)) * ray_step;
@@ -410,11 +454,33 @@ uint get_material_id(RLEData rle_data, uint cell_index){
     return material_id;
 }
 
+vec2 round_func(vec2 xy){
+//    return xy;
+    return floor(xy) + 0.5;
+    return round(xy);
+}
+
+float light_attenuation(float dist, float rad){
+    float constant = 1.0;
+    float linear = 4.5 / rad;
+    float quadratic = 75.0 / (rad * rad);
+    float attenuation = constant + linear * dist + quadratic * dist * dist;
+    return 1.0 / attenuation;
+    return clamp(1.0 - ((dist * dist) / (rad * rad)), 0.0, 1.0);
+}
+
 void main() {
 
     RLEData rle_data = extract_rle_data(v_block_index, u_cumulaive_block_offsets, u_material_data_block_ptr, u_bitmasks_ref, RLE_OFFSET_BEGIN);
 
     vec3 color = get_material_color(v_block_material_id, v_block_tex_coord);
+
+    if(v_block_material_id == 5){
+        out_color = vec4(color, 1.0);
+        return;
+    }
+
+
     vec3 temp_color = color;
     color += vec3(0.001,0.001,0.001);
 
@@ -430,11 +496,38 @@ void main() {
     vec3 specular = light_color * spec * color.rgb;
 
     vec3 result = ambient + diffuse + specular;
-    vec3 ray_normal = normalize(reflect(normalize(v_block_world_position - ubo.camera_pos), v_block_world_normal));
+    result = ambient;
+    result = color;
+
+    vec3 ray_world_position = v_block_world_position;
+
+    if(true){
+        if (abs(v_block_world_normal) == vec3(1.0, 0.0, 0.0)){
+            ray_world_position.yz = vec2(vec2(round_func((ray_world_position.yz * 16) + 0.0))) / 16.0;
+            ray_world_position.x = round(ray_world_position.x);
+        }
+        if (abs(v_block_world_normal) == vec3(0.0, 1.0, 0.0)){
+            ray_world_position.xz = vec2(vec2(round_func((ray_world_position.xz * 16) + 0.0))) / 16.0;
+            ray_world_position.y = round(ray_world_position.y);
+        }
+        if (abs(v_block_world_normal) == vec3(0.0, 0.0, 1.0)){
+            ray_world_position.xy = vec2(vec2(round_func((ray_world_position.xy * 16) + 0.0))) / 16.0;
+            ray_world_position.z = round(ray_world_position.z);
+        }
+    }
+
+    vec3 ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos), v_block_world_normal));
     uint cell_position;
     vec3 hit_position;
     vec3 hit_normal;
     vec2 hit_texcoord;
+
+    uint temp_cell_position;
+    vec3 temp_hit_position;
+    vec3 temp_hit_normal;
+    vec2 temp_hit_texcoord;
+
+
     vec3 offset = vec3(0.0f);
 
 //    result = vec3(0.2);
@@ -442,26 +535,174 @@ void main() {
     //texture array for materials.
     //sample from sky if make it to sky.
     //fix the actual ray tracing?
-    vec3 ray_world_position = v_block_world_position;
+//    if(v_block_world_normal.x != 0){
+//        out_color = vec4(vec3(0.0, 1.0, 0.0), 1.0);
+//    }
+//    else if((v_block_world_normal) == vec3(0.0,1.0,0.0)){
+//        out_color = vec4(vec3(1.0, 1.0, 0.0), 1.0);
+//    }
+//    else if((v_block_world_normal) == vec3(0.0,0.0,1.0)){
+//        out_color = vec4(vec3(0.0, 1.0, 1.0), 1.0);
+//    }else{
+//        out_color = vec4(vec3(0.0),1.0);
+//    }
+//
+//    return;
     vec3 ray_world_normal = v_block_world_normal;
 
     uint iteration = 0;
 
-    uint max_iteration = 128;
+    uint max_iteration = 2048 / 8;
+    max_iteration = 128;
     DebugColor debug_color;
+    LightInfo light_info;
     debug_color.is_set = false;
-    while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, debug_color)){
-        uint material_id = get_material_id(rle_data, cell_position);
-        result *= get_material_color(material_id, hit_texcoord) * 0.99;
-        ray_normal = reflect(ray_normal, hit_normal);
-        ray_world_position = hit_position;
-        ray_world_normal = hit_normal;
+
+
+    vec3 init_ray_world_normal = ray_world_normal;
+    vec3 initial_position = ray_world_position;
+    vec3 init_result = result;
+    vec3 init_ray_normal = ray_normal;
+
+    vec3 light_pos = vec3(15.5,-15.5,15.5);
+    float light_radius = 128;
+    vec3 light_energy = vec3(0);
+    float total_distance = distance(ray_world_position, ubo.camera_pos);
+    float intersect_t = 0;
+    if(bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.00001, normalize(light_pos - ray_world_position), offset,temp_cell_position,hit_position, hit_normal, hit_texcoord,intersect_t, light_info, debug_color)){
+        if(light_info.hit){
+            float pos_light_dist = distance(light_pos,ray_world_position);
+
+            light_energy += result * light_info.color.rgb * light_attenuation(pos_light_dist + total_distance, light_radius);
+        }
+    }
+
+    while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, intersect_t,light_info, debug_color)){
+        if(light_info.hit){
+            ray_world_position = hit_position;
+            ray_world_normal = vec3(0.0,0.0,0.0);
+            total_distance += intersect_t;
+            result *= light_info.color.rgb;
+        }else{
+            uint material_id = get_material_id(rle_data, cell_position);
+            result *= get_material_color(material_id, hit_texcoord) * 0.99;
+            total_distance += intersect_t;
+            if(bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, normalize(light_pos - ray_world_position), offset,temp_cell_position,temp_hit_position, temp_hit_normal, temp_hit_texcoord, intersect_t,light_info, debug_color)){
+                if(light_info.hit){
+                    float pos_light_dist = distance(light_pos,ray_world_position);
+                    light_energy += result * light_info.color.rgb * light_attenuation(pos_light_dist + total_distance, light_radius);
+                }
+            }
+            ray_normal = reflect(ray_normal, hit_normal);
+            ray_world_position = hit_position;
+            ray_world_normal = hit_normal;
+
+        }
+
         iteration += 1;
     }
+    vec3 other_result = result;
+    vec3 new_result = color * 0.2 + light_energy;
+//    new_result = light_energy;
+    float alt_angle_spred = 0.01;
+    vec3 alt_normal_array[4] = vec3[4](
+        normalize(vec3( alt_angle_spred, 1.0, alt_angle_spred)),
+        normalize(vec3( alt_angle_spred, 1.0,-alt_angle_spred)),
+        normalize(vec3(-alt_angle_spred, 1.0, alt_angle_spred)),
+        normalize(vec3(-alt_angle_spred, 1.0,-alt_angle_spred))
+    );
+    vec2 alt_normal_offset[4] = vec2[4](
+        vec2(0.5, 0.5) / 16,
+        vec2(0.5, -0.5) / 16,
+        vec2(-0.5, 0.5) / 16,
+        vec2(-0.5, -0.5) / 16
+    );
+    int max_normal_i = 4;
+
+    bool enable_multi_angle = false;
+    if(enable_multi_angle){
+        for(int i = 0; i < max_normal_i; ++i){
+            ray_world_position = initial_position;
+            vec3 alt_normal = alt_normal_array[i];
+            if(v_block_world_normal.y != 0){
+                //TODO need to use this to spread the points out on the texel.
+                if(v_block_world_normal.y < 0){
+                    alt_normal.y *= -1.0;
+                }
+                ray_world_position.xz += alt_normal_offset[i];
+            }
+            else if(v_block_world_normal.x != 0){
+                if(v_block_world_normal.x < 0){
+                    alt_normal.y *= -1.0;
+                }
+                alt_normal.xyz = alt_normal.yxz;
+                ray_world_position.yz += alt_normal_offset[i];
+            }
+            else if(v_block_world_normal.z != 0){
+                if(v_block_world_normal.z < 0){
+                    alt_normal.y *= -1.0;
+                }
+                alt_normal.xyz = alt_normal.xzy;
+                ray_world_position.xy += alt_normal_offset[i];
+            }
+            ray_world_normal = init_ray_world_normal;
+            result = init_result;
+            intersect_t = 0;
+            ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos), alt_normal));
+            iteration = 0;
+            while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
+                if(light_info.hit){
+                    ray_world_position = hit_position;
+                    ray_world_normal = vec3(0.0,0.0,0.0);
+                    result *= light_info.color.rgb * 3;
+                }else{
+                    uint material_id = get_material_id(rle_data, cell_position);
+                    result *= get_material_color(material_id, hit_texcoord) * 0.99;
+                    ray_normal = reflect(ray_normal, hit_normal);
+                    ray_world_position = hit_position;
+                    ray_world_normal = hit_normal;
+                }
+                iteration += 1;
+            }
+            new_result += result;
+            //        new_result = result;
+        }
+        new_result /= (max_normal_i + 1);
+    }
+    if(false){
+        for(int i = 0; i < max_normal_i; ++i){
+            ray_world_position = initial_position;
+            vec3 alt_normal = alt_normal_array[i];
+            ray_world_normal = init_ray_world_normal;
+            result = init_result;
+
+            ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos), alt_normal));
+            iteration = 0;
+            while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position, hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
+                if(light_info.hit){
+                    ray_world_position = hit_position;
+                    ray_world_normal = vec3(0.0,0.0,0.0);
+                    result *= light_info.color.rgb * 3;
+                }else{
+                    uint material_id = get_material_id(rle_data, cell_position);
+                    result *= get_material_color(material_id, hit_texcoord) * 0.99;
+                    ray_normal = reflect(ray_normal, hit_normal);
+                    ray_world_position = hit_position;
+                    ray_world_normal = hit_normal;
+                }
+                iteration += 1;
+            }
+            new_result += result;
+            //        new_result = result;
+        }
+        new_result /= (max_normal_i + 1);
+    }
+
     if(debug_color.is_set){
         out_color = debug_color.color;
     }else{
-        out_color = vec4(result, 1.0);
+        out_color = vec4(new_result, 1.0);
     }
+
 
 }

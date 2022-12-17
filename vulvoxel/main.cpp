@@ -322,6 +322,8 @@ int main() {
 //    chunk_span(2,0,0) = 8;
 //    chunk_span(0,2,0) = 8;
     chunk_span(0,0,2) = 8;
+
+    chunk_span(15,15,15) = 5;
 //    chunk_span(2,2,0) = 8;
 //    chunk_span(0,2,2) = 8;
 //    chunk_span(2,2,2) = 8;
