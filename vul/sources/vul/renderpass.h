@@ -116,6 +116,10 @@ namespace vul {
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
                                                vul::AttachmentDescriptionBitMask flags = {});
 
+        static AttachmentDescription DepthReadOnly(vul::Format format,
+                                               vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
+                                               vul::AttachmentDescriptionBitMask flags = {});
+
         static AttachmentDescription DepthLast(vul::Format format,
                                                vul::ImageLayout initialLayout,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,

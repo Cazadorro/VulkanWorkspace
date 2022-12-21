@@ -577,7 +577,7 @@ void main() {
         }
     }
 
-    while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, intersect_t,light_info, debug_color)){
+    while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.00001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, intersect_t,light_info, debug_color)){
         if(light_info.hit){
             ray_world_position = hit_position;
             ray_world_normal = vec3(0.0,0.0,0.0);
@@ -587,7 +587,7 @@ void main() {
             uint material_id = get_material_id(rle_data, cell_position);
             result *= get_material_color(material_id, hit_texcoord) * 0.99;
             total_distance += intersect_t;
-            if(bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, normalize(light_pos - ray_world_position), offset,temp_cell_position,temp_hit_position, temp_hit_normal, temp_hit_texcoord, intersect_t,light_info, debug_color)){
+            if(bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.00001, normalize(light_pos - ray_world_position), offset,temp_cell_position,temp_hit_position, temp_hit_normal, temp_hit_texcoord, intersect_t,light_info, debug_color)){
                 if(light_info.hit){
                     float pos_light_dist = distance(light_pos,ray_world_position);
                     light_energy += result * light_info.color.rgb * light_attenuation(pos_light_dist + total_distance, light_radius);
@@ -650,7 +650,7 @@ void main() {
             intersect_t = 0;
             ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos), alt_normal));
             iteration = 0;
-            while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
+            while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.00001, ray_normal, offset,cell_position,hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
                 if(light_info.hit){
                     ray_world_position = hit_position;
                     ray_world_normal = vec3(0.0,0.0,0.0);
@@ -678,7 +678,7 @@ void main() {
 
             ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos), alt_normal));
             iteration = 0;
-            while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.001, ray_normal, offset,cell_position, hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
+            while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.00001, ray_normal, offset,cell_position, hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
                 if(light_info.hit){
                     ray_world_position = hit_position;
                     ray_world_normal = vec3(0.0,0.0,0.0);

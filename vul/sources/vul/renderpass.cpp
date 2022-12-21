@@ -323,6 +323,24 @@ vul::AttachmentDescription::DepthTemp(vul::Format format,
 }
 
 vul::AttachmentDescription
+vul::AttachmentDescription::DepthReadOnly(vul::Format format, vul::SampleCountFlagBits samples,
+                                          vul::AttachmentDescriptionBitMask flags) {
+    UUL_ASSERT(vul::isDepthFormat(format),
+               fmt::format("Expected depth format, found: {}",
+                           vul::to_string(format)).c_str());
+    return {format,
+            vul::ImageLayout::Undefined,
+            vul::ImageLayout::DepthStencilReadOnlyOptimal,
+            vul::AttachmentLoadOp::Clear,
+            vul::AttachmentStoreOp::Store,
+            vul::AttachmentLoadOp::DontCare,
+            vul::AttachmentStoreOp::DontCare,
+            samples,
+            flags};
+}
+
+
+vul::AttachmentDescription
 vul::AttachmentDescription::DepthLast(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::SampleCountFlagBits samples,
@@ -410,7 +428,7 @@ vul::SubpassNode &vul::SubpassNode::setWrites(
     m_colorAttachmentWriteReferences.reserve(
             attachmentIndices.empty() ? 0 : attachmentIndices.size() - 1);
     m_depthAttachmentWriteReference.reset();
-    for (auto index : attachmentIndices) {
+    for (auto index: attachmentIndices) {
         if (m_parentGraph->getAttachmentAt(index).isColor()) {
             m_colorAttachmentWriteReferences.emplace_back(index,
                                                           vul::ImageLayout::ColorAttachmentOptimal);
@@ -430,7 +448,7 @@ vul::SubpassNode &vul::SubpassNode::setReads(
         const gsl::span<const std::uint32_t> &attachmentIndices) {
     m_inputAttachmentReferences.clear();
     m_inputAttachmentReferences.reserve(attachmentIndices.size());
-    for (auto index : attachmentIndices) {
+    for (auto index: attachmentIndices) {
         m_inputAttachmentReferences.emplace_back(index,
                                                  vul::ImageLayout::ShaderReadOnlyOptimal);
     }
@@ -448,7 +466,7 @@ vul::SubpassNode &vul::SubpassNode::setWrites(
         m_resolveAttachmentReferences.emplace_back(VK_ATTACHMENT_UNUSED,
                                                    vul::ImageLayout::ColorAttachmentOptimal);
     }
-    for (auto index : resolveIndices) {
+    for (auto index: resolveIndices) {
         UUL_ASSERT(m_parentGraph->getAttachmentAt(index).isColor(),
                    "Attachment must be color to resolve");
         m_resolveAttachmentReferences[index] = AttachmentReference(index,
@@ -576,7 +594,7 @@ vul::SubpassNode::createSubpassDependencies() const {
 
     std::unordered_map<std::uint32_t, VkSubpassDependency> dependencies;
 
-    for (const auto &dependencyIndex : m_warDependencies) {
+    for (const auto &dependencyIndex: m_warDependencies) {
         if (vul::contains(dependencies, dependencyIndex)) {
             VkSubpassDependency dependency = {};
             dependency.srcSubpass = dependencyIndex;
@@ -616,7 +634,7 @@ vul::SubpassNode::createSubpassDependencies() const {
         dependencies[dependencyIndex].srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
     }
 
-    for (const auto &dependencyIndex : m_rawDependencies) {
+    for (const auto &dependencyIndex: m_rawDependencies) {
         if (vul::contains(dependencies, dependencyIndex)) {
             VkSubpassDependency dependency = {};
             dependency.srcSubpass = dependencyIndex;
@@ -654,7 +672,7 @@ vul::SubpassNode::createSubpassDependencies() const {
         dependencies[dependencyIndex].dstAccessMask |= VK_ACCESS_SHADER_READ_BIT;
     }
 
-    for (const auto &dependencyIndex : m_warDependencies) {
+    for (const auto &dependencyIndex: m_warDependencies) {
         if (vul::contains(dependencies, dependencyIndex)) {
             VkSubpassDependency dependency = {};
             dependency.srcSubpass = dependencyIndex;
@@ -696,7 +714,7 @@ vul::SubpassNode::createSubpassDependencies() const {
     }
     std::vector<VkSubpassDependency> subpassDependencies;
     subpassDependencies.reserve(dependencies.size());
-    for (auto&[key, dependency] : dependencies) {
+    for (auto &[key, dependency]: dependencies) {
         subpassDependencies.push_back(dependency);
     }
     if (m_preExternalDependency.has_value()) {
@@ -778,7 +796,7 @@ vul::SubpassGraph::createRenderPass(const Device &device,
     std::vector<VkSubpassDescription> subpassDescriptions;
     std::vector<VkSubpassDependency> subpassDependencies;
     subpassDescriptions.reserve(m_subpassNodes.size());
-    for (auto[subpassIndex, subpassNode] : ranges::views::enumerate(
+    for (auto [subpassIndex, subpassNode]: ranges::views::enumerate(
             m_subpassNodes)) {
         subpassDescriptions.push_back(subpassNode.createDescription());
         vul::extend(subpassDependencies,
@@ -830,7 +848,7 @@ VkRenderPass vul::RenderPass::get() const {
 }
 
 vul::RenderPass::~RenderPass() {
-    if(m_handle != VK_NULL_HANDLE) {
+    if (m_handle != VK_NULL_HANDLE) {
         vkDestroyRenderPass(m_pDevice->get(), m_handle, m_pAllocator);
     }
 }
@@ -854,6 +872,6 @@ vul::Result vul::RenderPass::setObjectName(const std::string &string) {
     return m_pDevice->setObjectName(m_handle, string);
 }
 
-std::uint32_t vul::RenderPass::getSubpassCount() const{
+std::uint32_t vul::RenderPass::getSubpassCount() const {
     return m_subpassCount;
 }
