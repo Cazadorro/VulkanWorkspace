@@ -14,6 +14,8 @@
 #include "vul/descriptorpool.h"
 #include "vul/descriptorsetlayout.h"
 #include "vul/queue.h"
+#include "vul/pushconstantrange.h"
+#include "vul/ioutils.h"
 #include <uul/assert.h>
 #include "vul/temparrayproxy.h"
 #include <range/v3/view/transform.hpp>
@@ -141,7 +143,7 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
 
     std::vector<VkDescriptorPoolSize> poolSizes;
     std::uint32_t setCount = 0;
-    for (const auto&[builder, count] : layoutBuilders) {
+    for (const auto &[builder, count]: layoutBuilders) {
         auto newPoolSizes = builder.calcPoolSizes(count);
         setCount += count;
         poolSizes.insert(poolSizes.begin(), newPoolSizes.begin(),
@@ -188,28 +190,16 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
 }
 
 
-vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
-        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
-        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
-
-
-    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
-}
-
-vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
-        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
-        const vul::TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
-        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
-    auto rawLayouts = setLayouts | ranges::views::transform(
-            [](auto &layout) { return layout->get(); }) |
-                      ranges::to<std::vector>();
-
+vul::ExpectedResult<vul::PipelineLayout>
+vul::Device::createPipelineLayoutImpl(const vul::TempArrayProxy<const VkDescriptorSetLayout> &setLayouts,
+                                      const vul::TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+                                      const void *pNext, const VkAllocationCallbacks *pAllocator) const {
     VkPipelineLayoutCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     createInfo.pNext = pNext;
     createInfo.flags = 0;
-    createInfo.setLayoutCount = static_cast<std::uint32_t>(rawLayouts.size());
-    createInfo.pSetLayouts = rawLayouts.data();
+    createInfo.setLayoutCount = static_cast<std::uint32_t>(setLayouts.size());
+    createInfo.pSetLayouts = setLayouts.data();
     createInfo.pushConstantRangeCount = static_cast<std::uint32_t>(pushConstantRanges.size());
     createInfo.pPushConstantRanges = pushConstantRanges.data();
 
@@ -222,9 +212,30 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
     return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
 }
 
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+
+
+    return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
+}
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const vul::TempArrayProxy<const vul::DescriptorSetLayout *> &setLayouts,
+        const vul::TempArrayProxy<const PushConstantRange> &pushConstantRanges,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    auto rawLayouts = setLayouts | ranges::views::transform(
+            [](auto &layout) { return layout->get(); }) |
+                      ranges::to<std::vector>();
+
+    return createPipelineLayoutImpl(rawLayouts, pushConstantRanges.reinterpret_to<VkPushConstantRange>(), pNext,
+                                    pAllocator);
+}
+
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
         const TempArrayProxy<const DescriptorSetLayout> &setLayouts,
-        const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+        const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
         const void *pNext, const VkAllocationCallbacks *pAllocator) const {
 
 
@@ -232,56 +243,35 @@ vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
             [](auto &layout) { return layout.get(); }) |
                       ranges::to<std::vector>();
 
-    VkPipelineLayoutCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    createInfo.pNext = pNext;
-    createInfo.flags = 0;
-    createInfo.setLayoutCount = static_cast<std::uint32_t>(rawLayouts.size());
-    createInfo.pSetLayouts = rawLayouts.data();
-    createInfo.pushConstantRangeCount = static_cast<std::uint32_t>(pushConstantRanges.size());
-    createInfo.pPushConstantRanges = pushConstantRanges.data();
-
-    VkPipelineLayout pipelineLayout;
-    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle,
-                                                             &createInfo,
-                                                             pAllocator,
-                                                             &pipelineLayout));
-
-    return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
+    return createPipelineLayoutImpl(rawLayouts, pushConstantRanges.reinterpret_to<VkPushConstantRange>(), pNext,
+                                    pAllocator);
 }
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
         const TempArrayProxy<const std::reference_wrapper<DescriptorSetLayout>> &setLayouts,
-        const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+        const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
         const void *pNext, const VkAllocationCallbacks *pAllocator) const {
     auto rawLayouts = setLayouts | ranges::views::transform(
             [](auto &layout) { return layout.get().get(); }) |
                       ranges::to<std::vector>();
 
-    VkPipelineLayoutCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    createInfo.pNext = pNext;
-    createInfo.flags = 0;
-    createInfo.setLayoutCount = static_cast<std::uint32_t>(rawLayouts.size());
-    createInfo.pSetLayouts = rawLayouts.data();
-    createInfo.pushConstantRangeCount = static_cast<std::uint32_t>(pushConstantRanges.size());
-    createInfo.pPushConstantRanges = pushConstantRanges.data();
-
-    VkPipelineLayout pipelineLayout;
-    auto result = static_cast<Result>(vkCreatePipelineLayout(m_handle,
-                                                             &createInfo,
-                                                             pAllocator,
-                                                             &pipelineLayout));
-
-    return {result, PipelineLayout(*this, pipelineLayout, pAllocator)};
+    return createPipelineLayoutImpl(rawLayouts, pushConstantRanges.reinterpret_to<VkPushConstantRange>(), pNext,
+                                    pAllocator);
 }
 
+
+vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
+        const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
+        const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    return createPipelineLayoutImpl({}, pushConstantRanges.reinterpret_to<VkPushConstantRange>(), pNext, pAllocator);
+}
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
         const vul::TempArrayProxy<const vul::DescriptorSetLayout> &setLayouts,
         const void *pNext, const VkAllocationCallbacks *pAllocator) const {
     return createPipelineLayout(setLayouts, {}, pNext, pAllocator);
 }
+
 
 vul::ExpectedResult<vul::PipelineLayout> vul::Device::createPipelineLayout(
         const vul::TempArrayProxy<const std::reference_wrapper<DescriptorSetLayout>> &setLayouts,
@@ -353,7 +343,16 @@ vul::ExpectedResult<vul::ShaderModule> vul::Device::createShaderModule(
     return {result, ShaderModule(*this, shaderModule, pAllocator)};
 }
 
-vul::ExpectedResult<vul::CommandPool> vul::Device::createCommandPool(std::uint32_t queueFamilyIndex, vul::CommandPoolCreateBitMask flags, const void * pNext,  const VkAllocationCallbacks *pAllocator) const {
+vul::ExpectedResult<vul::ShaderModule>
+vul::Device::createShaderModule(std::string_view spv_source_loc, const void *pNext,
+                                const VkAllocationCallbacks *pAllocator) const {
+    return createShaderModule(vul::readSPIRV(spv_source_loc), pNext, pAllocator);
+}
+
+
+vul::ExpectedResult<vul::CommandPool>
+vul::Device::createCommandPool(std::uint32_t queueFamilyIndex, vul::CommandPoolCreateBitMask flags, const void *pNext,
+                               const VkAllocationCallbacks *pAllocator) const {
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.pNext = pNext;
@@ -375,7 +374,7 @@ vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                const VkAllocationCallbacks *pAllocator) const {
     auto rawImageViews = imageViews | ranges::views::transform(
             [](auto &imageView) { return imageView.get().get(); }) |
-                      ranges::to<std::vector>();
+                         ranges::to<std::vector>();
     return createFramebuffer(renderPass, rawImageViews, widthHeight, layers, flags, pNext, pAllocator);
 }
 
@@ -440,8 +439,11 @@ void vul::Device::updateDescriptorSets(
 void vul::Device::updateDescriptorSets(
         const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites,
         const vul::TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const {
-    vkUpdateDescriptorSets(m_handle, static_cast<std::uint32_t>(descriptorWrites.size()), descriptorWrites.data(), static_cast<std::uint32_t>(descriptorCopies.size()), descriptorCopies.data());
+    vkUpdateDescriptorSets(m_handle, static_cast<std::uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
+                           static_cast<std::uint32_t>(descriptorCopies.size()), descriptorCopies.data());
 }
+
+
 
 
 

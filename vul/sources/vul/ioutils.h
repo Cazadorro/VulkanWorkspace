@@ -6,8 +6,8 @@
 #define VULKANWORKSPACE_IOUTILS_H
 #include <vector>
 #include <cstdint>
-#include <string>
+#include <string_view>
 namespace vul{
-    std::vector<std::uint32_t> readSPIRV(const std::string& filepath);
+    std::vector<std::uint32_t> readSPIRV(std::string_view filepath);
 }
 #endif //VULKANWORKSPACE_IOUTILS_H

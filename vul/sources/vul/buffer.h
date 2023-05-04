@@ -10,6 +10,7 @@
 #include "vul/bitmasksfwd.h"
 #include "vul/commandutils.h"
 #include "vul/temparrayproxyfwd.h"
+#include "deviceaddress.h"
 
 #include <gsl/span>
 #include <vk_mem_alloc.h>
@@ -94,7 +95,7 @@ namespace vul {
         // TODO perminantly set vma allocator state to usable with bufferDeviceAddress
         // and make sure all buffers are device addressable period?
         [[nodiscard]]
-        VkDeviceAddress getDeviceAddress(const void* pNext = nullptr) const;
+        vul::DeviceAddress getDeviceAddress(const void* pNext = nullptr) const;
     private:
         vul::VmaAllocation m_allocation;
         VkBuffer m_handle = VK_NULL_HANDLE;

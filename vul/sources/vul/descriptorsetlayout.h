@@ -7,6 +7,7 @@
 
 #include "vul/enumsfwd.h"
 #include "vul/bitmasksfwd.h"
+#include "vul/bitmasks.h"
 #include "vul/temparrayproxyfwd.h"
 #include <vulkan/vulkan.h>
 #include <gsl/span>
@@ -15,25 +16,37 @@
 #include <string_view>
 #include <unordered_map>
 #include <vector>
+
 namespace vul {
 
 
     class DescriptorSetLayoutBinding {
     public:
-        [[nodiscard]]
-        const VkDescriptorSetLayoutBinding &get() const;
+        std::uint32_t binding;
+        vul::DescriptorType descriptorType;
+        std::uint32_t descriptorCount;
+        vul::ShaderStageBitMask stageFlags;
+        const VkSampler *pImmutableSamplers;
+
+
+        DescriptorSetLayoutBinding() = default;
+
+        explicit DescriptorSetLayoutBinding(std::uint32_t binding,
+                                            vul::DescriptorType descriptorType,
+                                            std::uint32_t descriptorCount,
+                                            vul::ShaderStageBitMask stageFlags,
+                                            const VkSampler *pImmutableSamplers);
+
+        explicit DescriptorSetLayoutBinding(VkDescriptorSetLayoutBinding descriptorSetLayoutBinding);
 
         [[nodiscard]]
-        vul::ShaderStageBitMask& getStageFlags();
+        VkDescriptorSetLayoutBinding & get();
+
         [[nodiscard]]
-        const vul::ShaderStageBitMask& getStageFlags() const;
-        [[nodiscard]]
-        std::uint32_t& getDescriptorCount();
-        [[nodiscard]]
-        const std::uint32_t& getDescriptorCount() const;
-        void setImmutableSamplers(const VkSampler *pImmutableSamplers);
+        const VkDescriptorSetLayoutBinding & get() const;
+
+        operator VkDescriptorSetLayoutBinding() const;
     protected:
-        VkDescriptorSetLayoutBinding m_layoutBinding = {};
     };
 
     class SamplerBinding : public DescriptorSetLayoutBinding {
@@ -45,6 +58,7 @@ namespace vul {
     private:
 
     };
+
     static_assert(sizeof(SamplerBinding) == sizeof(VkDescriptorSetLayoutBinding));
 
     //TODO replace VkSampler with Sampler?
@@ -159,21 +173,21 @@ namespace vul {
 
     };
 
-    class InlineUniformBlockEXT : public DescriptorSetLayoutBinding {
+    class InlineUniformBlockBinding : public DescriptorSetLayoutBinding {
     public:
-        InlineUniformBlockEXT(std::uint32_t binding,
-                              vul::ShaderStageBitMask stageFlags,
-                              std::uint32_t descriptorCount = 1);
+        InlineUniformBlockBinding(std::uint32_t binding,
+                                  vul::ShaderStageBitMask stageFlags,
+                                  std::uint32_t descriptorCount = 1);
 
     private:
 
     };
 
-    class AccelerationStructureKHR : public DescriptorSetLayoutBinding {
+    class AccelerationStructureKHRBinding : public DescriptorSetLayoutBinding {
     public:
-        AccelerationStructureKHR(std::uint32_t binding,
-                                 vul::ShaderStageBitMask stageFlags,
-                                 std::uint32_t descriptorCount = 1);
+        AccelerationStructureKHRBinding(std::uint32_t binding,
+                                        vul::ShaderStageBitMask stageFlags,
+                                        std::uint32_t descriptorCount = 1);
 
     private:
 
@@ -181,18 +195,19 @@ namespace vul {
 
     template<typename T>
     class ExpectedResult;
+
     class Device;
 
-    class DescriptorSetLayout{
+    class DescriptorSetLayout {
     public:
         DescriptorSetLayout() = default;
 
         DescriptorSetLayout(const Device &device,
                             VkDescriptorSetLayout handle,
-                const VkAllocationCallbacks *pAllocator = nullptr);
+                            const VkAllocationCallbacks *pAllocator = nullptr);
 
         [[nodiscard]]
-        const VkDescriptorSetLayout& get() const;
+        const VkDescriptorSetLayout &get() const;
 
         ~DescriptorSetLayout();
 
@@ -206,6 +221,7 @@ namespace vul {
         DescriptorSetLayout &operator=(const DescriptorSetLayout &rhs) = delete;
 
         Result setObjectName(const std::string &string);
+
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
@@ -213,31 +229,40 @@ namespace vul {
     };
 
     class DescriptorSetUpdateBuilder;
+
     class DescriptorSetLayoutBuilder {
     public:
         explicit DescriptorSetLayoutBuilder(const Device &device,
-        const VkAllocationCallbacks *pAllocator = nullptr);
+                                            const VkAllocationCallbacks *pAllocator = nullptr);
+
         void setFlags(vul::DescriptorSetLayoutCreateBitMask flags);
+
         void setStageFlags(vul::ShaderStageBitMask stageFlags);
 
-        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings);
-        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
-                         const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags);
 
-        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
-                         const TempArrayProxy<std::string const>& bindingName);
-        void setBindings(const TempArrayProxy<VkDescriptorSetLayoutBinding const>& descriptorSetBindings,
-                         const TempArrayProxy<std::string const>& bindingName,
-                         const TempArrayProxy<vul::DescriptorBindingBitMask const>& bindingFlags);
+        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
+                         const TempArrayProxy<std::string const> &bindingName);
+
+        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
+                         const TempArrayProxy<std::string const> &bindingName,
+                         const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags);
+
+        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings);
+
+        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
+                         const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags);
 
         [[nodiscard]]
-        DescriptorSetLayoutBinding& getBinding(std::uint32_t i);
+        DescriptorSetLayoutBinding &getBinding(std::uint32_t i);
+
         [[nodiscard]]
-        DescriptorSetLayoutBinding& getBinding(const std::string_view& name);
+        DescriptorSetLayoutBinding &getBinding(const std::string_view &name);
+
         [[nodiscard]]
-        const DescriptorSetLayoutBinding& getBinding(std::uint32_t i) const;
+        const DescriptorSetLayoutBinding &getBinding(std::uint32_t i) const;
+
         [[nodiscard]]
-        const DescriptorSetLayoutBinding& getBinding(const std::string_view& name) const;
+        const DescriptorSetLayoutBinding &getBinding(const std::string_view &name) const;
 
 
         [[nodiscard]]
@@ -245,13 +270,15 @@ namespace vul {
 
         [[nodiscard]]
         DescriptorSetUpdateBuilder createUpdateBuilder() const;
+
         [[nodiscard]]
         std::vector<VkDescriptorPoolSize> calcPoolSizes(std::uint32_t multiplier = 0) const;
+
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         VkDescriptorSetLayoutCreateFlags m_flags = {};
-        std::vector<VkDescriptorSetLayoutBinding> m_bindings;
+        std::vector<DescriptorSetLayoutBinding> m_bindings;
         std::unordered_map<std::string, std::uint32_t> m_nameBindingMap;
         std::vector<vul::DescriptorBindingBitMask> m_bindingFlags;
     };

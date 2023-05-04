@@ -77,5 +77,6 @@ add_subdirectory(cudaexample)
 #add_subdirectory(vuladdexample)
 #add_subdirectory(vultext)
 add_subdirectory(vulvoxel)
-
+add_subdirectory(vulgridworld)
+add_subdirectory(vulantworld)
 add_subdirectory(hlspv_lang)

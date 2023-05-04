@@ -14,6 +14,9 @@
 namespace uul {
 
 
+
+
+
     [[nodiscard]]
     constexpr bool
     bit_get(std::unsigned_integral auto uint, std::uint8_t bit_index) noexcept {
@@ -103,6 +106,42 @@ namespace uul {
         //as values overlap (eg. lsb_start=1, n=2, : 0x0111 ^ 0x0001 == 0x0110)
         constexpr UnsignedT in_fill = far_fill ^ close_fill;
         return in_fill;
+    }
+
+    //TODO clears everything to the right of n? correct naming?
+    template<std::unsigned_integral UnsignedT>
+    [[nodiscard]]
+    constexpr UnsignedT bit_mask_l(UnsignedT uint, std::uint8_t n){
+        auto left_fill = bit_fill_l(static_cast<UnsignedT>(n));
+        return (left_fill & uint);
+    }
+    template<std::unsigned_integral UnsignedT>
+    [[nodiscard]]
+    constexpr UnsignedT bit_mask_r(UnsignedT uint, std::uint8_t n){
+        auto right_fill = bit_fill_r(static_cast<UnsignedT>(n));
+        return (right_fill & uint);
+    }
+
+    template<std::unsigned_integral UnsignedT>
+    [[nodiscard]]
+    constexpr UnsignedT get_n_bits_l(UnsignedT uint, std::uint8_t n){
+        return bit_mask_l(uint, n) >> (std::bit_width(uint) - n);
+    }
+
+    template<std::unsigned_integral UnsignedT>
+    [[nodiscard]]
+    constexpr UnsignedT get_n_bits_r(UnsignedT uint, std::uint8_t n){
+        return bit_mask_r(uint, n);
+    }
+
+
+    template<std::unsigned_integral UnsignedT>
+    constexpr UnsignedT popcount_r(UnsignedT uint, std::uint8_t n){
+        return std::popcount(bit_mask_r(uint, n));
+    }
+    template<std::unsigned_integral UnsignedT>
+    constexpr UnsignedT popcount_l(UnsignedT uint, std::uint8_t n){
+        return std::popcount(bit_mask_l(uint, n));
     }
 
     namespace detail {

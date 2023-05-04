@@ -133,13 +133,21 @@ vul::ChunkSpan::is_surrounded(std::uint8_t x, std::uint8_t y, std::uint8_t z,
     if (z == 1 || z == chunk_consts::chunk_far_edge) {
         return false;
     }
+
+    bool left_open = x == chunk_consts::chunk_far_edge || operator()(x + 1, y, z) == empty_id;
+    bool right_open = x == 0u || operator()(x - 1, y, z) == empty_id;
+    bool up_open = y == chunk_consts::chunk_far_edge || operator()(x, y + 1, z) == empty_id;
+    bool down_open = y == 0u || operator()(x, y - 1, z) == empty_id;
+    bool front_open = z == chunk_consts::chunk_far_edge || operator()(x, y, z + 1) == empty_id;
+    bool back_open = z == 0u || operator()(x, y, z - 1) == empty_id;
+
     return
-            operator()(x + 1, y, z) == empty_id && //left
-            operator()(x - 1, y, z) == empty_id && //right
-            operator()(x, y + 1, z) == empty_id && //up
-            operator()(x, y - 1, z) == empty_id && //down
-            operator()(x, y, z + 1) == empty_id && //front
-            operator()(x, y, z - 1) == empty_id;   //back
+            !(left_open || //left
+              right_open || //right
+              up_open || //up
+              down_open || //down
+              front_open || //front
+              back_open);   //back
 }
 
 bool
@@ -195,6 +203,51 @@ vul::ChunkRLE::from_linear(
     UUL_DEBUG_ASSERT(running_offset == chunk.size());
     offsets.push_back(running_offset);
     materials.push_back(running_material);
+    return {materials, offsets};
+}
+
+vul::ChunkRLE vul::ChunkRLE::from_removing_hidden(
+        const std::span<std::uint32_t, chunk_consts::chunk_size> &chunk) {
+    auto chunk_span = ChunkSpan(chunk);
+    std::vector<std::uint16_t> offsets;
+    std::vector<std::uint32_t> materials;
+    std::uint16_t running_offset = 0;
+    std::uint32_t running_material = chunk[0];
+    for (const auto &[idx, current_material_type]: ranges::views::enumerate(
+            chunk_span)) {
+        if (running_material != current_material_type &&
+            !chunk_span.is_surrounded(idx)) {
+            offsets.push_back(running_offset);
+            materials.push_back(running_material);
+            running_material = current_material_type;
+        }
+        running_offset += 1;
+    }
+    UUL_DEBUG_ASSERT(materials.back() != running_material,
+                     "Last value shouldn't have actually been set...");
+    UUL_DEBUG_ASSERT(running_offset == chunk.size());
+    offsets.push_back(running_offset);
+    materials.push_back(running_material);
+    return {materials, offsets};
+}
+
+vul::ChunkRLE vul::ChunkRLE::from_removing_id(const vul::ChunkRLE &rle, std::uint32_t remove_id) {
+    std::vector<std::uint16_t> offsets; //end offsets.
+    std::vector<std::uint32_t> materials;
+    for (const auto &[material, offset]: ranges::views::zip(rle.m_material_ids, rle.m_offsets)) {
+        if (material != remove_id) {
+            if (materials.empty() || materials.back() != material) {
+                offsets.push_back(offset);
+                materials.push_back(material);
+            } else {
+                offsets.back() = offset;
+            }
+        } else {
+            if (!offsets.empty()) {
+                offsets.back() = offset;
+            }
+        }
+    }
     return {materials, offsets};
 }
 
@@ -297,31 +350,6 @@ vul::ChunkRLE::binary_search_rle_segment(std::uint16_t linear_idx) const {
     std::uint16_t low = 0u;
     std::uint16_t high = size() - 1u;
     return binary_search_rle_segment(linear_idx, low, high);
-}
-
-vul::ChunkRLE vul::ChunkRLE::from_removing_hidden(
-        const std::span<std::uint32_t, chunk_consts::chunk_size> &chunk) {
-    auto chunk_span = ChunkSpan(chunk);
-    std::vector<std::uint16_t> offsets;
-    std::vector<std::uint32_t> materials;
-    std::uint16_t running_offset = 0;
-    std::uint32_t running_material = chunk[0];
-    for (const auto &[idx, current_material_type]: ranges::views::enumerate(
-            chunk_span)) {
-        if (running_material != current_material_type &&
-            !chunk_span.is_surrounded(idx)) {
-            offsets.push_back(running_offset);
-            materials.push_back(running_material);
-            running_material = current_material_type;
-        }
-        running_offset += 1;
-    }
-    UUL_DEBUG_ASSERT(materials.back() != running_material,
-                     "Last value shouldn't have actually been set...");
-    UUL_DEBUG_ASSERT(running_offset == chunk.size());
-    offsets.push_back(running_offset);
-    materials.push_back(running_material);
-    return {materials, offsets};
 }
 
 
@@ -507,7 +535,7 @@ std::uint16_t vul::ChunkBitmask::size() const {
 
 std::span<const std::uint8_t, vul::ChunkBitmask::byte_count>
 vul::ChunkBitmask::byte_span() const {
-    auto byte_ptr = reinterpret_cast<const std::uint8_t*>(m_bits.data());
+    auto byte_ptr = reinterpret_cast<const std::uint8_t *>(m_bits.data());
     return std::span<const std::uint8_t, vul::ChunkBitmask::byte_count>{byte_ptr, vul::ChunkBitmask::byte_count};
 }
 
@@ -534,9 +562,7 @@ vul::ChunkBitmaskByteRLE::ChunkBitmaskByteRLE(
         std::vector<std::uint8_t> multibyte_array) :
         m_empty_segments(std::move(empty_segments)),
         m_multibyte_offset_pairs(std::move(multibyte_offset_pairs)),
-        m_multibyte_array(std::move(multibyte_array))
-
-{
+        m_multibyte_array(std::move(multibyte_array)) {
 
 }
 
@@ -590,9 +616,10 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
     std::vector<RLEByteTypePair> pairs;
 
     auto chunk_bitmask_byte_span = chunk_bitmask.byte_span();
-    for( auto [idx, current_byte] : views::enumerate(chunk_bitmask_byte_span) ) {
-        switch(current_accumulation_type) {
-            using enum AccumulationType;
+    for (auto [idx, current_byte]: views::enumerate(chunk_bitmask_byte_span)) {
+        switch (current_accumulation_type) {
+            using
+            enum AccumulationType;
             case None: {
                 if (current_byte == empty_byte) {
                     current_accumulation_type = AccumulationType::Empty;
@@ -608,7 +635,8 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
                 if (current_byte == empty_byte) {
                     //nothing
                 } else {
-                    pairs.emplace_back(RLEPairByteType::Empty, RLEStartStop{running_start_idx, static_cast<std::uint16_t>(idx - 1u)});
+                    pairs.emplace_back(RLEPairByteType::Empty,
+                                       RLEStartStop{running_start_idx, static_cast<std::uint16_t>(idx - 1u)});
                     running_start_idx = idx;
                     if (current_byte == full_byte) {
                         current_accumulation_type = AccumulationType::Filled;
@@ -622,7 +650,8 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
                 if (current_byte == full_byte) {
                     //nothing
                 } else {
-                    pairs.emplace_back(RLEPairByteType::Filled, RLEStartStop{running_start_idx, static_cast<std::uint16_t>(idx - 1u)});
+                    pairs.emplace_back(RLEPairByteType::Filled,
+                                       RLEStartStop{running_start_idx, static_cast<std::uint16_t>(idx - 1u)});
                     running_start_idx = idx;
                     if (current_byte == empty_byte) {
                         current_accumulation_type = AccumulationType::Empty;
@@ -633,8 +662,9 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
                 break;
             }
             case Multi: {
-                if (current_byte == full_byte || current_byte == empty_byte ) {
-                    pairs.emplace_back(RLEPairByteType::Multi, RLEStartStop{running_start_idx, static_cast<std::uint16_t>(idx - 1u)});
+                if (current_byte == full_byte || current_byte == empty_byte) {
+                    pairs.emplace_back(RLEPairByteType::Multi,
+                                       RLEStartStop{running_start_idx, static_cast<std::uint16_t>(idx - 1u)});
                     running_start_idx = idx;
                     if (current_byte == empty_byte) {
                         current_accumulation_type = AccumulationType::Empty;
@@ -653,7 +683,7 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
     auto last_pair = pairs.back();
     bool checking_merge_of_maybe_empty = false;
     bool checking_merge_of_multi = false;
-    if(last_pair.type == RLEPairByteType::Empty) {
+    if (last_pair.type == RLEPairByteType::Empty) {
         checking_merge_of_maybe_empty = true;
     }
     //checking for previous empty_merges.
@@ -663,21 +693,20 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
     auto multi_offset_cost = 3;
 
     std::size_t previous_multi_index = 0xFFFF;
-    RLEByteTypePair previous_multi_pair ={};
+    RLEByteTypePair previous_multi_pair = {};
     auto end_index = pairs.size() - 1;
-    for(auto [idx, current_pair] : pairs | views::enumerate) {
-        if(current_pair.type == RLEPairByteType::Multi) {
+    for (auto [idx, current_pair]: pairs | views::enumerate) {
+        if (current_pair.type == RLEPairByteType::Multi) {
             previous_multi_index = idx;
             previous_multi_pair = current_pair;
-            if(idx == end_index){
+            if (idx == end_index) {
                 new_pairs.push_back(current_pair);
             }
             break;
-        }else {
+        } else {
             new_pairs.push_back(current_pair);
         }
     }
-
 
 
     std::uint16_t empty_count = 0;
@@ -685,50 +714,51 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
     //forward check for merging more optimal.
     //for(std::uint16_t i = previous_multi_index + 1; i < pairs.size(); ++i)
     //inner loop for(std::uint16_t look_back_idx = previous_multi_index + 1; look_back_idx <= index; ++look_back_idx)
-    for(auto [idx, current_pair] : pairs | views::enumerate | views::slice(previous_multi_index + 1, pairs.size()) ){
-        if(current_pair.type == RLEPairByteType::Empty) {
+    for (auto [idx, current_pair]: pairs | views::enumerate | views::slice(previous_multi_index + 1, pairs.size())) {
+        if (current_pair.type == RLEPairByteType::Empty) {
             empty_count += 1;
-            auto between_byte_distance = (current_pair.pair.stop+1) - previous_multi_pair.pair.stop;
+            auto between_byte_distance = (current_pair.pair.stop + 1) - previous_multi_pair.pair.stop;
             auto merge_threshold = (empty_byte_cost * empty_count); // 3 bytes per empty
-            if(between_byte_distance < merge_threshold) {
+            if (between_byte_distance < merge_threshold) {
                 previous_multi_pair.pair.stop = current_pair.pair.stop;
                 previous_multi_index = idx;
-                if(idx == end_index) {
+                if (idx == end_index) {
                     new_pairs.push_back(previous_multi_pair);
                 }
                 empty_count = 0;
-            }else if(idx == end_index){
+            } else if (idx == end_index) {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                for(auto look_back_pair : pairs | views::slice(previous_multi_index + 1, idx + 1)){
+                for (auto look_back_pair: pairs | views::slice(previous_multi_index + 1, idx + 1)) {
                     new_pairs.push_back(look_back_pair);
                 }
             }
 
-        }else if(current_pair.type == RLEPairByteType::Multi) {
-            auto between_byte_distance = (current_pair.pair.start+1) - previous_multi_pair.pair.stop;
-            auto merge_threshold = multi_offset_cost + (empty_byte_cost * empty_count); //3 bytes per empty plus the extra multi pair
-            if(between_byte_distance < merge_threshold) {
+        } else if (current_pair.type == RLEPairByteType::Multi) {
+            auto between_byte_distance = (current_pair.pair.start + 1) - previous_multi_pair.pair.stop;
+            auto merge_threshold =
+                    multi_offset_cost + (empty_byte_cost * empty_count); //3 bytes per empty plus the extra multi pair
+            if (between_byte_distance < merge_threshold) {
                 previous_multi_pair.pair.stop = current_pair.pair.stop;
-            }else {
+            } else {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                for(auto look_back_pair : pairs | views::slice(previous_multi_index + 1, idx)){
+                for (auto look_back_pair: pairs | views::slice(previous_multi_index + 1, idx)) {
                     new_pairs.push_back(look_back_pair);
                 }
                 previous_multi_pair = current_pair;
 
             }
-            if(idx == end_index) {
+            if (idx == end_index) {
                 new_pairs.push_back(previous_multi_pair);
             }
             previous_multi_index = idx;
             empty_count = 0;
-        }else {//filled
-            if(idx == end_index){
+        } else {//filled
+            if (idx == end_index) {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                for(auto look_back_pair : pairs | views::slice(previous_multi_index + 1, idx + 1)){
+                for (auto look_back_pair: pairs | views::slice(previous_multi_index + 1, idx + 1)) {
                     new_pairs.push_back(look_back_pair);
                 }
             }
@@ -742,67 +772,69 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
 
 
     previous_multi_index = 0xFFFF;
-    previous_multi_pair ={};
+    previous_multi_pair = {};
     end_index = 0;
-    for(auto [idx, current_pair] : pairs | views::enumerate | views::reverse) {
-        if(current_pair.type == RLEPairByteType::Multi) {
+    for (auto [idx, current_pair]: pairs | views::enumerate | views::reverse) {
+        if (current_pair.type == RLEPairByteType::Multi) {
             previous_multi_index = idx;
             previous_multi_pair = current_pair;
-            if(idx == end_index){
+            if (idx == end_index) {
                 new_pairs.push_back(current_pair);
             }
             break;
-        }else {
+        } else {
             new_pairs.push_back(current_pair);
         }
     }
 
-    for(auto [idx, current_pair] : pairs | views::enumerate | views::slice(std::size_t(0), previous_multi_index) | views::reverse){
-        if(current_pair.type == RLEPairByteType::Empty) {
+    for (auto [idx, current_pair]: pairs | views::enumerate | views::slice(std::size_t(0), previous_multi_index) |
+                                   views::reverse) {
+        if (current_pair.type == RLEPairByteType::Empty) {
             empty_count += 1;
-            auto between_byte_distance = (previous_multi_pair.pair.start+1) - current_pair.pair.start;
+            auto between_byte_distance = (previous_multi_pair.pair.start + 1) - current_pair.pair.start;
             auto merge_threshold = (empty_byte_cost * empty_count); // 3 bytes per empty
-            if(between_byte_distance < merge_threshold) {
+            if (between_byte_distance < merge_threshold) {
                 previous_multi_pair.pair.stop = current_pair.pair.stop;
                 previous_multi_index = idx;
-                if(idx == end_index) {
+                if (idx == end_index) {
                     new_pairs.push_back(previous_multi_pair);
                 }
                 empty_count = 0;
-            }else if(idx == end_index){
+            } else if (idx == end_index) {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                for(auto look_back_pair : pairs | views::slice(idx, previous_multi_index) | views::reverse){
+                for (auto look_back_pair: pairs | views::slice(idx, previous_multi_index) | views::reverse) {
                     new_pairs.push_back(look_back_pair);
                 }
             }
 
-        }else if(current_pair.type == RLEPairByteType::Multi) {
+        } else if (current_pair.type == RLEPairByteType::Multi) {
 
-            auto between_byte_distance = (previous_multi_pair.pair.start+1) - current_pair.pair.stop;
-            auto merge_threshold = multi_offset_cost + (empty_byte_cost * empty_count); //3 bytes per empty plus the extra multi pair
+            auto between_byte_distance = (previous_multi_pair.pair.start + 1) - current_pair.pair.stop;
+            auto merge_threshold =
+                    multi_offset_cost + (empty_byte_cost * empty_count); //3 bytes per empty plus the extra multi pair
             //TODO if part shouldn't need to be here because should have been handled in other loop
-            if(between_byte_distance < merge_threshold) {
+            if (between_byte_distance < merge_threshold) {
                 previous_multi_pair.pair.start = current_pair.pair.start;
-            }else {
+            } else {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                UUL_DEBUG_ASSERT((idx+1) < previous_multi_index);
-                for(auto look_back_pair : pairs | views::slice(idx+1, previous_multi_index) | views::reverse){
+                UUL_DEBUG_ASSERT((idx + 1) < previous_multi_index);
+                for (auto look_back_pair: pairs | views::slice(idx + 1, previous_multi_index) | views::reverse) {
                     new_pairs.push_back(look_back_pair);
                 }
                 previous_multi_pair = current_pair;
             }
-            if(idx == end_index) {
+            if (idx == end_index) {
                 new_pairs.push_back(previous_multi_pair);
             }
             previous_multi_index = idx;
             empty_count = 0;
-        }else {//filled
-            if(idx == end_index){
+        } else {//filled
+            if (idx == end_index) {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                for(auto look_back_pair : pairs | views::slice(idx, previous_multi_index) | views::reverse){
+                for (auto look_back_pair: pairs | views::slice(idx, previous_multi_index) | views::reverse) {
                     new_pairs.push_back(look_back_pair);
                 }
             }
@@ -814,19 +846,21 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
     std::vector<std::uint8_t> empty_segments;
     std::vector<std::uint8_t> multibyte_offset_pairs;
     std::vector<std::uint8_t> multibyte_array;
-    for(const auto value : pairs){
-        if(value.type == RLEPairByteType::Empty){
+    for (const auto value: pairs) {
+        if (value.type == RLEPairByteType::Empty) {
             auto merged_bytes = merge_12bit(value.pair.start, value.pair.stop);
-            for(const auto byte : merged_bytes){
+            for (const auto byte: merged_bytes) {
                 empty_segments.push_back(byte);
             }
-        } else if (value.type == RLEPairByteType::Multi){
+        } else if (value.type == RLEPairByteType::Multi) {
             auto byte_distance = (value.pair.stop + 1) - value.pair.start;
             auto merged_bytes = merge_12bit(value.pair.stop, multibyte_array.size() + byte_distance - 1);
-            for(const auto byte : merged_bytes){
+            for (const auto byte: merged_bytes) {
                 multibyte_offset_pairs.push_back(byte);
             }
-            for(const auto multi_byte : chunk_bitmask_byte_span | views::slice(value.pair.start, static_cast<std::uint16_t>(value.pair.stop + 1))){
+            for (const auto multi_byte: chunk_bitmask_byte_span | views::slice(value.pair.start,
+                                                                               static_cast<std::uint16_t>(
+                                                                                       value.pair.stop + 1))) {
                 multibyte_array.push_back(multi_byte);
             }
         }
@@ -847,28 +881,29 @@ vul::ChunkBitmaskBitRLE::from_filled(const vul::ChunkSpan &chunk_span,
     auto chunk_bitmask = ChunkBitmask::from_filled(chunk_span, empty_id);
     std::vector<RLEPair> empty_segments;
     std::uint16_t start_idx = 0xFFFF;
-    for(std::uint16_t i = 0; i < chunk_consts::chunk_size; ++i){
-        if(chunk_bitmask[i]){
-            if(start_idx == 0xFFFF){
+    for (std::uint16_t i = 0; i < chunk_consts::chunk_size; ++i) {
+        if (chunk_bitmask[i]) {
+            if (start_idx == 0xFFFF) {
                 continue;
-            }else{
+            } else {
                 empty_segments.emplace_back(start_idx, i);
                 start_idx = 0xFFFF;
             }
-        }else{
-            if(start_idx == 0xFFFF){
+        } else {
+            if (start_idx == 0xFFFF) {
                 start_idx = i;
             }
         }
     }
-    if(start_idx != 0xFFFF){
+    if (start_idx != 0xFFFF) {
         empty_segments.emplace_back(start_idx, chunk_consts::chunk_size);
     }
     return {empty_segments};
 }
 
 vul::ChunkBitmaskLayerTableBitRLE::ChunkBitmaskLayerTableBitRLE(
-        std::vector<RLEPair8> empty_segments, std::array<std::uint16_t, table_size> layer_table_offsets) : m_empty_segments(std::move(empty_segments)), m_layer_table_offsets((layer_table_offsets)) {
+        std::vector<RLEPair8> empty_segments, std::array<std::uint16_t, table_size> layer_table_offsets)
+        : m_empty_segments(std::move(empty_segments)), m_layer_table_offsets((layer_table_offsets)) {
 
 }
 
@@ -879,7 +914,7 @@ vul::ChunkBitmaskLayerTableBitRLE::from_filled(const vul::ChunkSpan &chunk_span,
     auto chunk_bitmask = ChunkBitmask::from_filled(chunk_span, empty_id);
     std::vector<RLEPair8> empty_segments;
     std::array<std::uint16_t, table_size> layer_table_offsets = {};
-    for(std::uint8_t table_layer = 0; table_layer < table_size; ++table_layer) {
+    for (std::uint8_t table_layer = 0; table_layer < table_size; ++table_layer) {
         auto layer_start = table_layer * layer_size;
         auto layer_stop = (table_layer + 1) * layer_size;
         std::uint16_t start_idx = 0xFFFF;
@@ -889,7 +924,7 @@ vul::ChunkBitmaskLayerTableBitRLE::from_filled(const vul::ChunkSpan &chunk_span,
                     continue;
                 } else {
                     //TODO inclusive end right now...?
-                    empty_segments.emplace_back(start_idx % layer_size, (i-1) % layer_size);
+                    empty_segments.emplace_back(start_idx % layer_size, (i - 1) % layer_size);
                     start_idx = 0xFFFF;
                 }
             } else {
@@ -899,12 +934,13 @@ vul::ChunkBitmaskLayerTableBitRLE::from_filled(const vul::ChunkSpan &chunk_span,
             }
         }
         if (start_idx != 0xFFFF && start_idx % layer_size != 0) {
-                empty_segments.emplace_back(start_idx % layer_size, 255);
+            empty_segments.emplace_back(start_idx % layer_size, 255);
         }
-        if(start_idx % layer_size == 0){
+        if (start_idx % layer_size == 0) {
             //if completely empty, we mark it here.  If completely full, will just be the same endpoint as the last one.
-            layer_table_offsets[table_layer] = static_cast<std::uint16_t>(empty_segments.size()) | 0b1000'0000'0000'0000;
-        }else{
+            layer_table_offsets[table_layer] =
+                    static_cast<std::uint16_t>(empty_segments.size()) | 0b1000'0000'0000'0000;
+        } else {
             layer_table_offsets[table_layer] = empty_segments.size();
         }
 
@@ -914,4 +950,128 @@ vul::ChunkBitmaskLayerTableBitRLE::from_filled(const vul::ChunkSpan &chunk_span,
     //TODO could use table index itself to indicate empty start-stop list? save 2 bytes per start stop that's empty (in half filled, it's 128 bytes?)
     //TODO could use both RLE non table and this version on GPU, as this would only change the code a bit. Guessing won't matter though if it's mostly the same threads per block?
     return {empty_segments, layer_table_offsets};
+}
+
+vul::ChunkBitmaskGridLayer2::ChunkBitmaskGridLayer2(std::uint64_t top_bit_layer,
+                                                    std::uint64_t top_bit_layer_empty_flag,
+                                                    const std::vector<GridLeaf> &leaf_layer) : m_top_bit_layer(top_bit_layer), m_top_bit_layer_empty_flag(top_bit_layer_empty_flag), m_leaf_layer(leaf_layer){
+
+}
+
+
+vul::ChunkBitmaskGridLayer2
+vul::ChunkBitmaskGridLayer2::from_filled(const vul::ChunkSpan &chunk_span, std::uint32_t empty_id) {
+    std::uint64_t top_bit_layer = 0u;
+    std::uint64_t top_bit_layer_empty_flag = 0u;
+    std::vector<GridLeaf> leaf_layer;
+
+    for(std::size_t tz = 0; tz < top_layer_dim; ++tz){
+        for(std::size_t ty = 0; ty < top_layer_dim; ++ty){
+            for(std::size_t tx = 0; tx < top_layer_dim; ++tx){
+                std::uint8_t linear_index = tz * top_layer_dim * top_layer_dim + ty * top_layer_dim + tx;
+                std::uint16_t filled_count = 0u;
+                for(std::size_t lz = 0; lz < leaf_layer_dim; ++lz) {
+                    for (std::size_t ly = 0; ly < leaf_layer_dim; ++ly) {
+                        for (std::size_t lx = 0; lx < leaf_layer_dim; ++lx) {
+                            const auto z = (tz * leaf_layer_dim) + lz;
+                            const auto y = (ty * leaf_layer_dim) + ly;
+                            const auto x = (tx * leaf_layer_dim) + lx;
+
+                            if (chunk_span(x, y, z)) {
+                                if(filled_count == 0){
+                                    leaf_layer.push_back(GridLeaf{});
+                                }
+                                leaf_layer.back().set(lx,ly,lz);
+                                filled_count += 1;
+                            }
+                        }
+                    }
+                }
+                if(filled_count == 0){
+                    top_bit_layer = uul::bit_set(top_bit_layer, 0);
+                    top_bit_layer_empty_flag = uul::bit_set(top_bit_layer_empty_flag, 0);
+                }else if(filled_count == leaf_layer_dim * leaf_layer_dim * leaf_layer_dim){
+                    top_bit_layer = uul::bit_set(top_bit_layer, 0);
+                    top_bit_layer_empty_flag = uul::bit_set(top_bit_layer_empty_flag, 1);
+                }else{
+                    top_bit_layer = uul::bit_set(top_bit_layer, 1);
+                    top_bit_layer_empty_flag = uul::bit_set(top_bit_layer_empty_flag, 1);
+                }
+            }
+        }
+    }
+
+    return {top_bit_layer, top_bit_layer_empty_flag, leaf_layer};
+}
+
+bool vul::ChunkBitmaskGridLayer2::get_top_layer(std::uint8_t x, std::uint8_t y, std::uint8_t z) const {
+    return uul::bit_get(m_top_bit_layer, calc_top_layer_index(x, y, z));
+}
+bool vul::ChunkBitmaskGridLayer2::operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const {
+    if(get_top_layer(x,y,z)){
+        const auto top_layer_index = calc_top_layer_index(x,y,z);
+        const auto leaf_node_index = calc_leaf_node_offset(top_layer_index);
+        return m_leaf_layer[leaf_node_index](x,y,z);
+    }
+    return false;
+}
+
+bool vul::ChunkBitmaskGridLayer2::operator[](std::uint16_t idx) const {
+    uint8_t x = idx % 32;
+    uint8_t y = (idx/32) % 32;
+    uint8_t z = (idx/(32*32)) % 32;
+    return this->operator()(x,y,z);
+}
+
+bool vul::ChunkBitmaskGridLayer2::is_empty() const noexcept {
+    return m_leaf_layer.empty();
+}
+
+std::uint16_t vul::ChunkBitmaskGridLayer2::size() const noexcept {
+    return m_leaf_layer.size();
+}
+
+std::uint64_t vul::ChunkBitmaskGridLayer2::get_top_bit_layer() const noexcept {
+    return m_top_bit_layer;
+}
+
+std::span<const vul::ChunkBitmaskGridLayer2::GridLeaf> vul::ChunkBitmaskGridLayer2::get_leaf_layer() const noexcept {
+    return m_leaf_layer;
+}
+
+std::uint8_t vul::ChunkBitmaskGridLayer2::calc_top_layer_index(std::uint8_t x, std::uint8_t y, std::uint8_t z) const noexcept {
+    std::uint8_t top_bit_index = uul::get_n_bits_l(z, 2u) * (top_layer_dim * top_layer_dim) +
+            uul::get_n_bits_l(y, 2u) * top_layer_dim + uul::get_n_bits_l(x, 2u);
+    return top_bit_index;
+}
+
+std::uint8_t vul::ChunkBitmaskGridLayer2::calc_leaf_node_offset(std::uint8_t bit_index) const noexcept {
+    return uul::popcount_r(m_top_bit_layer, bit_index + 1u);
+}
+
+
+
+bool vul::ChunkBitmaskGridLayer2::GridLeaf::operator[](std::uint16_t idx) const {
+    return uul::bit_get(m_data[idx/64], idx % 64);
+}
+
+bool vul::ChunkBitmaskGridLayer2::GridLeaf::operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const {
+    std::uint16_t top_bit_index =
+            static_cast<uint16_t>(uul::get_n_bits_r(z, 3u)) * (leaf_layer_dim * leaf_layer_dim)
+            + static_cast<uint16_t>(uul::get_n_bits_r(y, 3u)) * leaf_layer_dim
+            + static_cast<uint16_t>(uul::get_n_bits_r(x, 3u));
+    return this->operator[](top_bit_index);
+}
+
+void vul::ChunkBitmaskGridLayer2::GridLeaf::set(std::uint8_t x, std::uint8_t y, std::uint8_t z) {
+    std::uint16_t top_bit_index =
+            static_cast<uint16_t>(uul::get_n_bits_r(z, 3u)) * (leaf_layer_dim * leaf_layer_dim)
+            + static_cast<uint16_t>(uul::get_n_bits_r(y, 3u)) * leaf_layer_dim
+            + static_cast<uint16_t>(uul::get_n_bits_r(x, 3u));
+
+    set(top_bit_index);
+}
+
+void vul::ChunkBitmaskGridLayer2::GridLeaf::set(std::uint16_t idx) {
+    m_data[idx/64] = uul::bit_set(m_data[idx/64], idx % 64);
 }

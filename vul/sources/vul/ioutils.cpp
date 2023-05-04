@@ -4,9 +4,10 @@
 
 #include "ioutils.h"
 #include <fstream>
+#include <string>
 
-std::vector<std::uint32_t> vul::readSPIRV(const std::string &filepath) {
-    std::ifstream file(filepath, std::ios::ate | std::ios::binary);
+std::vector<std::uint32_t> vul::readSPIRV(std::string_view filepath) {
+    std::ifstream file(std::string(filepath), std::ios::ate | std::ios::binary);
 
     if (!file.is_open()) {
         throw std::runtime_error("failed to open file!");

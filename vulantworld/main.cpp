@@ -4,12 +4,8 @@
 
 #include <gul/imguirenderer.h>
 #include <gul/noise/fbm.h>
-#include <uul/bit.h>
 #include <uul/math.h>
 #include <gul/noise/opensimplex.h>
-//#include "chunkmanagement.h"
-#include "cpu_bitmask_intersect.h"
-#include "chunks.h"
 #include <iostream>
 #include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
@@ -40,13 +36,11 @@
 #include <vul/swapchain.h>
 #include <vul/surface.h>
 #include <vul/instance.h>
-#include <vul/pushconstantrange.h>
 #include <vul/debugutils.h>
 #include <vul/physicaldevice.h>
 #include <vul/features.h>
 #include <vul/bitmasks.h>
 #include <vul/expectedresult.h>
-#include <vul/deviceaddress.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -69,6 +63,7 @@
 #include <vul/traitutils.h>
 #include <bitset>
 #include <bit>
+#include <random>
 
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
@@ -85,31 +80,22 @@ struct UniformBufferObject {
 };
 static_assert(sizeof(UniformBufferObject) == 16 * 4 * 3 + 16);
 
-struct alignas(8) RunLengthEncodingPushConstant {
-    vul::DeviceAddress u_material_data_block_ptr;
-    vul::DeviceAddress u_cumulative_block_offsets;
-    vul::DeviceAddress u_bitmasks_ref;
-    vul::DeviceAddress u_voxel_sdf_out;
-    std::uint32_t u_cumulative_block_offsets_size;
+struct alignas(8) FullScreenPushConstant {
+    std::uint32_t image_index;
+    std::uint32_t image_display_enum;
+    float image_zoom;
+    std::uint32_t u_ant_grid_dim;
+    std::uint64_t u_ant_grid;
 };
-static_assert(sizeof(RunLengthEncodingPushConstant) == 40);
 
-struct alignas(8) JFAInitPushConstant {
-    std::uint32_t u_block_idx;
-    std::uint32_t u_padding;
-    vul::DeviceAddress u_bitmask_ref;
-    vul::DeviceAddress u_voxel_jfa_out;
-};
-static_assert(sizeof(JFAInitPushConstant) == 24);
+struct alignas(8) AntComputePushConstant {
+    std::uint64_t u_ant_grid;
+    std::uint64_t u_ant_pos;
+    std::uint64_t u_ant_dir;
 
-struct alignas(8) JFAIterationPushConstant {
-    std::uint32_t u_jump_step_size;
-    std::uint32_t u_jump_step_type;
-    vul::DeviceAddress u_voxel_jfa_in;
-    vul::DeviceAddress u_voxel_jfa_out;
-    vul::DeviceAddress u_voxel_sdf_out;
+    std::uint32_t u_ant_grid_dim;
+    std::uint32_t u_ant_count;
 };
-static_assert(sizeof(JFAIterationPushConstant) == 32);
 
 int main() {
 
@@ -268,263 +254,27 @@ int main() {
             vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
-    descriptorSetLayoutBuilder.setBindings({vul::UniformBufferBinding(0,
-                                                                      vul::ShaderStageFlagBits::VertexBit |
-                                                                      vul::ShaderStageFlagBits::FragmentBit),
-                                            vul::CombinedSamplerBinding(1,
+    descriptorSetLayoutBuilder.setBindings({
+                                                   vul::CombinedSamplerBinding(0,
 
-                                                                        vul::ShaderStageFlagBits::FragmentBit)});
+                                                                               vul::ShaderStageFlagBits::FragmentBit,
+                                                                               3).get(),
+                                           });
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
-
-    std::vector<std::uint32_t> chunk_data(32 * 32 * 32, 1);
-    std::vector<std::uint32_t> zorder_chunk_data(32 * 32 * 32, 1);
-
-
-    std::vector<std::uint32_t> set_offsets = {1, 5, 2, 24, 32 * 32 - 32, 32,
-                                              32 * 32 - 32, 32 * 32, 32 * 3 + 4,
-                                              28 + 17, 32 * 8, 32 * 32};
-    std::vector<std::uint32_t> set_values = {4, 5, 7, 6, 2, 3, 2, 0, 2, 4, 1,
-                                             0};
-
-    std::size_t total_offset = 0;
-    for (auto [offset, value]: ranges::views::zip(set_offsets, set_values)) {
-        for (std::size_t i = total_offset; i < total_offset + offset; ++i) {
-            chunk_data[i] = value;
-        }
-        total_offset += offset;
-    }
-    bool clear = false;
-    vul::ChunkSpan chunk_span(vul::make_chunk_span(chunk_data));
-    vul::ChunkSpan zorder_chunk_span(vul::make_chunk_span(zorder_chunk_data));
-    for (std::size_t y = 0; y < 32; ++y) {
-        for (std::size_t z = 0; z < 32; ++z) {
-            for (std::size_t x = 0; x < 32; ++x) {
-                if (clear) {
-                    chunk_span(x, y, z) = 0;
-                    continue;
-                }
-                auto d_x = static_cast<double>(x);
-                auto d_y = static_cast<double>(y);
-                auto d_z = static_cast<double>(z);
-                auto height = gul::fbm2d(d_x, d_z, &gul::Noise2, 2, 0.5f, 1.0 / 16.0, 2.0, 32.0);
-                std::uint32_t chunk_material = 0;
-                if ((31 - d_y) < height) {
-
-                    auto solid_value = gul::fbm3d(d_x, d_y, d_z, &gul::Noise3_Fallback, 1, 1.0f, 8.0, 2.0, 1.0);
-                    if (solid_value > 0.0) {
-                        chunk_material = 8;
-                    } else {
-                        chunk_material = 8;
-                    }
-                }
-
-                chunk_span(x, y, z) = chunk_material;
-                auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-                auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-                auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
-//                fmt::print(stdout,"{},{},{} : {},{},{}\n", std::bitset<16>(x).to_string(), std::bitset<16>(y).to_string(), std::bitset<16>(z).to_string(),
-//                           std::bitset<16>(zx).to_string(), std::bitset<16>(zy).to_string(), std::bitset<16>(zz).to_string());
-                std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
-//                fmt::print(stdout, "{}\n", combined);
-//                std::cout << std::flush;
-
-                zorder_chunk_span[combined] = chunk_material;
-            }
-        }
-    }
-
-    chunk_span(0, 0, 0) = 8;
-
-//    chunk_span(2,0,0) = 8;
-//    chunk_span(0,2,0) = 8;
-    chunk_span(0, 0, 2) = 8;
-
-    chunk_span(15, 15, 15) = 5;
-    {
-        auto x = 0;
-        auto y = 0;
-        auto z = 0;
-        auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-        auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-        auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
-        std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
-        zorder_chunk_span[combined] = 8;
-    }
-    {
-        auto x = 0;
-        auto y = 0;
-        auto z = 2;
-        auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-        auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-        auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
-        std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
-        zorder_chunk_span[combined] = 8;
-    }
-    {
-        auto x = 15;
-        auto y = 15;
-        auto z = 15;
-        auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-        auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-        auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
-        std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
-        zorder_chunk_span[combined] = 5;
-    }
-
-//    chunk_span(2,2,0) = 8;
-//    chunk_span(0,2,2) = 8;
-//    chunk_span(2,2,2) = 8;
-
-    auto bitmask = vul::ChunkBitmask::from_filled(chunk_span);
-
-    auto bitmask2 = vul::ChunkBitmaskByteRLE::from_filled(chunk_span);
-    auto bitmask3 = vul::ChunkBitmaskBitRLE::from_filled(chunk_span);
-    auto bitmask4 = vul::ChunkBitmaskLayerTableBitRLE::from_filled(chunk_span);
-
-    auto bitmask5 = vul::ChunkBitmaskGridLayer2::from_filled(chunk_span);
-    //counter per chunk,
-    //index to which chunk you're refering to.
-    //chunks rendering (what about large memory chunks?, maybe just allocate large memory chunks, put other stuff at the end).
-    //check count of all referenced from array of reference counts and values.
-    //u32 sets of cumsum
-    //[0,4,5,10],[refptr, refptr, refptr...]
-    //copy refptr to refptr when updated
-    //data for bitfield contained inside of RLE, so possibly remove need for bitmask, and generate bitfield on fly? would stop bit fields from being edited in other ways though...
-
-
-    auto org = glm::vec3(6.5f, -3.0f, 6.5f);
-    auto dir = normalize(glm::vec3(0.0f, 1.0f, 1.0f));
-    auto org_offset = glm::vec3(0.0f, 1.0f, 0.0f) * 0.001f;
-    auto block_offset = glm::vec3(0.0f);
-    std::uint32_t voxel_index;
-    //TODO get to work with interesected.
-//    auto intersected = bitmask_intersect(bitmask, org + org_offset, dir,
-//                                         block_offset, voxel_index);
-//
-//    fmt::print("intersectred {}\n", intersected);
-//    std::cout << std::endl;
-
-
-
-    auto chunk_rle = vul::ChunkRLE::from_linear(std::span<std::uint32_t, vul::chunk_consts::chunk_size>(chunk_data));
-//    //TODO removing hidden actually makes
-//    chunk_rle = vul::ChunkRLE::from_removing_id(vul::ChunkRLE::from_removing_hidden(std::span<std::uint32_t,vul::chunk_consts::chunk_size>(chunk_data)));
-
-
-    auto zchunk_rle = vul::ChunkRLE::from_linear(
-            std::span<std::uint32_t, vul::chunk_consts::chunk_size>(zorder_chunk_data));
-    std::vector<std::uint32_t> cumulative_rle_sizes = {chunk_rle.size()};
-    auto device_cumulative_rle_sizes = allocator.createDeviceBuffer(commandPool,
-                                                                    presentationQueue,
-                                                                    cumulative_rle_sizes,
-                                                                    vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-//    allocator.createDeviceBuffer(
-//            commandPool,
-//            presentationQueue,
-//            kdtree.get_aabb(),
-//            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-
-    auto rle_bitmask_buffer = allocator.createDeviceBuffer(commandPool,
-                                                           presentationQueue,
-                                                           bitmask,
-                                                           vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
-
-
-    auto rle_staging_materials = allocator.createStagingBuffer(
-            vul::TempArrayProxy(chunk_rle.get_material_ids())).assertValue();
-    auto rle_staging_offsets = allocator.createStagingBuffer(
-            vul::TempArrayProxy(chunk_rle.get_offsets())).assertValue();
-    auto data_chunk_block_size_bytes = 1024 * 1024 * 12;
-    auto data_chunk_block_rle_offset_begin = 1024 * 1024 * 8;
-
-
-    auto rle_data_buffer = allocator.createDeviceBuffer(data_chunk_block_size_bytes,
-                                                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit
-                                                        | vul::BufferUsageFlagBits::TransferDstBit).assertValue();
-
-
-    vul::copy(rle_staging_materials, rle_data_buffer, commandPool, presentationQueue, 0);
-    vul::copy(rle_staging_offsets, rle_data_buffer, commandPool, presentationQueue, data_chunk_block_rle_offset_begin);
-
-    auto rle_materials_address = rle_data_buffer.getDeviceAddress();
-    auto rle_offsets_address = rle_materials_address + data_chunk_block_rle_offset_begin;
-
-
-    std::array voxel_jfa_buffers = {
-            allocator.createDeviceBuffer(sizeof(std::uint16_t) * vul::chunk_consts::chunk_size,
-                                         vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue(),
-            allocator.createDeviceBuffer(sizeof(std::uint16_t) * vul::chunk_consts::chunk_size,
-                                         vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue()
-    };
-
-    auto voxel_df_buffer = allocator.createDeviceBuffer(sizeof(std::uint8_t) * vul::chunk_consts::chunk_size,
-                                                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit |
-                                                        vul::BufferUsageFlagBits::TransferSrcBit).assertValue();
-
-    auto voxel_df_host_buffer = allocator.createMappedCoherentBuffer(
-            sizeof(std::uint8_t) * vul::chunk_consts::chunk_size,
-            vul::BufferUsageFlagBits::TransferDstBit).assertValue();
-
-    JFAInitPushConstant jfa_init_push_constant = {
-            0,
-            0,
-            rle_bitmask_buffer.getDeviceAddress(),
-            voxel_jfa_buffers[0].getDeviceAddress(),
-
-    };
-
-    JFAIterationPushConstant jfa_iteration_push_constant = {
-            0,
-            0,
-            voxel_jfa_buffers[0].getDeviceAddress(),
-            voxel_jfa_buffers[1].getDeviceAddress(),
-            voxel_df_buffer.getDeviceAddress()
-    };
-
-    auto jfaInitPipelineLayout = device.createPipelineLayout(
-            vul::PushConstantRange::create<JFAInitPushConstant>(
-                    vul::ShaderStageFlagBits::ComputeBit)).assertValue();
-    auto jfaInitComputeBuilder = vul::ComputePipelineBuilder(device);
-    vul::ComputePipeline jfaInitPipleline;
-    {
-        auto computeShader = device.createShaderModule("spirv/jfa_init.comp.spv").assertValue();
-        jfaInitComputeBuilder.setShaderCreateInfo(
-                computeShader.createComputeStageInfo());
-        jfaInitComputeBuilder.setPipelineLayout(jfaInitPipelineLayout);
-        jfaInitPipleline = jfaInitComputeBuilder.create().assertValue();
-    }
-
-
-    auto jfaIterationPipelineLayout = device.createPipelineLayout(
-            vul::PushConstantRange::create<JFAIterationPushConstant>(
-                    vul::ShaderStageFlagBits::ComputeBit)).assertValue();
-    auto jfaIterationComputeBuilder = vul::ComputePipelineBuilder(device);
-    vul::ComputePipeline jfaIterationPipleline;
-    {
-        auto computeShader = device.createShaderModule("spirv/jfa_iteration.comp.spv").assertValue();
-        jfaIterationComputeBuilder.setShaderCreateInfo(
-                computeShader.createComputeStageInfo());
-        jfaIterationComputeBuilder.setPipelineLayout(jfaIterationPipelineLayout);
-        jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
-    }
 
 
     vul::GraphicsPipeline graphicsPipeline;
 
 
-    RunLengthEncodingPushConstant rlePushConstant = {
-            rle_data_buffer.getDeviceAddress(),
-            device_cumulative_rle_sizes.getDeviceAddress(),
-            rle_bitmask_buffer.getDeviceAddress(),
-            voxel_df_buffer.getDeviceAddress(),
-            static_cast<std::uint32_t>(cumulative_rle_sizes.size())
-    };
 
     auto pipelineLayout = device.createPipelineLayout(
             descriptorLayout,
-            vul::PushConstantRange::create<RunLengthEncodingPushConstant>((vul::ShaderStageFlagBits::VertexBit |
-                                                                           vul::ShaderStageFlagBits::FragmentBit))
-    ).assertValue();
+            VkPushConstantRange{
+                    (vul::ShaderStageFlagBits::VertexBit |
+                     vul::ShaderStageFlagBits::FragmentBit).to_underlying(),
+                    0,
+                    sizeof(FullScreenPushConstant)
+            }).assertValue();
 //    auto pipelineLayout = device.createPipelineLayout(
 //            descriptorLayout).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
@@ -537,7 +287,7 @@ int main() {
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
     pipelineBuilder.setDefaultRasterizationState();
-//    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
+    pipelineBuilder.setDefaultRasterizationState(vul::CullModeFlagBits::None);
 
     pipelineBuilder.setDefaultMultisampleState();
     pipelineBuilder.setDefaultDepthStencilStateEnable();
@@ -554,8 +304,10 @@ int main() {
     pipelineBuilder.setRenderPass(renderPass, 0);
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
-        auto vertexShader = device.createShaderModule("spirv/rle_render.vert.spv").assertValue();
-        auto fragmentShader = device.createShaderModule("spirv/rle_render.frag.spv").assertValue();
+        auto vertexShader = device.createShaderModule(
+                vul::readSPIRV("spirv/fullscreen.vert.spv")).assertValue();
+        auto fragmentShader = device.createShaderModule(
+                vul::readSPIRV("spirv/fullscreen.frag.spv")).assertValue();
         pipelineBuilder.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
@@ -564,9 +316,14 @@ int main() {
 
 
     vul::Image depthImage = allocator.createDeviceImage(
-            vul::createDepthStencilImageInfo(swapchain.getExtent())).assertValue();
+            vul::createSimple2DImageInfo(
+                    vul::Format::D24UnormS8Uint,
+                    swapchain.getExtent(),
+                    vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
+    ).assertValue();
 
-    auto depthImageView = depthImage.createImageView().assertValue();
+    auto depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
+            vul::ImageAspectFlagBits::DepthBit)).assertValue();
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
@@ -606,9 +363,15 @@ int main() {
 //        swapchainBuilder.imageExtent(window.getFramebufferExtent());
 //        surface.createSwapchain(swapchainBuilder);
 
-        depthImage = allocator.createDeviceImage(vul::createDepthStencilImageInfo(swapchain.getExtent())).assertValue();
+        depthImage = allocator.createDeviceImage(
+                vul::createSimple2DImageInfo(
+                        vul::Format::D24UnormS8Uint,
+                        swapchain.getExtent(),
+                        vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
+        ).assertValue();
 
-        depthImageView = depthImage.createImageView().assertValue();
+        depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
+                vul::ImageAspectFlagBits::DepthBit)).assertValue();
         const auto &swapchainImageViews = swapchain.getImageViews();
         for (const auto &imageView: swapchainImageViews) {
             std::array<const vul::ImageView *, 2> imageViews = {&imageView,
@@ -624,87 +387,82 @@ int main() {
     };
 
 
-    gul::StbImage pixels;
-    gul::load("../../textures/texture.jpg", pixels,
-              gul::StbImage::Channels::rgb_alpha);
+    std::uint32_t grid_width = 128;
+    std::uint32_t grid_height = 128;
+    std::vector<vul::Buffer> host_staging_buffers;
+    std::vector<vul::Image> device_grid_images;
+    std::vector<vul::ImageView> device_grid_views;
+    for (std::size_t i = 0; i < swapchainSize; ++i) {
+        device_grid_images.push_back(allocator.createDeviceImage(
+                vul::createSimple2DImageInfo(
+                        vul::Format::R8g8b8a8Srgb,
+                        vul::Extent2D(grid_width, grid_height),
+                        vul::ImageUsageFlagBits::TransferDstBit |
+                        vul::ImageUsageFlagBits::SampledBit)).assertValue());
+        device_grid_views.push_back(device_grid_images.back().createImageView(vul::ImageSubresourceRange(
+                vul::ImageAspectFlagBits::ColorBit)).assertValue());
+        host_staging_buffers.push_back(allocator.createStagingBuffer(128 * 128 * 4).assertValue());
+        device_grid_images.back().setDebugObjectName(fmt::format("DEVICE_IMAGE_{}", i));
+//        device_grid_views.back().setDebugObjectName(fmt::format("IMAGE_{}", i));
+        host_staging_buffers.back().setDebugObjectName(fmt::format("HOST_BUFFER_{}", i));
 
-    std::vector<std::string> texture_file_paths = {
-            "../../resources/brick_goodvibes.png",
-            "../../resources/clay_goodvibes.png",
-            "../../resources/cobblestone_goodvibes.png",
-            "../../resources/dirt_goodvibes.png",
-            "../../resources/end_stone_goodvibes.png",
-            "../../resources/grass_block_top_goodvibes.png",
-            "../../resources/oak_planks_goodvibes.png",
-            "../../resources/sand_goodvibes.png"
+        vul::transition(device_grid_images.back(), commandPool,
+                        presentationQueue,
+                        vul::ImageAspectFlagBits::ColorBit,
+                        vul::PipelineStageFlagBits2::AllCommandsBit,
+                        vul::AccessFlagBits2::ShaderReadBit,
+                        vul::ImageLayout::ReadOnlyOptimal);
+    }
+
+    struct alignas(4) ColorRGBA {
+        std::uint8_t r;
+        std::uint8_t g;
+        std::uint8_t b;
+        std::uint8_t a;
     };
-    std::vector<gul::StbImage> textureLayers;
-    for (const auto &file_path: texture_file_paths) {
-        gul::StbImage block_texture;
-        gul::load(file_path, block_texture, gul::StbImage::Channels::rgb_alpha);
-        textureLayers.push_back(block_texture);
+
+    std::vector<ColorRGBA> colors(128 * 128, ColorRGBA{0xFFu, 0xFF, 0x0FF, 0xFF});
+    for (std::size_t i = 0; i < 64; ++i) {
+        for (std::size_t j = 0; j < 64; ++j) {
+            colors[i * 128 + j] = ColorRGBA{0xFFu, 0x00u, 0x00u, 0xFFu};
+        }
     }
 
-    std::vector<vul::TempConstVoidArrayProxy> textureLayerSpans;
-    for (const auto &textureLayer: textureLayers) {
-        textureLayerSpans.push_back(
-                vul::TempArrayProxy(textureLayer.size(), textureLayer.data()));
+    for (std::size_t i = 0; i < swapchainSize; ++i) {
+        host_staging_buffers[i].mappedCopyFrom(colors);
     }
-
-    auto temp = vul::TempArrayProxy(textureLayerSpans);
-
-    std::cout << vul::is_container<decltype(textureLayerSpans)>::value << std::endl;
-
-    std::cout << vul::is_container<decltype(temp)>::value << std::endl;
-
-    auto arrayTextureImage = allocator.createDeviceTexture(commandPool,
-                                                           presentationQueue,
-                                                           vul::TempArrayProxy(textureLayerSpans),
-                                                           vul::createSimple2DImageInfo(
-                                                                   vul::Format::R8g8b8a8Unorm,
-                                                                   VkExtent2D{16, 16},
-                                                                   vul::ImageUsageFlagBits::TransferDstBit |
-                                                                   vul::ImageUsageFlagBits::SampledBit,
-                                                                   1, textureLayers.size())).assertValue();
-
-
-    auto arrayTextureView = arrayTextureImage.createImageView().assertValue();
-
-    auto textureImage = allocator.createDeviceTexture(commandPool,
-                                                      presentationQueue,
-                                                      vul::TempArrayProxy(
-                                                              pixels.size(),
-                                                              pixels.data()),
-                                                      vul::createSimple2DImageInfo(
-                                                              vul::Format::R8g8b8a8Unorm,
-                                                              pixels.getExtent2D(),
-                                                              vul::ImageUsageFlagBits::TransferDstBit |
-                                                              vul::ImageUsageFlagBits::SampledBit)).assertValue();
-
-
-    auto textureImageView = textureImage.createImageView().assertValue();
 
     vul::SamplerBuilder samplerBuilder(device);
     samplerBuilder.setFilter(vul::Filter::Nearest);
-    samplerBuilder.setAddressMode(vul::SamplerAddressMode::Repeat);
+    samplerBuilder.setAddressMode(vul::SamplerAddressMode::ClampToBorder);
+    samplerBuilder.setBorderColor(vul::BorderColor::FloatOpaqueBlack);
     samplerBuilder.enableAnisotropy();
     samplerBuilder.setMipmapMode(vul::SamplerMipmapMode::Linear);
 
     auto sampler = samplerBuilder.create().assertValue();
 
 
-    std::vector<vul::Buffer> uniformBuffers;
-    for (std::size_t i = 0; i < swapchainSize; ++i) {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
-        uniformBuffers.push_back(
-                allocator.createMappedCoherentBuffer(bufferSize,
-                                                     vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
+    auto antWorldPipelineLayout = device.createPipelineLayout(
+            VkPushConstantRange{
+                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::ComputeBit),
+                    0,
+                    sizeof(AntComputePushConstant)
+            }).assertValue();
+    auto computeBuilder = vul::ComputePipelineBuilder(device);
+    vul::ComputePipeline antWorldPipeline;
+    {
+        auto computeShader = device.createShaderModule(
+                vul::readSPIRV("spirv/antkernel.comp.spv")).assertValue();
+        computeBuilder.setShaderCreateInfo(
+                computeShader.createComputeStageInfo());
+        computeBuilder.setPipelineLayout(antWorldPipelineLayout);
+        antWorldPipeline = computeBuilder.create().assertValue();
     }
-
-
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,
               swapchainSize}}).assertValue();
+    //, vul::DescriptorPoolCreateFlagBits::UpdateAfterBindBit
+
 
     auto descriptorSets = descriptorPool.createDescriptorSets(
             {{descriptorLayout, swapchainSize}}).assertValue();
@@ -712,12 +470,20 @@ int main() {
     for (const auto &[i, descriptorSet]: descriptorSets |
                                          ranges::views::enumerate) {
         auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
-                {uniformBuffers[i].createDescriptorInfo()});
-        //TODO potentially could keep as layout general?
-        updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
-                {arrayTextureView.createDescriptorInfo(sampler,
-                                                       vul::ImageLayout::ShaderReadOnlyOptimal)});
+        updateBuilder.getDescriptorElementAt(0).setCombinedImageSampler(
+                device_grid_views | ranges::views::transform(
+                        [&sampler](auto &value) {
+                            return value.createDescriptorInfo(
+                                    sampler,
+                                    vul::ImageLayout::ReadOnlyOptimal);
+                        }) |
+                ranges::to<std::vector>());
+//        updateBuilder.getDescriptorElementAt(0).setCombinedImageSampler({
+//                                                                                device_grid_views[i].createDescriptorInfo(
+//                                                                                        sampler,
+//                                                                                        vul::ImageLayout::ShaderReadOnlyOptimal
+//                                                                                )}
+//        );
         auto updates = updateBuilder.create(descriptorSet);
         device.updateDescriptorSets(updates);
     }
@@ -736,6 +502,53 @@ int main() {
         resizeImGuiFramebuffers();
     };
 
+    std::int32_t spread = 64;
+    std::random_device dev;
+    std::minstd_rand lcg(dev());
+    std::uniform_int_distribution<std::int32_t> int_dist(-spread, spread);
+    std::uniform_int_distribution<std::uint32_t> dir_dist(0u, 3u);
+    std::uint32_t ant_count = 128 * 4;
+    std::uint32_t grid_dim = 256 * 32;
+    glm::uvec2 grid_center = glm::uvec2(grid_dim, grid_dim) / 2u;
+    std::vector<std::uint8_t> ant_grid(grid_dim * grid_dim, 0u);
+    std::vector<glm::uvec2> ant_pos(ant_count);
+    std::vector<std::uint8_t> ant_dir(ant_count);
+    for (auto [pos, dir]: ranges::views::zip(ant_pos, ant_dir)) {
+        pos = static_cast<glm::uvec2>(glm::ivec2(grid_center) + glm::ivec2(int_dist(lcg), int_dist(lcg)));
+        dir = static_cast<std::uint8_t>(dir_dist(lcg));
+    }
+
+    //        ant_positions += [(grid_size // 2 + random.randint(-spread, spread), grid_size // 2 + random.randint(-spread, spread))]
+    //        ant_directions += [random.randint(0, 3)]
+    auto device_ant_grid = allocator.createDeviceBuffer(commandPool,
+                                                        presentationQueue,
+                                                        ant_grid,
+                                                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_ant_pos = allocator.createDeviceBuffer(commandPool,
+                                                        presentationQueue,
+                                                       ant_pos,
+                                                        vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+    auto device_ant_dir = allocator.createDeviceBuffer(commandPool,
+                                                       presentationQueue,
+                                                       ant_dir,
+                                                       vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
+
+
+    AntComputePushConstant antWorldPushConstant = {
+            device_ant_grid.getDeviceAddress(),
+            device_ant_pos.getDeviceAddress(),
+            device_ant_dir.getDeviceAddress(),
+            grid_dim,
+            ant_count
+    };
+
+    FullScreenPushConstant grid_push_constant = {
+            0,
+            0,
+            1.0f,
+            grid_dim,
+            device_ant_grid.getDeviceAddress(),
+    };
 
     bool show_demo_window = true;
     bool show_another_window = false;
@@ -745,66 +558,6 @@ int main() {
                                              0);
 
 
-    std::uint32_t bits_2 = 0x3;
-    std::uint32_t bits_3 = 0x7;
-    std::uint32_t bits_4 = 0xF;
-    std::uint32_t bits_5 = 0x1F;
-    std::uint32_t bits_6 = 0x3F;
-    std::uint32_t bits_7 = 0x7F;
-    std::uint32_t bits_8 = 0xFF;
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 2>(bits_7)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 3>(bits_7)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 4>(bits_7)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 2>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 3>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 4>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 5>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 6>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<64>(
-            uul::bit_interlace<std::uint64_t, std::uint32_t, 21, 3>(0xFFFFu)) << '\n';
-    auto temp_interleave = (uul::bit_interlace<std::uint64_t, std::uint32_t, 21, 3>(
-            0xFF7Fu));
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_de_interlace<std::uint64_t, std::uint32_t, 21, 3>(
-                    temp_interleave)) << '\n';
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
@@ -978,7 +731,6 @@ int main() {
             ubo.u_time = time;
             ubo.camera_pos = camera.getPosition();
             u_time += 1.0f;
-            uniformBuffers[swapchainImageIndex].mappedCopyFrom(ubo);
         }
 
 
@@ -990,38 +742,70 @@ int main() {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
-                commandBuffer.bindPipeline(jfaInitPipleline);
+                commandBuffer.bindPipeline(antWorldPipeline);
                 auto computeComputeBarrier = vul::createComputeBarrierRWARW();
                 auto computeComputeDepInfo = vul::createDependencyInfo(
                         computeComputeBarrier, {}, {});
-                commandBuffer.pushConstants(jfaInitPipelineLayout,
+                commandBuffer.pushConstants(antWorldPipelineLayout,
                                             vul::ShaderStageFlagBits::ComputeBit,
-                                            jfa_init_push_constant);
-                auto workgroup_dim = uul::integer_ceil(vul::chunk_consts::chunk_width, 8);
+                                            antWorldPushConstant);
+                auto workgroup_dim = uul::integer_ceil(ant_count, 1024);
                 commandBuffer.pipelineBarrier(computeComputeDepInfo);
-                commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
-                commandBuffer.bindPipeline(jfaIterationPipleline);
-                jfa_iteration_push_constant.u_voxel_jfa_in = voxel_jfa_buffers[0].getDeviceAddress();
-                jfa_iteration_push_constant.u_voxel_jfa_out = voxel_jfa_buffers[1].getDeviceAddress();
-                for (std::uint32_t i = 0; i < 3; ++i) {
-                    for (std::int32_t j = std::bit_width(31u) - 1; j >= 0; --j) {
-                        jfa_iteration_push_constant.u_jump_step_size = 1u << static_cast<std::uint32_t>(j);
-                        jfa_iteration_push_constant.u_jump_step_type = i;
-                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
-                        commandBuffer.pushConstants(jfaIterationPipelineLayout,
-                                                    vul::ShaderStageFlagBits::ComputeBit,
-                                                    jfa_iteration_push_constant);
-                        commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
-                        std::swap(jfa_iteration_push_constant.u_voxel_jfa_in,
-                                  jfa_iteration_push_constant.u_voxel_jfa_out);
-                    }
-                    //break;
-                }
+                commandBuffer.dispatch(workgroup_dim, 1, 1);
                 auto computeGraphicsBarrier = vul::createComputeFragmentBarrierRAW();
                 auto computeGraphicsDepInfo = vul::createDependencyInfo(
                         computeGraphicsBarrier, {}, {});
                 commandBuffer.pipelineBarrier(computeGraphicsDepInfo);
             }
+#if 0
+            {
+
+                auto toTransferBarrier = device_grid_images[swapchainImageIndex].createToTransferBarrier(
+                        vul::PipelineStageFlagBits2::None,
+                        vul::AccessFlagBits2::None,
+                        vul::ImageSubresourceRange(vul::ImageAspectFlagBits::ColorBit));
+                auto fromTransferBarrier = device_grid_images[swapchainImageIndex].createFromnTransferBarrier(
+                        vul::PipelineStageFlagBits2::FragmentShaderBit,
+                        vul::AccessFlagBits2::ShaderReadBit,
+                        vul::ImageLayout::ReadOnlyOptimal,
+                        vul::ImageSubresourceRange(vul::ImageAspectFlagBits::ColorBit));
+                {
+                    VkDependencyInfoKHR dependencyInfo = {};
+                    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+                    dependencyInfo.pNext = nullptr;
+                    dependencyInfo.dependencyFlags = {};
+                    dependencyInfo.memoryBarrierCount = 0;
+                    dependencyInfo.pMemoryBarriers = nullptr;
+                    dependencyInfo.bufferMemoryBarrierCount = 0;
+                    dependencyInfo.pBufferMemoryBarriers = nullptr;
+                    dependencyInfo.imageMemoryBarrierCount = 1;
+                    dependencyInfo.pImageMemoryBarriers = &toTransferBarrier;
+                    commandBuffer.pipelineBarrier(dependencyInfo);
+                }
+
+                commandBuffer.copyBufferToImage(
+                        host_staging_buffers[swapchainImageIndex],
+                        device_grid_images[swapchainImageIndex],
+                        vul::ImageAspectFlagBits::ColorBit,
+                        0,
+                        1);
+
+                {
+                    VkDependencyInfoKHR dependencyInfo = {};
+                    dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
+                    dependencyInfo.pNext = nullptr;
+                    dependencyInfo.dependencyFlags = {};
+                    dependencyInfo.memoryBarrierCount = 0;
+                    dependencyInfo.pMemoryBarriers = nullptr;
+                    dependencyInfo.bufferMemoryBarrierCount = 0;
+                    dependencyInfo.pBufferMemoryBarriers = nullptr;
+                    dependencyInfo.imageMemoryBarrierCount = 1;
+                    dependencyInfo.pImageMemoryBarriers = &fromTransferBarrier;
+                    commandBuffer.pipelineBarrier(dependencyInfo);
+                }
+
+            }
+#endif
             {
                 auto extent = swapchain.getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
@@ -1042,16 +826,13 @@ int main() {
                 commandBuffer.bindDescriptorSets(
                         vul::PipelineBindPoint::Graphics, pipelineLayout,
                         descriptorSets[swapchainImageIndex]);
-                std::uint32_t box_vertex_count = 36;
-                std::uint32_t vertex_split_pass_count = 5;
+                grid_push_constant.image_index = frame_counter %
+                                                 swapchainSize;
                 commandBuffer.pushConstants(pipelineLayout,
                                             vul::ShaderStageFlagBits::VertexBit |
                                             vul::ShaderStageFlagBits::FragmentBit,
-                                            rlePushConstant);
-                auto vertex_count =
-                        cumulative_rle_sizes.back() * box_vertex_count *
-                        vertex_split_pass_count;
-                renderPassBlock.draw(vertex_count);
+                                            grid_push_constant);
+                renderPassBlock.draw(3);
             }
             imguiRenderer.recordCommands(commandBuffer, swapchainImageIndex);
             commandBuffer.end();
@@ -1080,22 +861,6 @@ int main() {
         submitInfo.signalSemaphoreInfoCount = signalInfos.size();
         submitInfo.pSignalSemaphoreInfos = signalInfos.data();
 
-        if (false) {
-            vul::copy(voxel_df_buffer, voxel_df_host_buffer, commandPool, presentationQueue);
-
-            auto mapped_memory = reinterpret_cast<const std::uint8_t *>(voxel_df_host_buffer.mapMemory());
-            std::cout << "\nSTART\n";
-            for (std::size_t z = 0; z < 32; z++) {
-                std::cout << "\n";
-                for (std::size_t y = 0; y < 32; y++) {
-                    std::cout << "\n";
-                    for (std::size_t x = 0; x < 32; x++) {
-                        std::cout << static_cast<std::uint32_t>(mapped_memory[z * 32 * 32 + y * 32 + x]) << ", ";
-                    }
-                }
-            }
-            std::cout << "\nEND\n";
-        }
 
         presentationQueue.submit(submitInfo);
         //TODO do actual render here

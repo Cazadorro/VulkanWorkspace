@@ -42,6 +42,7 @@ namespace vul {
         }
 
         template<typename U>
+        [[nodiscard]]
         TempArrayProxy<U> reinterpret_to() {
             auto new_size = (m_size * sizeof(T)) / sizeof(U);
             auto old_size_bytes = (m_size * sizeof(T));
@@ -57,6 +58,7 @@ namespace vul {
         }
 
         template<typename U>
+        [[nodiscard]]
         TempArrayProxy<const U> reinterpret_to() const {
             auto new_size = (m_size * sizeof(T)) / sizeof(U);
             auto old_size_bytes = (m_size * sizeof(T));
@@ -278,13 +280,46 @@ namespace vul {
         }
 
         [[nodiscard]]
-        const T *data() const noexcept {
+        T *data() noexcept {
             return m_ptr;
         }
 
         [[nodiscard]]
-        T *data() noexcept {
+        const T *data() const noexcept {
             return m_ptr;
+        }
+
+
+        template<typename U>
+        [[nodiscard]]
+        U *reinterpret_data() noexcept {
+            auto new_size = (m_size * sizeof(T)) / sizeof(U);
+            auto old_size_bytes = (m_size * sizeof(T));
+            auto new_size_bytes = (new_size * sizeof(U));
+            UUL_ASSERT(old_size_bytes == new_size_bytes,
+                       fmt::format(
+                               "Can't reinterpret non evenly divisible "
+                               "element {} bytes vs {} bytes with element "
+                               "sizes {} bytes vs {} bytes",
+                               old_size_bytes, new_size_bytes,
+                               sizeof(T), sizeof(U)).c_str());
+            return reinterpret_cast<U *>(m_ptr);
+        }
+
+        template<typename U>
+        [[nodiscard]]
+        const U *reinterpret_data() const noexcept {
+            auto new_size = (m_size * sizeof(T)) / sizeof(U);
+            auto old_size_bytes = (m_size * sizeof(T));
+            auto new_size_bytes = (new_size * sizeof(U));
+            UUL_ASSERT(old_size_bytes == new_size_bytes,
+                       fmt::format(
+                               "Can't reinterpret non evenly divisible "
+                               "element {} bytes vs {} bytes with element "
+                               "sizes {} bytes vs {} bytes",
+                               old_size_bytes, new_size_bytes,
+                               sizeof(T), sizeof(U)).c_str());
+            return reinterpret_cast<const U *>(m_ptr);
         }
 
         const T &operator[](std::size_t i) const {

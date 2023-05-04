@@ -9,6 +9,7 @@
 #include "vul/bitmasks.h"
 #include "vul/temparrayproxy.h"
 #include "vul/tempvoidarrayproxy.h"
+#include "vul/deviceaddress.h"
 
 vul::Buffer::Buffer(vul::VmaAllocation && allocation, VkBuffer handle,
                     VkDeviceSize size) : m_allocation(std::move(allocation)), m_handle(handle), m_size(size) {
@@ -119,13 +120,13 @@ void vul::Buffer::invalidate(VkDeviceSize offset, VkDeviceSize size) {
     m_allocation.invalidate(offset, size);
 }
 
-VkDeviceAddress vul::Buffer::getDeviceAddress(const void* pNext) const {
+vul::DeviceAddress vul::Buffer::getDeviceAddress(const void* pNext) const {
     VkBufferDeviceAddressInfo addressInfo = {};
     addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     addressInfo.pNext = pNext;
     addressInfo.buffer = m_handle;
 
-    return vkGetBufferDeviceAddress(getDevice().get(), &addressInfo);
+    return DeviceAddress{vkGetBufferDeviceAddress(getDevice().get(), &addressInfo)};
 }
 
 void vul::Buffer::mappedCopyFrom(const vul::TempConstVoidArrayProxy &array) {

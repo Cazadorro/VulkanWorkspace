@@ -45,6 +45,8 @@ namespace vul {
 
     class CommandPool;
 
+    struct PushConstantRange;
+
     struct QueueFamilyIndexMapping {
         std::uint32_t queueFamilyIndex;
         std::uint32_t queueIndex;
@@ -91,6 +93,14 @@ namespace vul {
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
+
+        [[nodiscard]]
+        ExpectedResult<PipelineLayout> createPipelineLayoutImpl(
+                const TempArrayProxy<const VkDescriptorSetLayout> &setLayouts,
+                const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+                const void *pNext = nullptr,
+                const VkAllocationCallbacks *pAllocator = nullptr) const;
+
         [[nodiscard]]
         ExpectedResult<PipelineLayout> createPipelineLayout(
                 const TempArrayProxy<const DescriptorSetLayout *> &setLayouts,
@@ -100,7 +110,7 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<PipelineLayout> createPipelineLayout(
                 const TempArrayProxy<const DescriptorSetLayout *> &setLayouts,
-                const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+                const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
@@ -113,7 +123,7 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<PipelineLayout> createPipelineLayout(
                 const TempArrayProxy<const DescriptorSetLayout> &setLayouts,
-                const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+                const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
@@ -126,13 +136,23 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<PipelineLayout> createPipelineLayout(
                 const TempArrayProxy<const std::reference_wrapper<DescriptorSetLayout>> &setLayouts,
-                const TempArrayProxy<const VkPushConstantRange> &pushConstantRanges,
+                const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
-
+        [[nodiscard]]
+        ExpectedResult<PipelineLayout> createPipelineLayout(
+                const TempArrayProxy<const PushConstantRange> &pushConstantRanges,
+                const void *pNext = nullptr,
+                const VkAllocationCallbacks *pAllocator = nullptr) const;
         [[nodiscard]]
         ExpectedResult<ShaderModule>
         createShaderModule(const TempArrayProxy<const std::uint32_t> &code,
+                           const void *pNext = nullptr,
+                           const VkAllocationCallbacks *pAllocator = nullptr) const;
+
+        [[nodiscard]]
+        ExpectedResult<ShaderModule>
+        createShaderModule(std::string_view spv_source_loc,
                            const void *pNext = nullptr,
                            const VkAllocationCallbacks *pAllocator = nullptr) const;
 

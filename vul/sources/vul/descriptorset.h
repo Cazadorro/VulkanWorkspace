@@ -13,6 +13,7 @@
 namespace vul{
 
     class DescriptorSetUpdateBuilder;
+    class DescriptorSetLayoutBinding;
     class WriteDescriptorSetInfo{
     public:
         WriteDescriptorSetInfo() = default;
@@ -88,7 +89,7 @@ namespace vul{
 
     class DescriptorSetUpdateBuilder{
     public:
-        explicit DescriptorSetUpdateBuilder(const gsl::span<const VkDescriptorSetLayoutBinding>& bindings, const std::unordered_map<std::string, std::uint32_t>& nameBindingMap = {});
+        explicit DescriptorSetUpdateBuilder(const gsl::span<const DescriptorSetLayoutBinding>& bindings, const std::unordered_map<std::string, std::uint32_t>& nameBindingMap = {});
 
         [[nodiscard]]
         std::vector<WriteDescriptorSetInfo>& getDescriptorArrayAt(std::uint32_t bindingIndex);

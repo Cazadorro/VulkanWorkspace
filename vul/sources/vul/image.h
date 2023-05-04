@@ -184,6 +184,15 @@ namespace vul {
 
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
+                vul::ImageAspectBitMask aspectBitMask = {},
+                bool isCube = false,
+                const VkComponentMapping &components = {},
+                vul::ImageViewCreateBitMask flags = {},
+                const void *pNext = nullptr,
+                const VkAllocationCallbacks *pAllocator = nullptr) const;
+
+        [[nodiscard]]
+        ExpectedResult<ImageView> createImageView(
                 const vul::ImageSubresourceRange &subresourceRange,
                 bool isCube = false,
                 const VkComponentMapping &components = {},
@@ -253,6 +262,9 @@ namespace vul {
     VkImageCreateInfo createSimple3DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
     [[nodiscard]]
     VkImageCreateInfo createSimple3DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    VkImageCreateInfo createDepthStencilImageInfo(VkExtent2D extent, vul::Format format = vul::Format::D24UnormS8Uint, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
 
 

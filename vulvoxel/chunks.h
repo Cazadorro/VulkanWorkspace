@@ -138,6 +138,8 @@ namespace vul {
         static ChunkRLE from_removing_hidden(
                 const std::span<std::uint32_t, chunk_consts::chunk_size> &chunk);
 
+        static ChunkRLE from_removing_id(const ChunkRLE& rle, std::uint32_t remove_id = 0u);
+
         [[nodiscard]]
         std::uint32_t
         operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
@@ -398,6 +400,60 @@ namespace vul {
         std::vector<RLEPair8> m_empty_segments;
         std::array<std::uint16_t, table_size> m_layer_table_offsets;
     };
+
+    //chunk meta 8bit rle?
+
+
+
+    class ChunkBitmaskGridLayer2 {
+    public:
+        struct GridLeaf{
+            std::array<std::uint64_t,8> m_data = {};
+            [[nodiscard]]
+            bool operator[](std::uint16_t idx) const;
+            [[nodiscard]]
+            bool operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+
+            void set(std::uint8_t x, std::uint8_t y, std::uint8_t z);
+
+            void set(std::uint16_t idx);
+        };
+        ChunkBitmaskGridLayer2() = default;
+        ChunkBitmaskGridLayer2(std::uint64_t top_bit_layer, std::uint64_t top_bit_layer_empty_flag, const std::vector<GridLeaf>& leaf_layer);
+        [[nodiscard]]
+        static ChunkBitmaskGridLayer2 from_filled(const ChunkSpan& chunk_span, std::uint32_t empty_id = 0);
+
+        [[nodiscard]]
+        bool operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+        [[nodiscard]]
+        bool get_top_layer(std::uint8_t x, std::uint8_t y, std::uint8_t z) const;
+        [[nodiscard]]
+        bool operator[](std::uint16_t idx) const;
+
+        [[nodiscard]]
+        bool is_empty() const noexcept;
+
+        [[nodiscard]]
+        std::uint16_t size() const noexcept;
+
+        [[nodiscard]]
+        std::uint64_t get_top_bit_layer() const noexcept;
+
+        [[nodiscard]]
+        std::span<const GridLeaf> get_leaf_layer() const noexcept;
+
+        [[nodiscard]]
+        std::uint8_t calc_top_layer_index(std::uint8_t x, std::uint8_t y, std::uint8_t z) const noexcept;
+    private:
+        [[nodiscard]]
+        std::uint8_t calc_leaf_node_offset(std::uint8_t bit_index) const noexcept;
+        std::uint64_t m_top_bit_layer;
+        std::uint64_t m_top_bit_layer_empty_flag;
+        static constexpr std::uint8_t top_layer_dim = 4u;
+        static constexpr std::uint8_t leaf_layer_dim = 8u;
+        std::vector<GridLeaf> m_leaf_layer;
+    };
+
     //TODO need -1 size voxels removed
     //TODO need -2->4 size RLEs removed?
     //TODO need meta voxel info (shared in area?) pallete method?

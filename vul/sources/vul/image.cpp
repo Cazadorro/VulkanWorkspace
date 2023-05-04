@@ -8,8 +8,10 @@
 #include "vul/vmaallocator.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
+#include "vul/colorformatutils.h"
 #include <uul/assert.h>
 #include <uul/unreachable.h>
+
 
 vul::ImageSubresourceRange::ImageSubresourceRange(
         vul::ImageAspectBitMask aspectMask_t, std::uint32_t baseMipLevel_t,
@@ -201,6 +203,22 @@ vul::Image::createImageView(vul::ImageViewType viewType,
                                                          pAllocator,
                                                          &imageView));
     return {result, ImageView(m_allocation.getAllocator().getDevice(), imageView, pAllocator)};
+}
+
+vul::ExpectedResult<vul::ImageView>
+vul::Image::createImageView(vul::ImageAspectBitMask aspectBitMask, bool isCube, const VkComponentMapping &components, vul::ImageViewCreateBitMask flags,
+                            const void *pNext, const VkAllocationCallbacks *pAllocator) const {
+    auto tempAspectBitMask = aspectBitMask;
+    if(isColorFormat(static_cast<vul::Format>(m_format))){
+        tempAspectBitMask |= vul::ImageAspectFlagBits::ColorBit;
+    }
+    else if(isDepthFormat(static_cast<vul::Format>(m_format))){
+        tempAspectBitMask |= vul::ImageAspectFlagBits::DepthBit;
+    }else{
+        UUL_DEBUG_ASSERT(false, fmt::format("Expected {} to match depth or color formats",
+                                            vul::to_string(static_cast<vul::Format>(m_format))).c_str());
+    }
+    return createImageView(vul::ImageSubresourceRange(tempAspectBitMask), isCube, components, flags, pNext, pAllocator);
 }
 
 
@@ -439,6 +457,10 @@ vul::createSimple3DImageInfo(vul::Format format, VkExtent3D extent,
                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
                              vul::ImageTiling tiling) {
     return createSimpleImageInfo(vul::ImageType::_3D, format, extent, usage, mipLevels, arrayLayers, tiling);
+}
+
+VkImageCreateInfo vul::createDepthStencilImageInfo(VkExtent2D extent, vul::Format format, vul::ImageTiling tiling) {
+    return vul::createSimple2DImageInfo(format, extent, vul::ImageUsageFlagBits::DepthStencilAttachmentBit, tiling);
 }
 
 

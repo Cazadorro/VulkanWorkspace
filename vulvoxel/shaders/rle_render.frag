@@ -676,7 +676,7 @@ void main() {
             ray_world_normal = init_ray_world_normal;
             result = init_result;
 
-            ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos), alt_normal));
+            ray_normal = normalize(reflect(normalize(ray_world_position - ubo.camera_pos ), alt_normal));
             iteration = 0;
             while(iteration < max_iteration && bitmask_intersect_dda(rle_data.bitmask, ray_world_position + ray_world_normal * 0.00001, ray_normal, offset,cell_position, hit_position, hit_normal, hit_texcoord, intersect_t, light_info, debug_color)){
                 if(light_info.hit){

@@ -3,6 +3,7 @@
 //
 
 #include "vul/descriptorset.h"
+#include "vul/descriptorsetlayout.h"
 #include <uul/assert.h>
 #include <uul/unreachable.h>
 
@@ -416,7 +417,7 @@ bool vul::WriteDescriptorSetInfo::empty() const {
 }
 
 vul::DescriptorSetUpdateBuilder::DescriptorSetUpdateBuilder(
-        const gsl::span<const VkDescriptorSetLayoutBinding> &bindings,
+        const gsl::span<const DescriptorSetLayoutBinding> &bindings,
         const std::unordered_map<std::string, std::uint32_t> &nameBindingMap)
         : m_nameBindingMap(nameBindingMap) {
 
