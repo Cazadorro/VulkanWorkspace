@@ -15,6 +15,7 @@ namespace vul {
         std::uint32_t    width;
         std::uint32_t    height;
         std::uint32_t    depth;
+        Extent3D() = default;
         explicit Extent3D(const VkExtent3D& extent);
         Extent3D(std::uint32_t width, std::uint32_t height, std::uint32_t depth);
         [[nodiscard]]
@@ -35,6 +36,7 @@ namespace vul {
     struct Extent2D{
         std::uint32_t    width;
         std::uint32_t    height;
+        Extent2D() = default;
         explicit Extent2D(const VkExtent2D& extent);
         Extent2D(std::uint32_t width, std::uint32_t height);
         static Extent2D fromDim(std::uint32_t dim);

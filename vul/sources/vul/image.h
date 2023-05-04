@@ -71,13 +71,13 @@ namespace vul {
         Image() = default;
 
         Image(vul::VmaAllocation &&allocation, VkImage handle,
-              VkImageType imageType,
-              VkFormat format,
-              VkExtent3D extent,
-              uint32_t mipLevels,
-              uint32_t arrayLayers,
-              VkSampleCountFlagBits samples,
-              VkImageTiling tiling);
+              vul::ImageType imageType,
+              vul::Format format,
+              vul::Extent3D extent,
+              std::uint32_t mipLevels,
+              std::uint32_t arrayLayers,
+              vul::SampleCountBitMask samples,
+              vul::ImageTiling tiling);
 
         Image(const Image &) = delete;
 
@@ -128,6 +128,7 @@ namespace vul {
                             std::uint32_t srcQueueFamilyIndex = 0,
                             std::uint32_t dstQueueFamilyIndex = 0,
                             const void *pNext = nullptr) const;
+
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
         createToTransferBarrier(vul::PipelineStage2BitMask srcStageMask,
@@ -137,6 +138,7 @@ namespace vul {
                                 std::uint32_t srcQueueFamilyIndex = 0,
                                 std::uint32_t dstQueueFamilyIndex = 0,
                                 const void *pNext = nullptr) const;
+
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
         createFromnTransferBarrier(vul::PipelineStage2BitMask dstStageMask,
@@ -149,13 +151,13 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createTransitionBarrier( vul::PipelineStage2BitMask dstStageMask,
-                                 vul::Access2BitMask dstAccessMask,
-                                 vul::ImageLayout newLayout,
-                                 const ImageSubresourceRange &subresourceRange,
-                                 std::uint32_t srcQueueFamilyIndex = 0,
-                                 std::uint32_t dstQueueFamilyIndex = 0,
-                                 const void *pNext = nullptr);
+        createTransitionBarrier(vul::PipelineStage2BitMask dstStageMask,
+                                vul::Access2BitMask dstAccessMask,
+                                vul::ImageLayout newLayout,
+                                const ImageSubresourceRange &subresourceRange,
+                                std::uint32_t srcQueueFamilyIndex = 0,
+                                std::uint32_t dstQueueFamilyIndex = 0,
+                                const void *pNext = nullptr);
 
         [[nodiscard]]
         vul::ImageType getImageType() const;
@@ -182,6 +184,7 @@ namespace vul {
         vul::ImageTiling getImageTiling() const;
 
 
+        //Note will add stencil bit to depth/stencil format images in image view, if not wanted, use another.
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
                 vul::ImageAspectBitMask aspectBitMask = {},
@@ -208,16 +211,17 @@ namespace vul {
                 vul::ImageViewCreateBitMask flags = {},
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
+
         [[nodiscard]]
         void *mapMemory();
 
         [[nodiscard]]
-        void * getMappedMemory() const;
+        void *getMappedMemory() const;
 
         void unmapMemory();
 
         template<typename T>
-        void copyToMapped(const TempArrayProxy<T>& array){
+        void copyToMapped(const TempArrayProxy<T> &array) {
             m_allocation.mappedCopyFrom(array);
         }
 
@@ -230,42 +234,111 @@ namespace vul {
         invalidate(VkDeviceSize offset = 0, VkDeviceSize size = VK_WHOLE_SIZE);
 
         [[nodiscard]]
-        vul::ImageViewType toImageViewType(const vul::ImageSubresourceRange &subresourceRange, bool isCube = false) const;
+        vul::ImageViewType
+        toImageViewType(const vul::ImageSubresourceRange &subresourceRange, bool isCube = false) const;
+
     private:
         vul::VmaAllocation m_allocation;
         VkImage m_handle = VK_NULL_HANDLE;
-        VkImageType m_imageType;
-        VkFormat m_format;
-        VkExtent3D m_extent;
-        uint32_t m_mipLevels;
-        uint32_t m_arrayLayers;
-        VkSampleCountFlagBits m_samples;
-        VkImageTiling m_tiling;
+        vul::ImageType m_imageType;
+        vul::Format m_format;
+        vul::Extent3D m_extent;
+        std::uint32_t m_mipLevels;
+        std::uint32_t m_arrayLayers;
+        vul::SampleCountBitMask m_samples;
+        vul::ImageTiling m_tiling;
     };
 
-    [[nodiscard]]
-    VkImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
-    [[nodiscard]]
-    VkImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    struct ImageCreateInfo {
+        vul::StructureType sType = vul::StructureType::ImageCreateInfo;
+        const void *pNext;
+        vul::ImageCreateBitMask flags;
+        vul::ImageType imageType;
+        vul::Format format;
+        vul::Extent3D extent;
+        std::uint32_t mipLevels;
+        std::uint32_t arrayLayers;
+        vul::SampleCountBitMask samples;
+        vul::ImageTiling tiling;
+        vul::ImageUsageBitMask usage;
+        vul::SharingMode sharingMode;
+        std::uint32_t queueFamilyIndexCount;
+        const std::uint32_t *pQueueFamilyIndices;
+        vul::ImageLayout initialLayout;
+
+        ImageCreateInfo() = default;
+
+
+        explicit ImageCreateInfo(
+                const void *pNext,
+                vul::ImageCreateBitMask flags,
+                vul::ImageType imageType,
+                vul::Format format,
+                vul::Extent3D extent,
+                std::uint32_t mipLevels,
+                std::uint32_t arrayLayers,
+                vul::SampleCountBitMask samples,
+                vul::ImageTiling tiling,
+                vul::ImageUsageBitMask usage,
+                vul::SharingMode sharingMode,
+                std::uint32_t queueFamilyIndexCount,
+                const std::uint32_t *pQueueFamilyIndices,
+                vul::ImageLayout initialLayout
+        );
+
+        explicit ImageCreateInfo(VkImageCreateInfo imageCreateInfo);
+
+        explicit operator VkImageCreateInfo() const;
+
+        [[nodiscard]]
+        VkImageCreateInfo &get();
+
+        [[nodiscard]]
+        const VkImageCreateInfo &get() const;
+    };
+
 
     [[nodiscard]]
-    VkImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
-    [[nodiscard]]
-    VkImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, vul::Extent3D extent,
+                                            vul::ImageUsageBitMask usage, std::uint32_t mipLevels,
+                                            std::uint32_t arrayLayers,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    VkImageCreateInfo createSimple2DImageInfo(vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
-    [[nodiscard]]
-    VkImageCreateInfo createSimple2DImageInfo(vul::Format format, VkExtent2D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, vul::Extent3D extent,
+                                            vul::ImageUsageBitMask usage,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    VkImageCreateInfo createSimple3DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, std::uint32_t mipLevels, std::uint32_t arrayLayers, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
-    [[nodiscard]]
-    VkImageCreateInfo createSimple3DImageInfo(vul::Format format, VkExtent3D extent, vul::ImageUsageBitMask usage, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage,
+                                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    VkImageCreateInfo createDepthStencilImageInfo(VkExtent2D extent, vul::Format format = vul::Format::D24UnormS8Uint, vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage,
+                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
+    [[nodiscard]]
+    ImageCreateInfo createSimple2DImageInfo(vul::Format format, vul::Extent2D extent, vul::ImageUsageBitMask usage,
+                                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    ImageCreateInfo createSimple2DImageInfo(vul::Format format,  vul::Extent2D extent, vul::ImageUsageBitMask usage,
+                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    ImageCreateInfo createSimple3DImageInfo(vul::Format format, vul::Extent3D extent, vul::ImageUsageBitMask usage,
+                                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    ImageCreateInfo createSimple3DImageInfo(vul::Format format, vul::Extent3D extent, vul::ImageUsageBitMask usage,
+                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    ImageCreateInfo createDepthStencilImageInfo(vul::Extent2D extent, vul::Format format = vul::Format::D24UnormS8Uint,
+                                                  vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
 
 }

@@ -3,6 +3,7 @@
 //
 
 #include "stbimage.h"
+#include <vul/vkstructutils.h>
 #include <glm/glm.hpp>
 #include <stdexcept>
 #include <cstdlib>
@@ -12,12 +13,12 @@ VkDeviceSize gul::StbImage::getDeviceSize() const {
     return m_frames * m_width * m_height * sizeof(stbi_uc) * m_channels;
 }
 
-VkExtent2D gul::StbImage::getExtent2D() const {
+vul::Extent2D gul::StbImage::getExtent2D() const {
     return {static_cast<std::uint32_t>(m_width),
             static_cast<std::uint32_t>(m_height)};
 }
 
-VkExtent3D gul::StbImage::getExtent3D() const {
+vul::Extent3D gul::StbImage::getExtent3D() const {
     return {static_cast<std::uint32_t>(m_width),
             static_cast<std::uint32_t>(m_height),
             static_cast<std::uint32_t>(m_frames)};

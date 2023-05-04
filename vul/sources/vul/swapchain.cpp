@@ -9,6 +9,7 @@
 #include "vul/queue.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
+#include "vul/vkstructutils.h"
 
 
 vul::SwapchainBuilder::SwapchainBuilder(const vul::Device &device,
@@ -216,12 +217,12 @@ vul::Swapchain &vul::Swapchain::operator=(vul::Swapchain &&rhs) noexcept {
     return *this;
 }
 
-VkExtent2D vul::Swapchain::getExtent() const {
+vul::Extent2D vul::Swapchain::getExtent() const {
     return m_extent;
 }
 
-VkExtent3D vul::Swapchain::getExtent3D() const {
-    return VkExtent3D{m_extent.width, m_extent.height, 1};
+vul::Extent3D vul::Swapchain::getExtent3D() const {
+    return {m_extent.width, m_extent.height, 1};
 }
 
 vul::Format vul::Swapchain::getFormat() const {

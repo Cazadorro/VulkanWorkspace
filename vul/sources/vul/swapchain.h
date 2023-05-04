@@ -7,6 +7,7 @@
 
 #include "vul/enumsfwd.h"
 #include "vul/bitmasksfwd.h"
+#include "vul/vkstructutils.h"
 #include <gsl/span>
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -23,6 +24,8 @@ namespace vul {
     class Swapchain;
     class Queue;
     class BinarySemaphore;
+    struct Extent2D;
+    struct Extent3D;
 
     //TODO stuff swaqchain builder into surface or into swapchain?
     class SwapchainBuilder {
@@ -103,10 +106,10 @@ namespace vul {
         Swapchain &operator=(const Swapchain &rhs) = delete;
 
         [[nodiscard]]
-        VkExtent2D getExtent() const;
+        vul::Extent2D getExtent() const;
 
         [[nodiscard]]
-        VkExtent3D getExtent3D() const;
+        vul::Extent3D getExtent3D() const;
 
         [[nodiscard]]
         vul::Format getFormat() const;
@@ -142,7 +145,7 @@ namespace vul {
         const VkAllocationCallbacks *m_pAllocator = nullptr;
         const Surface *m_pSurface = nullptr;
         VkSwapchainKHR m_handle = VK_NULL_HANDLE;
-        VkExtent2D m_extent = {};
+        vul::Extent2D m_extent = {};
         vul::Format m_format = {};
         std::vector<VkImage> m_images;
         std::vector<ImageView> m_imageViews;

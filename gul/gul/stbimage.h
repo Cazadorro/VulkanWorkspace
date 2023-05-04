@@ -8,7 +8,10 @@
 #include <stb_image.h>
 #include <vulkan/vulkan.h>
 #include <string>
-
+namespace vul{
+    struct Extent2D;
+    struct Extent3D;
+}
 namespace gul {
 
     class StbImage {
@@ -25,10 +28,10 @@ namespace gul {
         VkDeviceSize getDeviceSize() const;
 
         [[nodiscard]]
-        VkExtent2D getExtent2D() const;
+        vul::Extent2D getExtent2D() const;
 
         [[nodiscard]]
-        VkExtent3D getExtent3D() const;
+        vul::Extent3D getExtent3D() const;
 
         [[nodiscard]]
         const stbi_uc *data() const;

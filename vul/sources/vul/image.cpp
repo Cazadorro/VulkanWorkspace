@@ -20,7 +20,7 @@ vul::ImageSubresourceRange::ImageSubresourceRange(
                                       baseMipLevel(baseMipLevel_t),
                                       levelCount(levelCount_t),
                                       baseArrayLayer(baseArrayLayer_t),
-                                      layerCount(layerCount_t){
+                                      layerCount(layerCount_t) {
 
 }
 
@@ -34,7 +34,7 @@ vul::ImageSubresourceLayers::ImageSubresourceLayers(
         : aspectMask(aspectMask_t),
           mipLevel(mipLevel_t),
           baseArrayLayer(baseArrayLayer_t),
-          layerCount(layerCount_t){
+          layerCount(layerCount_t) {
 
 }
 
@@ -94,7 +94,6 @@ vul::Image::genFullCopyRegion(vul::ImageAspectFlagBits imageAspectSrc,
 }
 
 
-
 vul::Image::Image(vul::Image &&rhs) noexcept {
     using std::swap;
     swap(m_allocation, rhs.m_allocation);
@@ -123,9 +122,9 @@ vul::Image &vul::Image::operator=(vul::Image &&rhs) noexcept {
 }
 
 vul::Image::Image(vul::VmaAllocation &&allocation, VkImage handle,
-                  VkImageType imageType, VkFormat format, VkExtent3D extent,
-                  uint32_t mipLevels, uint32_t arrayLayers,
-                  VkSampleCountFlagBits samples, VkImageTiling tiling)
+                 vul::ImageType imageType, vul::Format format, vul::Extent3D extent,
+                  std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                  vul::SampleCountBitMask samples, vul::ImageTiling tiling)
         : m_allocation(
         std::move(allocation)), m_handle(handle),
           m_imageType(imageType),
@@ -171,17 +170,18 @@ vul::ImageTiling vul::Image::getImageTiling() const {
     return static_cast<ImageTiling>(m_tiling);
 }
 
-vul::ExpectedResult <vul::ImageView>
+vul::ExpectedResult<vul::ImageView>
 vul::Image::createImageView(const vul::ImageSubresourceRange &subresourceRange,
                             bool isCube,
                             const VkComponentMapping &components,
                             vul::ImageViewCreateBitMask flags,
                             const void *pNext,
                             const VkAllocationCallbacks *pAllocator) const {
-    return createImageView(toImageViewType(subresourceRange, isCube), subresourceRange, components, flags, pNext, pAllocator);
+    return createImageView(toImageViewType(subresourceRange, isCube), subresourceRange, components, flags, pNext,
+                           pAllocator);
 }
 
-vul::ExpectedResult <vul::ImageView>
+vul::ExpectedResult<vul::ImageView>
 vul::Image::createImageView(vul::ImageViewType viewType,
                             const vul::ImageSubresourceRange &subresourceRange,
                             const VkComponentMapping &components,
@@ -194,28 +194,38 @@ vul::Image::createImageView(vul::ImageViewType viewType,
     imageViewCreateInfo.flags = flags.to_underlying();
     imageViewCreateInfo.image = m_handle;
     imageViewCreateInfo.viewType = vul::get(viewType);
-    imageViewCreateInfo.format = m_format;
+    imageViewCreateInfo.format = vul::get(m_format);
     imageViewCreateInfo.components = components;
     imageViewCreateInfo.subresourceRange = subresourceRange.get();
 
     VkImageView imageView;
-    auto result = static_cast<Result>(vkCreateImageView( m_allocation.getAllocator().getDevice().get(), &imageViewCreateInfo,
-                                                         pAllocator,
-                                                         &imageView));
+    auto result = static_cast<Result>(vkCreateImageView(m_allocation.getAllocator().getDevice().get(),
+                                                        &imageViewCreateInfo,
+                                                        pAllocator,
+                                                        &imageView));
     return {result, ImageView(m_allocation.getAllocator().getDevice(), imageView, pAllocator)};
 }
 
 vul::ExpectedResult<vul::ImageView>
-vul::Image::createImageView(vul::ImageAspectBitMask aspectBitMask, bool isCube, const VkComponentMapping &components, vul::ImageViewCreateBitMask flags,
+vul::Image::createImageView(vul::ImageAspectBitMask aspectBitMask, bool isCube, const VkComponentMapping &components,
+                            vul::ImageViewCreateBitMask flags,
                             const void *pNext, const VkAllocationCallbacks *pAllocator) const {
     auto tempAspectBitMask = aspectBitMask;
-    if(isColorFormat(static_cast<vul::Format>(m_format))){
+    bool matched_format = false;
+    if (isColorFormat(static_cast<vul::Format>(m_format))) {
         tempAspectBitMask |= vul::ImageAspectFlagBits::ColorBit;
+        matched_format = true;
     }
-    else if(isDepthFormat(static_cast<vul::Format>(m_format))){
+    if (isDepthFormat(static_cast<vul::Format>(m_format))) {
         tempAspectBitMask |= vul::ImageAspectFlagBits::DepthBit;
-    }else{
-        UUL_DEBUG_ASSERT(false, fmt::format("Expected {} to match depth or color formats",
+        matched_format = true;
+    }
+    if (isStencilFormat(static_cast<vul::Format>(m_format))) {
+        tempAspectBitMask |= vul::ImageAspectFlagBits::StencilBit;
+        matched_format = true;
+    }
+    if (!matched_format) {
+        UUL_ASSERT(false, fmt::format("Expected {} to match depth, stencil, or color formats",
                                             vul::to_string(static_cast<vul::Format>(m_format))).c_str());
     }
     return createImageView(vul::ImageSubresourceRange(tempAspectBitMask), isCube, components, flags, pNext, pAllocator);
@@ -258,14 +268,14 @@ vul::Image::createToTransferBarrier(vul::PipelineStage2BitMask srcStageMask,
                                     std::uint32_t dstQueueFamilyIndex,
                                     const void *pNext) const {
     return createMemoryBarrier(srcStageMask, srcAccessMask,
-                                   vul::PipelineStageFlagBits2::TransferBit,
-                                   vul::AccessFlagBits2::TransferWriteBit,
-                                   oldLayout,
-                                   vul::ImageLayout::TransferDstOptimal,
-                                   subresourceRange,
-                                   srcQueueFamilyIndex,
-                                   dstQueueFamilyIndex,
-                                   pNext);
+                               vul::PipelineStageFlagBits2::TransferBit,
+                               vul::AccessFlagBits2::TransferWriteBit,
+                               oldLayout,
+                               vul::ImageLayout::TransferDstOptimal,
+                               subresourceRange,
+                               srcQueueFamilyIndex,
+                               dstQueueFamilyIndex,
+                               pNext);
 }
 
 VkImageMemoryBarrier2KHR vul::Image::createFromnTransferBarrier(
@@ -311,14 +321,15 @@ void vul::Image::invalidate(VkDeviceSize offset, VkDeviceSize size) {
 
 VkImageMemoryBarrier2KHR
 vul::Image::createTransitionBarrier(vul::PipelineStage2BitMask dstStageMask,
-        vul::Access2BitMask dstAccessMask,
+                                    vul::Access2BitMask dstAccessMask,
                                     vul::ImageLayout newLayout,
                                     const vul::ImageSubresourceRange &subresourceRange,
                                     std::uint32_t srcQueueFamilyIndex,
                                     std::uint32_t dstQueueFamilyIndex,
                                     const void *pNext) {
     return createMemoryBarrier(PipelineStageFlagBits2::TopOfPipeBit,
-                        {}, dstStageMask, dstAccessMask, ImageLayout::Undefined, newLayout, subresourceRange, srcQueueFamilyIndex, dstQueueFamilyIndex, pNext);
+                               {}, dstStageMask, dstAccessMask, ImageLayout::Undefined, newLayout, subresourceRange,
+                               srcQueueFamilyIndex, dstQueueFamilyIndex, pNext);
 }
 
 vul::ImageViewType
@@ -326,50 +337,52 @@ vul::Image::toImageViewType(const vul::ImageSubresourceRange &subresourceRange,
                             bool isCube) const {
 
     std::uint32_t arrayLayers = 0;
-    if(subresourceRange.layerCount == VK_REMAINING_ARRAY_LAYERS){
-        UUL_ASSERT(m_arrayLayers > subresourceRange.baseArrayLayer, fmt::format("Number of total number of layers {} must be more than the baseArrayLayer {}", m_arrayLayers, subresourceRange.baseArrayLayer).c_str());
+    if (subresourceRange.layerCount == VK_REMAINING_ARRAY_LAYERS) {
+        UUL_ASSERT(m_arrayLayers > subresourceRange.baseArrayLayer,
+                   fmt::format("Number of total number of layers {} must be more than the baseArrayLayer {}",
+                               m_arrayLayers, subresourceRange.baseArrayLayer).c_str());
         arrayLayers = (m_arrayLayers - subresourceRange.baseArrayLayer);
-    }else{
+    } else {
         arrayLayers = subresourceRange.layerCount;
     }
     return vul::toImageViewType(static_cast<ImageType>(m_imageType), arrayLayers, isCube);
 }
 
 
-
 vul::ImageViewType
 vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
-                bool isCube) {
-    UUL_ASSERT(arrayLayers != VK_REMAINING_ARRAY_LAYERS, "Can't use 'VK_REMAINING_ARRAY_LAYERS', not enough information to infer remaining array layers");
+                     bool isCube) {
+    UUL_ASSERT(arrayLayers != VK_REMAINING_ARRAY_LAYERS,
+               "Can't use 'VK_REMAINING_ARRAY_LAYERS', not enough information to infer remaining array layers");
     UUL_ASSERT(arrayLayers > 0, "Array layers cannot be zero");
-    if(isCube){
+    if (isCube) {
         UUL_ASSERT(arrayLayers % 6 == 0, "If image view is cube, array layers must be multiple of 6");
         UUL_ASSERT(type == vul::ImageType::_2D, "If image view is cube, image type must be 2D");
-        if(arrayLayers > 6){
+        if (arrayLayers > 6) {
             return vul::ImageViewType::CubeArray;
-        }else{
+        } else {
             return vul::ImageViewType::Cube;
         }
     }
-    switch(type){
-        case vul::ImageType::_1D :{
-            if(arrayLayers == 1){
+    switch (type) {
+        case vul::ImageType::_1D : {
+            if (arrayLayers == 1) {
                 return vul::ImageViewType::_1D;
-            }else{
+            } else {
                 return vul::ImageViewType::_1DArray;
             }
         }
-        case vul::ImageType::_2D :{
-            if(arrayLayers == 1){
+        case vul::ImageType::_2D : {
+            if (arrayLayers == 1) {
                 return vul::ImageViewType::_2D;
-            }else{
+            } else {
                 return vul::ImageViewType::_2DArray;
             }
         }
-        case vul::ImageType::_3D :{
-            if(arrayLayers == 1){
+        case vul::ImageType::_3D : {
+            if (arrayLayers == 1) {
                 return vul::ImageViewType::_3D;
-            }else{
+            } else {
                 UUL_ASSERT(arrayLayers > 1 && type == vul::ImageType::_3D, "Can't have layered 3D image views");
             }
         }
@@ -380,40 +393,67 @@ vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
 
 }
 
-VkImageCreateInfo
+
+
+vul::ImageCreateInfo::ImageCreateInfo(const void *pNext, vul::ImageCreateBitMask flags, vul::ImageType imageType,
+                                      vul::Format format, vul::Extent3D extent, std::uint32_t mipLevels,
+                                      std::uint32_t arrayLayers, vul::SampleCountBitMask samples,
+                                      vul::ImageTiling tiling, vul::ImageUsageBitMask usage,
+                                      vul::SharingMode sharingMode, std::uint32_t queueFamilyIndexCount,
+                                      const std::uint32_t *pQueueFamilyIndices, vul::ImageLayout initialLayout) :
+                                      pNext(pNext),
+                                      flags(flags),
+                                      imageType(imageType),
+                                      format(format),
+                                      extent(extent),
+                                      mipLevels(mipLevels),
+                                      arrayLayers(arrayLayers),
+                                      samples(samples),
+                                      tiling(tiling),
+                                      usage(usage),
+                                      sharingMode(sharingMode),
+                                      queueFamilyIndexCount(queueFamilyIndexCount),
+                                      pQueueFamilyIndices(pQueueFamilyIndices),
+                                      initialLayout(initialLayout){
+
+}
+
+vul::ImageCreateInfo::ImageCreateInfo(VkImageCreateInfo imageCreateInfo) {
+    get() = imageCreateInfo;
+}
+
+vul::ImageCreateInfo::operator VkImageCreateInfo() const {
+    return get();
+}
+
+VkImageCreateInfo &vul::ImageCreateInfo::get() {
+    return *reinterpret_cast<VkImageCreateInfo *>(this);
+}
+
+const VkImageCreateInfo &vul::ImageCreateInfo::get() const {
+    return *reinterpret_cast<const VkImageCreateInfo *>(this);
+}
+
+
+vul::ImageCreateInfo
 vul::createSimpleImageInfo(vul::ImageType image_type,
-                           vul::Format format, VkExtent3D extent,
+                           vul::Format format, vul::Extent3D extent,
                            vul::ImageUsageBitMask usage,
                            std::uint32_t mipLevels, std::uint32_t arrayLayers,
                            vul::ImageTiling tiling) {
-    VkImageCreateInfo info = {};
-    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.pNext = nullptr;
-    info.flags = 0;
-    info.imageType = vul::get(image_type);
-    info.format = vul::get(format);
-    info.extent = extent;
-    info.mipLevels = mipLevels;
-    info.arrayLayers = arrayLayers;
-    info.samples = VK_SAMPLE_COUNT_1_BIT;
-    info.tiling = vul::get(tiling);
-    info.usage = usage.to_underlying();
-    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    info.queueFamilyIndexCount  = 0;
-    info.pQueueFamilyIndices = nullptr;
-    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    return info;
+    return vul::ImageCreateInfo(nullptr, {}, image_type, format, extent, mipLevels, arrayLayers, vul::SampleCountFlagBits::_1Bit, tiling, usage, vul::SharingMode::Exclusive, 0,
+                                nullptr, vul::ImageLayout::Undefined);
 }
 
-VkImageCreateInfo
+vul::ImageCreateInfo
 vul::createSimpleImageInfo(vul::ImageType image_type,
-                           vul::Format format, VkExtent3D extent,
+                           vul::Format format, vul::Extent3D extent,
                            vul::ImageUsageBitMask usage,
                            vul::ImageTiling tiling) {
-    return createSimpleImageInfo(image_type, format, extent, usage, 1,1, tiling);
+    return createSimpleImageInfo(image_type, format, extent, usage, 1, 1, tiling);
 }
 
-VkImageCreateInfo
+vul::ImageCreateInfo
 createSimple1DImageInfo(vul::Format format, std::uint32_t extent,
                         vul::ImageUsageBitMask usage,
                         std::uint32_t mipLevels, std::uint32_t arrayLayers,
@@ -421,49 +461,46 @@ createSimple1DImageInfo(vul::Format format, std::uint32_t extent,
     return createSimpleImageInfo(vul::ImageType::_1D, format, {extent, 1, 1}, usage, mipLevels, arrayLayers, tiling);
 }
 
-VkImageCreateInfo
+vul::ImageCreateInfo
 vul::createSimple1DImageInfo(vul::Format format, std::uint32_t extent,
                              vul::ImageUsageBitMask usage,
                              vul::ImageTiling tiling) {
     return createSimpleImageInfo(vul::ImageType::_1D, format, {extent, 1, 1}, usage, tiling);
 }
 
-VkImageCreateInfo
-vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
+vul::ImageCreateInfo
+vul::createSimple2DImageInfo(vul::Format format, vul::Extent2D extent,
                              vul::ImageUsageBitMask usage,
                              vul::ImageTiling tiling) {
     return createSimpleImageInfo(vul::ImageType::_2D, format, {extent.width, extent.height, 1}, usage, tiling);
 }
 
 
-VkImageCreateInfo
-vul::createSimple2DImageInfo(vul::Format format, VkExtent2D extent,
-                        vul::ImageUsageBitMask usage,
-                        std::uint32_t mipLevels, std::uint32_t arrayLayers,
-                        vul::ImageTiling tiling) {
-    return createSimpleImageInfo(vul::ImageType::_2D, format, {extent.width, extent.height, 1}, usage, mipLevels, arrayLayers, tiling);
+vul::ImageCreateInfo
+vul::createSimple2DImageInfo(vul::Format format, vul::Extent2D extent,
+                             vul::ImageUsageBitMask usage,
+                             std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                             vul::ImageTiling tiling) {
+    return createSimpleImageInfo(vul::ImageType::_2D, format, {extent.width, extent.height, 1}, usage, mipLevels,
+                                 arrayLayers, tiling);
 }
 
-VkImageCreateInfo
-vul::createSimple3DImageInfo(vul::Format format, VkExtent3D extent,
+vul::ImageCreateInfo
+vul::createSimple3DImageInfo(vul::Format format,  vul::Extent3D extent,
                              vul::ImageUsageBitMask usage,
                              vul::ImageTiling tiling) {
     return createSimpleImageInfo(vul::ImageType::_3D, format, extent, usage, tiling);
 }
 
-VkImageCreateInfo
-vul::createSimple3DImageInfo(vul::Format format, VkExtent3D extent,
+vul::ImageCreateInfo
+vul::createSimple3DImageInfo(vul::Format format, vul::Extent3D extent,
                              vul::ImageUsageBitMask usage,
                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
                              vul::ImageTiling tiling) {
     return createSimpleImageInfo(vul::ImageType::_3D, format, extent, usage, mipLevels, arrayLayers, tiling);
 }
 
-VkImageCreateInfo vul::createDepthStencilImageInfo(VkExtent2D extent, vul::Format format, vul::ImageTiling tiling) {
+vul::ImageCreateInfo
+vul::createDepthStencilImageInfo(vul::Extent2D extent, vul::Format format, vul::ImageTiling tiling) {
     return vul::createSimple2DImageInfo(format, extent, vul::ImageUsageFlagBits::DepthStencilAttachmentBit, tiling);
 }
-
-
-
-
-

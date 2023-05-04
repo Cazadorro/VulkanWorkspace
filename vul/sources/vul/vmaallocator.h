@@ -26,6 +26,8 @@ namespace vul {
 
     class Queue;
 
+    struct ImageCreateInfo;
+
     class VmaAllocator {
     public:
         VmaAllocator() = default;
@@ -111,17 +113,17 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<Image>
         createImage(const VmaAllocationCreateInfo &allocInfo,
-                     const VkImageCreateInfo &imageInfo) const;
+                     const ImageCreateInfo &imageInfo) const;
 
         [[nodiscard]]
         ExpectedResult<Image>
-        createDeviceImage(const VkImageCreateInfo &imageInfo) const;
+        createDeviceImage(const ImageCreateInfo &imageInfo) const;
 
         [[nodiscard]]
         ExpectedResult<Image> createDeviceImage(
                 CommandPool& commandPool, Queue& queue,
                 const TempConstVoidArrayProxy &array,
-                const VkImageCreateInfo &imageInfo,
+                const ImageCreateInfo &imageInfo,
                 vul::ImageAspectBitMask aspectMask,
                 vul::PipelineStage2BitMask dstStageMask,
                 vul::Access2BitMask dstAccessMask,
@@ -132,7 +134,7 @@ namespace vul {
         ExpectedResult<Image> createDeviceImage(
                 CommandPool& commandPool, Queue& queue,
                 const TempArrayProxy<TempConstVoidArrayProxy> &arrayList,
-                const VkImageCreateInfo &imageInfo,
+                const ImageCreateInfo &imageInfo,
                 vul::ImageAspectBitMask aspectMask,
                 vul::PipelineStage2BitMask dstStageMask,
                 vul::Access2BitMask dstAccessMask,
@@ -142,19 +144,19 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
                                                  const TempConstVoidArrayProxy &array,
-                                                 const VkImageCreateInfo &imageInfo,
+                                                 const ImageCreateInfo &imageInfo,
                                                  std::uint32_t mipLevel = 0) const;
 
         [[nodiscard]]
         ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
                                                    const TempArrayProxy<TempConstVoidArrayProxy> &array,
-                                                   const VkImageCreateInfo &imageInfo,
+                                                   const ImageCreateInfo &imageInfo,
                                                    std::uint32_t mipLevel = 0) const;
 
         [[nodiscard]]
         ExpectedResult<Image> createStorageImage( CommandPool& commandPool, Queue& queue,
                                                    const TempConstVoidArrayProxy &array,
-                                                   const VkImageCreateInfo &imageInfo,
+                                                   const ImageCreateInfo &imageInfo,
                                                    std::uint32_t mipLevel = 0) const;
 
         //TODO MOVE ONLY!

@@ -662,7 +662,7 @@ int main() {
                                                            vul::TempArrayProxy(textureLayerSpans),
                                                            vul::createSimple2DImageInfo(
                                                                    vul::Format::R8g8b8a8Unorm,
-                                                                   VkExtent2D{16, 16},
+                                                                   {16, 16},
                                                                    vul::ImageUsageFlagBits::TransferDstBit |
                                                                    vul::ImageUsageFlagBits::SampledBit,
                                                                    1, textureLayers.size())).assertValue();
