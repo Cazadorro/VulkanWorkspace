@@ -16,6 +16,7 @@ namespace gul {
 
     class StbImage {
     public:
+        using value_type = stbi_uc;
         enum class Channels : int {
             automatic = STBI_default,
             grey = STBI_grey,

@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul STATIC sources/vul/pushconstantrange.cpp sources/vul/pushconstantrange.h sources/vul/deviceaddress.cpp sources/vul/deviceaddress.h)
+add_library(vul STATIC sources/vul/pushconstantrange.cpp sources/vul/pushconstantrange.h sources/vul/deviceaddress.cpp sources/vul/deviceaddress.h sources/vul/submitinfo.cpp sources/vul/submitinfo.h sources/vul/submitinfobuilder.cpp sources/vul/submitinfobuilder.h)
 target_sources(vul PRIVATE
         sources/vul/temparrayproxyfwd.h
         sources/vul/instance.cpp
@@ -54,7 +54,6 @@ target_sources(vul PRIVATE
         sources/vul/descriptorpool.h
         sources/vul/descriptorset.cpp
         sources/vul/descriptorset.h
-        sources/vul/inputproxy.h
         sources/vul/pipelinelayout.cpp
         sources/vul/pipelinelayout.h
         sources/vul/vkutils.h

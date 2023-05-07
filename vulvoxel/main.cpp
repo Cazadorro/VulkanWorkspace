@@ -6,6 +6,7 @@
 #include <gul/noise/fbm.h>
 #include <uul/bit.h>
 #include <uul/math.h>
+#include <uul/typename.h>
 #include <gul/noise/opensimplex.h>
 //#include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
@@ -47,6 +48,8 @@
 #include <vul/bitmasks.h>
 #include <vul/expectedresult.h>
 #include <vul/deviceaddress.h>
+#include <vul/submitinfo.h>
+#include <vul/submitinfobuilder.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -69,12 +72,15 @@
 #include <vul/traitutils.h>
 #include <bitset>
 #include <bit>
-
+#include <vulkan/vulkan.hpp>
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
 //see https://github.com/KhronosGroup/Vulkan-Guide/blob/master/chapters/extensions/VK_KHR_synchronization2.md
 //see https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples
+
+#include <string_view>
+
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -430,10 +436,10 @@ int main() {
                                                            vul::BufferUsageFlagBits::ShaderDeviceAddressBit).assertValue();
 
 
-    auto rle_staging_materials = allocator.createStagingBuffer(
-            vul::TempArrayProxy(chunk_rle.get_material_ids())).assertValue();
-    auto rle_staging_offsets = allocator.createStagingBuffer(
-            vul::TempArrayProxy(chunk_rle.get_offsets())).assertValue();
+    auto test = vul::TempConstVoidArrayProxy(chunk_rle.get_material_ids());
+    //TODO figure out what the deal is with this? maybe remove tempconstvoidarrayproxy?
+    auto rle_staging_materials = allocator.createStagingBuffer(chunk_rle.get_material_ids()).assertValue();
+    auto rle_staging_offsets = allocator.createStagingBuffer(chunk_rle.get_offsets()).assertValue();
     auto data_chunk_block_size_bytes = 1024 * 1024 * 12;
     auto data_chunk_block_rle_offset_begin = 1024 * 1024 * 8;
 
@@ -574,10 +580,9 @@ int main() {
     auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
 
     for (const auto &imageView: swapchainImageViews) {
-        std::array<const vul::ImageView *, 2> imageViews = {&imageView,
-                                                            &depthImageView};
         vul::FramebufferBuilder framebufferBuilder(device);
-        framebufferBuilder.setAttachments(imageViews);
+        framebufferBuilder.setAttachments({&imageView,
+                                           &depthImageView});
         framebufferBuilder.setDimensions(swapchain.getExtent());
         framebufferBuilder.setRenderPass(renderPass);
         swapchainFramebuffers.push_back(
@@ -611,10 +616,9 @@ int main() {
         depthImageView = depthImage.createImageView().assertValue();
         const auto &swapchainImageViews = swapchain.getImageViews();
         for (const auto &imageView: swapchainImageViews) {
-            std::array<const vul::ImageView *, 2> imageViews = {&imageView,
-                                                                &depthImageView};
             vul::FramebufferBuilder framebufferBuilder(device);
-            framebufferBuilder.setAttachments(imageViews);
+            framebufferBuilder.setAttachments({&imageView,
+                                               &depthImageView});
             framebufferBuilder.setDimensions(
                     swapchain.getExtent());
             framebufferBuilder.setRenderPass(renderPass);
@@ -645,36 +649,22 @@ int main() {
         textureLayers.push_back(block_texture);
     }
 
-    std::vector<vul::TempConstVoidArrayProxy> textureLayerSpans;
-    for (const auto &textureLayer: textureLayers) {
-        textureLayerSpans.push_back(
-                vul::TempArrayProxy(textureLayer.size(), textureLayer.data()));
-    }
-
-    auto temp = vul::TempArrayProxy(textureLayerSpans);
-
-    std::cout << vul::is_container<decltype(textureLayerSpans)>::value << std::endl;
-
-    std::cout << vul::is_container<decltype(temp)>::value << std::endl;
-
-    auto arrayTextureImage = allocator.createDeviceTexture(commandPool,
-                                                           presentationQueue,
-                                                           vul::TempArrayProxy(textureLayerSpans),
-                                                           vul::createSimple2DImageInfo(
-                                                                   vul::Format::R8g8b8a8Unorm,
-                                                                   {16, 16},
-                                                                   vul::ImageUsageFlagBits::TransferDstBit |
-                                                                   vul::ImageUsageFlagBits::SampledBit,
-                                                                   1, textureLayers.size())).assertValue();
+    auto arrayTextureImage = allocator.createDeviceTextureArray(commandPool,
+                                                                presentationQueue,
+                                                                vul::make_proxy(textureLayers),
+                                                                vul::createSimple2DImageInfo(
+                                                                        vul::Format::R8g8b8a8Unorm,
+                                                                        {16, 16},
+                                                                        vul::ImageUsageFlagBits::TransferDstBit |
+                                                                        vul::ImageUsageFlagBits::SampledBit,
+                                                                        1, textureLayers.size())).assertValue();
 
 
     auto arrayTextureView = arrayTextureImage.createImageView().assertValue();
 
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
-                                                      vul::TempArrayProxy(
-                                                              pixels.size(),
-                                                              pixels.data()),
+                                                      pixels,
                                                       vul::createSimple2DImageInfo(
                                                               vul::Format::R8g8b8a8Unorm,
                                                               pixels.getExtent2D(),
@@ -745,66 +735,6 @@ int main() {
                                              0);
 
 
-    std::uint32_t bits_2 = 0x3;
-    std::uint32_t bits_3 = 0x7;
-    std::uint32_t bits_4 = 0xF;
-    std::uint32_t bits_5 = 0x1F;
-    std::uint32_t bits_6 = 0x3F;
-    std::uint32_t bits_7 = 0x7F;
-    std::uint32_t bits_8 = 0xFF;
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_2)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_3)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 2>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 3>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 4>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 5>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 4, 6>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 2>(bits_7)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 3>(bits_7)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 8, 4>(bits_7)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 2>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 3>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 4>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 5>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_interlace<std::uint32_t, std::uint32_t, 5, 6>(bits_4)) << '\n';
-    std::cout << "test: " << std::bitset<64>(
-            uul::bit_interlace<std::uint64_t, std::uint32_t, 21, 3>(0xFFFFu)) << '\n';
-    auto temp_interleave = (uul::bit_interlace<std::uint64_t, std::uint32_t, 21, 3>(
-            0xFF7Fu));
-    std::cout << "test: " << std::bitset<32>(
-            uul::bit_de_interlace<std::uint64_t, std::uint32_t, 21, 3>(
-                    temp_interleave)) << '\n';
     while (!window.shouldClose()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
@@ -1067,18 +997,7 @@ int main() {
                 vul::PipelineStageFlagBits2::AllCommandsBit);
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
                 vul::PipelineStageFlagBits2::AllCommandsBit);
-        auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-        VkSubmitInfo2KHR submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-        submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-        submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-        submitInfo.waitSemaphoreInfoCount = 1;
-        submitInfo.pWaitSemaphoreInfos = &presentationWaitInfo;
-        submitInfo.commandBufferInfoCount = 1;
-        submitInfo.pCommandBufferInfos = &commandBufferInfo;
-        submitInfo.signalSemaphoreInfoCount = signalInfos.size();
-        submitInfo.pSignalSemaphoreInfos = signalInfos.data();
 
         if (false) {
             vul::copy(voxel_df_buffer, voxel_df_host_buffer, commandPool, presentationQueue);
@@ -1097,7 +1016,11 @@ int main() {
             std::cout << "\nEND\n";
         }
 
-        presentationQueue.submit(submitInfo);
+        presentationQueue.submit(vul::SubmitInfoBuilder()
+                                         .waitSemaphoreInfos(presentationWaitInfo)
+                                         .commandBufferInfos(commandBuffer.createSubmitInfo())
+                                         .signalSemaphoreInfos(signalInfos)
+                                         .create());
         //TODO do actual render here
 
         imguiRenderer.postSubmit();

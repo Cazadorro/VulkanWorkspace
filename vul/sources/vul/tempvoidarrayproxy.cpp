@@ -34,3 +34,7 @@ std::size_t vul::TempConstVoidArrayProxy::size_bytes() const noexcept{
 const void *vul::TempConstVoidArrayProxy::data() const noexcept{
     return m_ptr;
 }
+
+std::size_t vul::TempConstVoidArrayProxy::size() const noexcept {
+    return size_bytes();
+}

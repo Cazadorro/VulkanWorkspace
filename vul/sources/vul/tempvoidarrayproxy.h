@@ -32,21 +32,29 @@ namespace vul {
 #    pragma GCC diagnostic pop
 #  endif
 
-            template<typename T, std::enable_if_t<vul::is_contiguous<T>::value>* = nullptr>
-            TempConstVoidArrayProxy(T &value) noexcept : TempConstVoidArrayProxy(value.size() * sizeof(decltype(*value.data())),value.data()){}
+        template <typename V,
+                typename std::enable_if<
+                        std::is_convertible<decltype( reinterpret_cast<const std::byte*>(std::declval<V>().data()) ), const std::byte *>::value &&
+                        std::is_convertible<decltype( std::declval<V>().size() ), std::size_t>::value>::type * = nullptr>
+        TempConstVoidArrayProxy( V const & v ) noexcept
+                : TempConstVoidArrayProxy(v.size() * sizeof(decltype(*v.data())),v.data()){}
 
+
+//            template<typename T, std::enable_if_t<vul::is_contiguous<T>::value>* = nullptr>
+//            TempConstVoidArrayProxy(T &value) noexcept : TempConstVoidArrayProxy(value.size() * sizeof(decltype(*value.data())),value.data()){}
+//
             template<typename T, std::enable_if_t<!vul::is_contiguous<T>::value>* = nullptr>
             TempConstVoidArrayProxy(T &value) noexcept : TempConstVoidArrayProxy(sizeof(T),&value){}
-
-            template<typename T, size_t N>
-            TempConstVoidArrayProxy(const std::array<T, N> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}
-                  
-            template<typename T, class Allocator = std::allocator<typename std::remove_const<T>::type>>
-            TempConstVoidArrayProxy(const std::vector<T, Allocator> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}
-
-
-            template<typename T, size_t N = gsl::dynamic_extent>
-            TempConstVoidArrayProxy(const gsl::span<T, N> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}
+//
+//            template<typename T, size_t N>
+//            TempConstVoidArrayProxy(const std::array<T, N> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}
+//
+//            template<typename T, class Allocator = std::allocator<typename std::remove_const<T>::type>>
+//            TempConstVoidArrayProxy(const std::vector<T, Allocator> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}
+//
+//
+//            template<typename T, size_t N = gsl::dynamic_extent>
+//            TempConstVoidArrayProxy(const gsl::span<T, N> &data) noexcept: TempConstVoidArrayProxy(data.size() * sizeof(T), data.data()){}
 
             [[nodiscard]]
             const std::byte *begin() const noexcept;
@@ -58,10 +66,12 @@ namespace vul {
             bool empty() const noexcept;
 
             [[nodiscard]]
+            std::size_t size() const noexcept;
+            [[nodiscard]]
             std::size_t size_bytes() const noexcept;
 
             [[nodiscard]]
-            const void *data() const noexcept ;
+            const void *data() const noexcept;
         private:
             std::size_t m_size_bytes;
             const std::byte *m_ptr;

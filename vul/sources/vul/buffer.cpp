@@ -132,14 +132,3 @@ vul::DeviceAddress vul::Buffer::getDeviceAddress(const void* pNext) const {
 void vul::Buffer::mappedCopyFrom(const vul::TempConstVoidArrayProxy &array) {
     m_allocation.mappedCopyFrom(array);
 }
-
-void vul::Buffer::mappedCopyFrom(
-        const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &arrays) {
-    //TODO could reduce compile times by having concepts of "void" TempArrayProxy?
-    std::size_t offsetBytes = 0;
-    for(const auto& array : arrays){
-        m_allocation.mappedCopyFrom(array, offsetBytes);
-        offsetBytes += array.size_bytes();
-    }
-}
-

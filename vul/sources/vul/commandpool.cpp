@@ -10,6 +10,7 @@
 #include "vul/expectedresult.h"
 #include "vul/semaphore.h"
 #include "vul/temparrayproxy.h"
+#include "vul/submitinfobuilder.h"
 
 vul::CommandPool::CommandPool(const vul::Device &device, VkCommandPool handle,
                               const VkAllocationCallbacks *pAllocator) :
@@ -128,18 +129,10 @@ vul::Result vul::CommandPool::singleTimeSubmit(const vul::Queue &queue,
                                                          vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-    VkSubmitInfo2KHR submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-    submitInfo.waitSemaphoreInfoCount = 0;
-    submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandBufferInfo;
-    submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
-
-    auto result = queue.submit(submitInfo);
+    auto result = queue.submit(vul::SubmitInfoBuilder()
+                                       .commandBufferInfos(commandBufferInfo)
+                                       .signalSemaphoreInfos(signalInfo)
+                                       .create());
     if (result != vul::Result::Success) {
         return result;
     }

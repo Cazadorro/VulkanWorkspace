@@ -14,16 +14,17 @@
 #include "vul/enums.h"
 #include "vul/bitmasks.h"
 #include "vul/temparrayproxy.h"
+#include "vul/submitinfobuilder.h"
 
 vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
-               Queue &queue, VkDeviceSize offset) {
+                      Queue &queue, VkDeviceSize offset) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
     commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
     commandBuffer.copyBuffer(src, dst, offset);
     commandBuffer.end();
-    const auto& device =commandPool.getDevice();
+    const auto &device = commandPool.getDevice();
     auto expectedSemaphore = device.createTimelineSemaphore(0);
-    if(!expectedSemaphore.hasValue()){
+    if (!expectedSemaphore.hasValue()) {
         return expectedSemaphore.result;
     }
     auto timelineSemaphore = std::move(expectedSemaphore.value);
@@ -32,19 +33,11 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
     auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-    VkSubmitInfo2KHR submitInfo = {};
-    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-    submitInfo.waitSemaphoreInfoCount = 0;
-    submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandBufferInfo;
-    submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
-
-    auto result = queue.submit(submitInfo);
-    if(result != vul::Result::Success){
+    auto result = queue.submit(vul::SubmitInfoBuilder()
+                                       .commandBufferInfos(commandBufferInfo)
+                                       .signalSemaphoreInfos(signalInfo)
+                                       .create());
+    if (result != vul::Result::Success) {
         return result;
     }
     return device.wait({timelineSemaphore}, waitValue);
@@ -52,15 +45,15 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
 
 
 vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
-                 Queue &queue,  std::uint32_t srcIndex, std::uint32_t dstIndex, VkDeviceSize offset) {
+                      Queue &queue, std::uint32_t srcIndex, std::uint32_t dstIndex, VkDeviceSize offset) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
     commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
     commandBuffer.copyBuffer(src, dst, offset);
     auto memoryBarrier = dst.createMemoryBarrier(vul::PipelineStageFlagBits2::TransferBit,
-                            vul::AccessFlagBits2::MemoryWriteBit,
-                            vul::PipelineStageFlagBits2::AllTransferBit,
-                            vul::AccessFlagBits2::None,
-                            0, VK_WHOLE_SIZE, srcIndex, dstIndex);
+                                                 vul::AccessFlagBits2::MemoryWriteBit,
+                                                 vul::PipelineStageFlagBits2::AllTransferBit,
+                                                 vul::AccessFlagBits2::None,
+                                                 0, VK_WHOLE_SIZE, srcIndex, dstIndex);
 
     {
         VkDependencyInfoKHR dependencyInfo = {};
@@ -76,9 +69,9 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
         commandBuffer.pipelineBarrier(dependencyInfo);
     }
     commandBuffer.end();
-    const auto& device =commandPool.getDevice();
+    const auto &device = commandPool.getDevice();
     auto expectedSemaphore = device.createTimelineSemaphore(0);
-    if(!expectedSemaphore.hasValue()){
+    if (!expectedSemaphore.hasValue()) {
         return expectedSemaphore.result;
     }
     auto timelineSemaphore = std::move(expectedSemaphore.value);
@@ -87,19 +80,11 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
     auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-    VkSubmitInfo2KHR submitInfo = {};
-    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-    submitInfo.waitSemaphoreInfoCount = 0;
-    submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandBufferInfo;
-    submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
-
-    auto result = queue.submit(submitInfo);
-    if(result != vul::Result::Success){
+    auto result = queue.submit(vul::SubmitInfoBuilder()
+                                       .commandBufferInfos(commandBufferInfo)
+                                       .signalSemaphoreInfos(signalInfo)
+                                       .create());
+    if (result != vul::Result::Success) {
         return result;
     }
     return device.wait({timelineSemaphore}, waitValue);
@@ -119,8 +104,8 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
                                                          vul::ImageSubresourceRange(aspectMask));
     auto fromTransferBarrier = dst.createFromnTransferBarrier(dstStageMask,
                                                               dstAccessMask,
-                                                         dstLayout,
-                                                         vul::ImageSubresourceRange(aspectMask));
+                                                              dstLayout,
+                                                              vul::ImageSubresourceRange(aspectMask));
     commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
     {
         VkDependencyInfoKHR dependencyInfo = {};
@@ -150,9 +135,9 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
         commandBuffer.pipelineBarrier(dependencyInfo);
     }
     commandBuffer.end();
-    const auto& device = commandPool.getDevice();
+    const auto &device = commandPool.getDevice();
     auto expectedSemaphore = device.createTimelineSemaphore(0);
-    if(!expectedSemaphore.hasValue()){
+    if (!expectedSemaphore.hasValue()) {
         return expectedSemaphore.result;
     }
     auto timelineSemaphore = std::move(expectedSemaphore.value);
@@ -161,25 +146,17 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
     auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-    VkSubmitInfo2KHR submitInfo = {};
-    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-    submitInfo.waitSemaphoreInfoCount = 0;
-    submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandBufferInfo;
-    submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
-
-    auto result = queue.submit(submitInfo);
-    if(result != vul::Result::Success){
+    auto result = queue.submit(vul::SubmitInfoBuilder()
+                                       .commandBufferInfos(commandBufferInfo)
+                                       .signalSemaphoreInfos(signalInfo)
+                                       .create());
+    if (result != vul::Result::Success) {
         return result;
     }
     return device.wait({timelineSemaphore}, waitValue);
 }
 
-vul::Result transition(const VkImageMemoryBarrier2KHR& barrier, vul::CommandPool &commandPool, vul::Queue &queue) {
+vul::Result transition(const VkImageMemoryBarrier2KHR &barrier, vul::CommandPool &commandPool, vul::Queue &queue) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
     VkDependencyInfoKHR dependencyInfo = {};
     dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;
@@ -195,9 +172,9 @@ vul::Result transition(const VkImageMemoryBarrier2KHR& barrier, vul::CommandPool
     commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
     commandBuffer.pipelineBarrier(dependencyInfo);
     commandBuffer.end();
-    const auto& device = commandPool.getDevice();
+    const auto &device = commandPool.getDevice();
     auto expectedSemaphore = device.createTimelineSemaphore(0);
-    if(!expectedSemaphore.hasValue()){
+    if (!expectedSemaphore.hasValue()) {
         return expectedSemaphore.result;
     }
     auto timelineSemaphore = std::move(expectedSemaphore.value);
@@ -206,32 +183,26 @@ vul::Result transition(const VkImageMemoryBarrier2KHR& barrier, vul::CommandPool
     auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::BottomOfPipeBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-    VkSubmitInfo2KHR submitInfo = {};
-    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-    submitInfo.waitSemaphoreInfoCount = 0;
-    submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandBufferInfo;
-    submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
 
-    auto result = queue.submit(submitInfo);
-    if(result != vul::Result::Success){
+    auto result = queue.submit(vul::SubmitInfoBuilder()
+                                       .commandBufferInfos(commandBufferInfo)
+                                       .signalSemaphoreInfos(signalInfo)
+                                       .create());
+    if (result != vul::Result::Success) {
         return result;
     }
     return device.wait({timelineSemaphore}, waitValue);
 }
 
 vul::Result vul::transition(vul::Image &image, vul::CommandPool &commandPool, vul::Queue &queue,
-                       vul::ImageAspectBitMask aspectMask,
-                       vul::PipelineStage2BitMask dstStageMask,
-                       vul::Access2BitMask dstAccessMask,
-                       vul::ImageLayout dstLayout) {
+                            vul::ImageAspectBitMask aspectMask,
+                            vul::PipelineStage2BitMask dstStageMask,
+                            vul::Access2BitMask dstAccessMask,
+                            vul::ImageLayout dstLayout) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
 
-    auto transitionBarrier = image.createTransitionBarrier(dstStageMask, dstAccessMask, dstLayout, vul::ImageSubresourceRange(aspectMask));
+    auto transitionBarrier = image.createTransitionBarrier(dstStageMask, dstAccessMask, dstLayout,
+                                                           vul::ImageSubresourceRange(aspectMask));
 
     commandBuffer.begin(vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
     {
@@ -248,9 +219,9 @@ vul::Result vul::transition(vul::Image &image, vul::CommandPool &commandPool, vu
         commandBuffer.pipelineBarrier(dependencyInfo);
     }
     commandBuffer.end();
-    const auto& device = commandPool.getDevice();
+    const auto &device = commandPool.getDevice();
     auto expectedSemaphore = device.createTimelineSemaphore(0);
-    if(!expectedSemaphore.hasValue()){
+    if (!expectedSemaphore.hasValue()) {
         return expectedSemaphore.result;
     }
     auto timelineSemaphore = std::move(expectedSemaphore.value);
@@ -259,19 +230,11 @@ vul::Result vul::transition(vul::Image &image, vul::CommandPool &commandPool, vu
     auto signalInfo = timelineSemaphore.createSubmitInfo(waitValue, vul::PipelineStageFlagBits2::AllTransferBit);
     auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
-    VkSubmitInfo2KHR submitInfo = {};
-    submitInfo.sType =VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-    submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-    submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-    submitInfo.waitSemaphoreInfoCount = 0;
-    submitInfo.pWaitSemaphoreInfos = nullptr;
-    submitInfo.commandBufferInfoCount = 1;
-    submitInfo.pCommandBufferInfos = &commandBufferInfo;
-    submitInfo.signalSemaphoreInfoCount = 1;
-    submitInfo.pSignalSemaphoreInfos = &signalInfo;
-
-    auto result = queue.submit(submitInfo);
-    if(result != vul::Result::Success){
+    auto result = queue.submit(vul::SubmitInfoBuilder()
+                                       .commandBufferInfos(commandBufferInfo)
+                                       .signalSemaphoreInfos(signalInfo)
+                                       .create());
+    if (result != vul::Result::Success) {
         return result;
     }
     return device.wait({timelineSemaphore}, waitValue);

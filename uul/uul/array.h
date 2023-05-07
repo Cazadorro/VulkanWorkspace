@@ -14,5 +14,15 @@ namespace uul{
         }
         return array;
     }
+
+    template<typename T, std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::size_bytes)>> * = nullptr>
+    std::size_t size_bytes(const T& t){
+        return t.size_bytes();
+
+    }
+    template<typename T>
+    std::size_t size_bytes(const T& t){
+        return t.size() * sizeof(typename T::value_type);
+    }
 }
 #endif //VULKANWORKSPACE_ARRAY_H

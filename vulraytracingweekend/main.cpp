@@ -867,7 +867,7 @@ int main() {
         view_state.image_width = extent.width;
         view_state.image_height = extent.height;
         for(auto& device_view_state : device_view_states){
-            device_view_state.mappedCopyFrom(view_state);
+            device_view_state.mappedCopyFromArray(view_state);
         }
     };
 
@@ -1077,12 +1077,12 @@ int main() {
                                         0.1f,
                                         10.0f);
             ubo.proj[1][1] *= -1;
-            uniformBuffers[swapchainImageIndex].mappedCopyFrom(
+            uniformBuffers[swapchainImageIndex].mappedCopyFromArray(
                     ubo);
 
             if(inflight_view_state_update_versions[swapchainImageIndex] != view_state_update_version){
                 inflight_view_state_update_versions[swapchainImageIndex] = view_state_update_version;
-                device_view_states[swapchainImageIndex].mappedCopyFrom(view_state);
+                device_view_states[swapchainImageIndex].mappedCopyFromArray(view_state);
             }
 
         }

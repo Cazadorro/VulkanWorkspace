@@ -13,7 +13,7 @@ vul::ExpectedResult<vul::VmaAllocator>
 vul::VmaAllocator::create(const vul::Instance &instance,
                           const vul::PhysicalDevice &physicalDevice,
                           const vul::Device &device,
-                          VmaAllocatorCreateFlags flags){
+                          VmaAllocatorCreateFlags flags) {
     vul::VmaAllocator allocator;
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.flags = flags;
@@ -77,9 +77,10 @@ vul::VmaAllocator::createBuffer(const VmaAllocationCreateInfo &allocInfo,
     VkBuffer buffer;
     ::VmaAllocation allocation;
     auto result = static_cast<Result>(vmaCreateBuffer(m_handle, &bufferInfo, &allocInfo, &buffer,
-                    &allocation, nullptr));
+                                                      &allocation, nullptr));
     return {result, Buffer(vul::VmaAllocation(*this, allocation), buffer, bufferInfo.size)};
 }
+
 const vul::Device &vul::VmaAllocator::getDevice() const {
     return *m_pDevice;
 }
@@ -91,7 +92,7 @@ vul::VmaAllocator::createMappedCoherentBuffer(VkDeviceSize size,
     allocInfo.flags = 0;
     allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
     allocInfo.preferredFlags = 0;
 //    allocInfo.memoryTypeBits;
 //    allocInfo.pool;
@@ -107,7 +108,7 @@ vul::VmaAllocator::createMappedCoherentBuffer(VkDeviceSize size,
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     // bufferInfo.queueFamilyIndexCount = 0;
     // bufferInfo.pQueueFamilyIndices = nullptr;
-    
+
     return createBuffer(allocInfo, bufferInfo);
 }
 
@@ -167,11 +168,11 @@ vul::VmaAllocator::createHostDestinationBuffer(VkDeviceSize size, vul::BufferUsa
 
 vul::ExpectedResult<vul::Buffer>
 vul::VmaAllocator::createDeviceBuffer(VkDeviceSize size,
-                                       vul::BufferUsageBitMask usages) const {
+                                      vul::BufferUsageBitMask usages) const {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.flags = 0;
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocInfo.requiredFlags =VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     allocInfo.preferredFlags = 0;
 //    allocInfo.memoryTypeBits;
 //    allocInfo.pool;
@@ -197,7 +198,7 @@ vul::VmaAllocator::createImage(const VmaAllocationCreateInfo &allocInfo,
     VkImage image;
     ::VmaAllocation allocation;
     auto result = static_cast<Result>(vmaCreateImage(m_handle, &(imageInfo.get()), &allocInfo, &image,
-                                                      &allocation, nullptr));
+                                                     &allocation, nullptr));
     static int i = 0;
     i += 1;
     m_pDevice->setObjectName(image, "CREATED_IMAGE_" + std::to_string(i));
@@ -216,7 +217,7 @@ vul::VmaAllocator::createDeviceImage(const ImageCreateInfo &imageInfo) const {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.flags = 0;
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocInfo.requiredFlags =VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     allocInfo.preferredFlags = 0;
 //    allocInfo.memoryTypeBits;
 //    allocInfo.pool;
@@ -227,7 +228,7 @@ vul::VmaAllocator::createDeviceImage(const ImageCreateInfo &imageInfo) const {
 
 vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createMappedCoherentBuffer(
         const vul::TempConstVoidArrayProxy &array,
-        vul::BufferUsageBitMask otherUsages) const{
+        vul::BufferUsageBitMask otherUsages) const {
     auto expectedResult = createMappedCoherentBuffer(array.size_bytes(),
                                                      otherUsages);
     if (!expectedResult.hasValue()) {
@@ -239,7 +240,7 @@ vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createMappedCoherentBuffer(
 
 vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createStagingBuffer(
         const vul::TempConstVoidArrayProxy &array,
-        vul::BufferUsageBitMask otherUsages) const  {
+        vul::BufferUsageBitMask otherUsages) const {
     auto expectedResult = createStagingBuffer(array.size_bytes(),
                                               otherUsages);
     if (!expectedResult.hasValue()) {
@@ -249,22 +250,6 @@ vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createStagingBuffer(
     return expectedResult;
 }
 
-vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createStagingBuffer(
-        const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &arrayList,
-        vul::BufferUsageBitMask otherUsages) const{
-
-    VkDeviceSize totalSizeBytes = 0;
-    for(const auto& array : arrayList){
-        totalSizeBytes += array.size_bytes();
-    }
-    auto expectedResult = createStagingBuffer(totalSizeBytes,
-                                              otherUsages);
-    if (!expectedResult.hasValue()) {
-        return expectedResult;
-    }
-    expectedResult.value.mappedCopyFrom(arrayList);
-    return expectedResult;
-}
 
 vul::ExpectedResult<vul::Buffer>
 vul::VmaAllocator::createDeviceBuffer(vul::CommandPool &commandPool,
@@ -272,18 +257,47 @@ vul::VmaAllocator::createDeviceBuffer(vul::CommandPool &commandPool,
                                       const vul::TempConstVoidArrayProxy &array,
                                       vul::BufferUsageBitMask usages) const {
     auto expectedStageBuffer = createStagingBuffer(array);
-    if(!expectedStageBuffer.hasValue()){
+    if (!expectedStageBuffer.hasValue()) {
         return {expectedStageBuffer.result, {}};
     }
     auto stagingBuffer = std::move(expectedStageBuffer.value);
     auto expectedBuffer = createDeviceBuffer(array.size_bytes(), vul::BufferUsageFlagBits::TransferDstBit | usages);
-    if(!expectedBuffer.hasValue()){
+    if (!expectedBuffer.hasValue()) {
         return {expectedBuffer.result, {}};
     }
     auto buffer = std::move(expectedBuffer.value);
     auto result = vul::copy(stagingBuffer, buffer, commandPool, queue);
     return {result, std::move(buffer)};
 }
+
+
+vul::ExpectedResult<vul::Image>
+vul::VmaAllocator::createDeviceImageInitImpl(vul::CommandPool &commandPool, vul::Queue &queue,
+                                             vul::ExpectedResult<vul::Buffer> expectedStageBuffer,
+                                             const vul::ImageCreateInfo &imageInfo, vul::ImageAspectBitMask aspectMask,
+                                             vul::PipelineStage2BitMask dstStageMask, vul::Access2BitMask dstAccessMask,
+                                             vul::ImageLayout dstLayout, std::uint32_t mipLevel) const {
+    if (!expectedStageBuffer.hasValue()) {
+        fmt::print(stderr, "Couldn't create staging buffer\n");
+        return {expectedStageBuffer.result, {}};
+    }
+    auto stagingBuffer = std::move(expectedStageBuffer.value);
+    auto tempImageInfo = imageInfo;
+    tempImageInfo.usage |= vul::ImageUsageFlagBits::TransferDstBit;
+    auto expectedImage = createDeviceImage(tempImageInfo);
+    if (!expectedImage.hasValue()) {
+        fmt::print(stderr, "Couldn't create image\n");
+        return {expectedImage.result, {}};
+    }
+    auto image = std::move(expectedImage.value);
+    auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask,
+                            dstLayout, mipLevel);
+    if (result != Result::Success) {
+        fmt::print(stderr, "Copy not successfull\n");
+    }
+    return {result, std::move(image)};
+}
+
 
 vul::ExpectedResult<vul::Image>
 vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
@@ -294,53 +308,12 @@ vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
                                      vul::PipelineStage2BitMask dstStageMask,
                                      vul::Access2BitMask dstAccessMask,
                                      vul::ImageLayout dstLayout,
-                                     std::uint32_t mipLevel)const {
-    auto expectedStageBuffer = createStagingBuffer(array);
-    if(!expectedStageBuffer.hasValue()){
-        return {expectedStageBuffer.result, {}};
-    }
-    auto stagingBuffer = std::move(expectedStageBuffer.value);
-    auto tempImageInfo = imageInfo;
-    tempImageInfo.usage |= vul::ImageUsageFlagBits::TransferDstBit;
-    auto expectedImage = createDeviceImage(tempImageInfo);
-    if(!expectedImage.hasValue()){
-        return {expectedImage.result, {}};
-    }
-    auto image = std::move(expectedImage.value);
-    auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
-    return {result, std::move(image)};
+                                     std::uint32_t mipLevel) const {
+    return createDeviceImageInitImpl(commandPool, queue, createStagingBuffer(array), imageInfo, aspectMask,
+                                     dstStageMask, dstAccessMask, dstLayout, mipLevel);
+
 }
 
-vul::ExpectedResult<vul::Image>
-vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
-                                     vul::Queue &queue,
-                                     const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &arrayList,
-                                     const ImageCreateInfo &imageInfo,
-                                     vul::ImageAspectBitMask aspectMask,
-                                     vul::PipelineStage2BitMask dstStageMask,
-                                     vul::Access2BitMask dstAccessMask,
-                                     vul::ImageLayout dstLayout,
-                                     std::uint32_t mipLevel) const {
-    auto expectedStageBuffer = createStagingBuffer(arrayList);
-    if(!expectedStageBuffer.hasValue()){
-        fmt::print(stderr, "Couldn't create staging buffer\n");
-        return {expectedStageBuffer.result, {}};
-    }
-    auto stagingBuffer = std::move(expectedStageBuffer.value);
-    auto tempImageInfo = imageInfo;
-    tempImageInfo.usage |= vul::ImageUsageFlagBits::TransferDstBit;
-    auto expectedImage = createDeviceImage(tempImageInfo);
-    if(!expectedImage.hasValue()){
-        fmt::print(stderr, "Couldn't create image\n");
-        return {expectedImage.result, {}};
-    }
-    auto image = std::move(expectedImage.value);
-    auto result = vul::copy(stagingBuffer, image, commandPool, queue, aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
-    if(result != Result::Success){
-        fmt::print(stderr, "Copy not successfull\n");
-    }
-    return {result, std::move(image)};
-}
 
 vul::ExpectedResult<vul::Image>
 vul::VmaAllocator::createDeviceTexture(vul::CommandPool &commandPool,
@@ -355,18 +328,18 @@ vul::VmaAllocator::createDeviceTexture(vul::CommandPool &commandPool,
                              mipLevel);
 }
 
-vul::ExpectedResult<vul::Image>
-vul::VmaAllocator::createDeviceTexture(vul::CommandPool &commandPool,
-                                       vul::Queue &queue,
-                                       const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &array,
-                                       const ImageCreateInfo &imageInfo,
-                                       std::uint32_t mipLevel) const{
-    return createDeviceImage(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
-                             vul::PipelineStageFlagBits2::AllCommandsBit,
-                             vul::AccessFlagBits2::ShaderReadBit,
-                             vul::ImageLayout::ShaderReadOnlyOptimal,
-                             mipLevel);
-}
+//vul::ExpectedResult<vul::Image>
+//vul::VmaAllocator::createDeviceTextureArray(vul::CommandPool &commandPool,
+//                                            vul::Queue &queue,
+//                                            const vul::TempArrayProxy<vul::TempConstVoidArrayProxy> &array,
+//                                            const ImageCreateInfo &imageInfo,
+//                                            std::uint32_t mipLevel) const {
+//    return createDeviceImageArray(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
+//                                  vul::PipelineStageFlagBits2::AllCommandsBit,
+//                                  vul::AccessFlagBits2::ShaderReadBit,
+//                                  vul::ImageLayout::ShaderReadOnlyOptimal,
+//                                  mipLevel);
+//}
 
 vul::ExpectedResult<vul::Image>
 vul::VmaAllocator::createStorageImage(vul::CommandPool &commandPool,
@@ -380,5 +353,6 @@ vul::VmaAllocator::createStorageImage(vul::CommandPool &commandPool,
                              vul::ImageLayout::General,
                              mipLevel);
 }
+
 
 

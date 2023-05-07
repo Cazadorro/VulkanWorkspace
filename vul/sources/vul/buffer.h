@@ -10,6 +10,8 @@
 #include "vul/bitmasksfwd.h"
 #include "vul/commandutils.h"
 #include "vul/temparrayproxyfwd.h"
+#include "uul/concepts.h"
+#include "uul/array.h"
 #include "deviceaddress.h"
 
 #include <gsl/span>
@@ -82,7 +84,16 @@ namespace vul {
 
         void mappedCopyFrom(const TempConstVoidArrayProxy& array);
 
-        void mappedCopyFrom(const TempArrayProxy<TempConstVoidArrayProxy>& arrays);
+        template<uul::ContiguousContainer container>
+        void mappedCopyFromArray(const vul::TempArrayProxy<container> &arrays) {
+            //TODO could reduce compile times by having concepts of "void" TempArrayProxy?
+            std::size_t offsetBytes = 0;
+            for(const auto& array : arrays){
+                m_allocation.mappedCopyFrom(array, offsetBytes);
+                offsetBytes += uul::size_bytes(array);
+            }
+        }
+
 
         [[nodiscard]]
         bool isMapped() const;

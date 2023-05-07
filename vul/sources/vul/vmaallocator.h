@@ -15,6 +15,8 @@
 #include "vul/image.h"
 #include "vul/commandutils.h"
 #include "vul/temparrayproxyfwd.h"
+#include "uul/concepts.h"
+#include "uul/array.h"
 #include <vk_mem_alloc.h>
 
 
@@ -64,7 +66,7 @@ namespace vul {
         VmaAllocator &operator=(const VmaAllocator &rhs) = delete;
 
         [[nodiscard]]
-        const Device& getDevice() const;
+        const Device &getDevice() const;
 
         [[nodiscard]]
         ExpectedResult<Buffer>
@@ -81,59 +83,60 @@ namespace vul {
 
         [[nodiscard]]
         ExpectedResult<Buffer> createHostDestinationBuffer(VkDeviceSize size,
-                                                   vul::BufferUsageBitMask otherUsages = {}) const;
+                                                           vul::BufferUsageBitMask otherUsages = {}) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(VkDeviceSize size,
-                                                   vul::BufferUsageBitMask usages) const;
+                                                  vul::BufferUsageBitMask usages) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer>
         createMappedCoherentBuffer(const TempConstVoidArrayProxy &array,
-                                  vul::BufferUsageBitMask otherUsages = {}) const;
+                                   vul::BufferUsageBitMask otherUsages = {}) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer>
         createStagingBuffer(const TempConstVoidArrayProxy &array,
                             vul::BufferUsageBitMask otherUsages = {}) const;
 
-
+        template<uul::ContiguousContainer container>
         [[nodiscard]]
-        ExpectedResult<Buffer>
-        createStagingBuffer(const TempArrayProxy<TempConstVoidArrayProxy> &arrayList,
-                            vul::BufferUsageBitMask otherUsages = {}) const;
+        vul::ExpectedResult<vul::Buffer> createStagingBufferFromMany(const vul::TempArrayProxy<container> &arrayList,
+                                                                     vul::BufferUsageBitMask otherUsages = {}) const {
+            VkDeviceSize totalSizeBytes = 0;
+            for (const auto &array: arrayList) {
+                totalSizeBytes += uul::size_bytes(array);
+            }
+            auto expectedResult = createStagingBuffer(totalSizeBytes,
+                                                      otherUsages);
+            if (!expectedResult.hasValue()) {
+                return expectedResult;
+            }
+            expectedResult.value.mappedCopyFromArray(arrayList);
+            return expectedResult;
+        }
 
 
         [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(
-                CommandPool& commandPool, Queue& queue,
+                CommandPool &commandPool, Queue &queue,
                 const TempConstVoidArrayProxy &array,
                 vul::BufferUsageBitMask usages) const;
 
         [[nodiscard]]
         ExpectedResult<Image>
         createImage(const VmaAllocationCreateInfo &allocInfo,
-                     const ImageCreateInfo &imageInfo) const;
+                    const ImageCreateInfo &imageInfo) const;
+
 
         [[nodiscard]]
         ExpectedResult<Image>
         createDeviceImage(const ImageCreateInfo &imageInfo) const;
 
         [[nodiscard]]
-        ExpectedResult<Image> createDeviceImage(
-                CommandPool& commandPool, Queue& queue,
-                const TempConstVoidArrayProxy &array,
-                const ImageCreateInfo &imageInfo,
-                vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStage2BitMask dstStageMask,
-                vul::Access2BitMask dstAccessMask,
-                vul::ImageLayout dstLayout,
-                std::uint32_t mipLevel = 0)const;
-
-        [[nodiscard]]
-        ExpectedResult<Image> createDeviceImage(
-                CommandPool& commandPool, Queue& queue,
-                const TempArrayProxy<TempConstVoidArrayProxy> &arrayList,
+        ExpectedResult<Image> createDeviceImageInitImpl(
+                CommandPool &commandPool, Queue &queue,
+                ExpectedResult<Buffer> expectedStageBuffer,
                 const ImageCreateInfo &imageInfo,
                 vul::ImageAspectBitMask aspectMask,
                 vul::PipelineStage2BitMask dstStageMask,
@@ -142,22 +145,55 @@ namespace vul {
                 std::uint32_t mipLevel = 0) const;
 
         [[nodiscard]]
-        ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
+        ExpectedResult<Image> createDeviceImage(
+                CommandPool &commandPool, Queue &queue,
+                const TempConstVoidArrayProxy &array,
+                const ImageCreateInfo &imageInfo,
+                vul::ImageAspectBitMask aspectMask,
+                vul::PipelineStage2BitMask dstStageMask,
+                vul::Access2BitMask dstAccessMask,
+                vul::ImageLayout dstLayout,
+                std::uint32_t mipLevel = 0) const;
+
+        template<uul::ContiguousContainer container>
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceImageArray(
+                CommandPool &commandPool, Queue &queue,
+                const TempArrayProxy<container> &arrayList,
+                const ImageCreateInfo &imageInfo,
+                vul::ImageAspectBitMask aspectMask,
+                vul::PipelineStage2BitMask dstStageMask,
+                vul::Access2BitMask dstAccessMask,
+                vul::ImageLayout dstLayout,
+                std::uint32_t mipLevel = 0) const {
+            return createDeviceImageInitImpl(commandPool, queue, createStagingBufferFromMany(arrayList), imageInfo,
+                                             aspectMask, dstStageMask, dstAccessMask, dstLayout, mipLevel);
+        }
+
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceTexture(CommandPool &commandPool, Queue &queue,
+                                                  const TempConstVoidArrayProxy &array,
+                                                  const ImageCreateInfo &imageInfo,
+                                                  std::uint32_t mipLevel = 0) const;
+
+        template<uul::ContiguousContainer container>
+        [[nodiscard]]
+        ExpectedResult<Image> createDeviceTextureArray(CommandPool &commandPool, Queue &queue,
+                                                       const TempArrayProxy<container> &array,
+                                                       const ImageCreateInfo &imageInfo,
+                                                       std::uint32_t mipLevel = 0) const{
+            return createDeviceImageArray(commandPool, queue, array, imageInfo, vul::ImageAspectFlagBits::ColorBit,
+                                          vul::PipelineStageFlagBits2::AllCommandsBit,
+                                          vul::AccessFlagBits2::ShaderReadBit,
+                                          vul::ImageLayout::ShaderReadOnlyOptimal,
+                                          mipLevel);
+        }
+
+        [[nodiscard]]
+        ExpectedResult<Image> createStorageImage(CommandPool &commandPool, Queue &queue,
                                                  const TempConstVoidArrayProxy &array,
                                                  const ImageCreateInfo &imageInfo,
                                                  std::uint32_t mipLevel = 0) const;
-
-        [[nodiscard]]
-        ExpectedResult<Image> createDeviceTexture( CommandPool& commandPool, Queue& queue,
-                                                   const TempArrayProxy<TempConstVoidArrayProxy> &array,
-                                                   const ImageCreateInfo &imageInfo,
-                                                   std::uint32_t mipLevel = 0) const;
-
-        [[nodiscard]]
-        ExpectedResult<Image> createStorageImage( CommandPool& commandPool, Queue& queue,
-                                                   const TempConstVoidArrayProxy &array,
-                                                   const ImageCreateInfo &imageInfo,
-                                                   std::uint32_t mipLevel = 0) const;
 
         //TODO MOVE ONLY!
     private:

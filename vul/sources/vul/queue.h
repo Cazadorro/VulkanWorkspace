@@ -12,7 +12,7 @@
 
 namespace vul {
     class Device;
-
+    struct SubmitInfo2;
     class Queue {
     public:
         Queue() = default;
@@ -25,7 +25,7 @@ namespace vul {
         Result setObjectName(const std::string &string);
 
         Result
-        submit(const TempArrayProxy<const VkSubmitInfo2KHR> &submitInfos) const;
+        submit(const TempArrayProxy<const SubmitInfo2> &submitInfos) const;
 
         Queue(Queue &&rhs) noexcept = default;
 

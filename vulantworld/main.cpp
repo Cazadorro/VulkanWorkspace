@@ -429,7 +429,7 @@ int main() {
     }
 
     for (std::size_t i = 0; i < swapchainSize; ++i) {
-        host_staging_buffers[i].mappedCopyFrom(colors);
+        host_staging_buffers[i].mappedCopyFromArray(colors);
     }
 
     vul::SamplerBuilder samplerBuilder(device);
