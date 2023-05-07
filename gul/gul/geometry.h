@@ -148,7 +148,7 @@ namespace gul {
         vec3 len;
 
 
-        explicit CornerAABB(const CenterAABB<T>& aabb) : corner(aabb.min()), len(aabb.max - aabb.min()){
+        explicit CornerAABB(const CenterAABB<T>& aabb) : corner(aabb.min()), len(aabb.max() - aabb.min()){
         }
 
         CornerAABB() = default;

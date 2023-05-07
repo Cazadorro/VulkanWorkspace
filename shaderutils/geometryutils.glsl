@@ -16,6 +16,18 @@ struct CenterAABB{
     vec3 dim;
 };
 
+struct CornerAABB{
+    vec3 pos;
+    vec3 len;
+};
+
+CenterAABB toCenterAABB(CornerAABB corner){
+    CenterAABB center;
+    center.pos = corner.pos + (corner.len) / 2.0f;
+    center.dim = corner.len / 2.0;
+    return center;
+}
+
 void split(const in CenterAABB bbox, uint index, float divisor,
            out CenterAABB lhs_bbox, out CenterAABB rhs_bbox){
     lhs_bbox = bbox;

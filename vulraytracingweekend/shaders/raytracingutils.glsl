@@ -78,6 +78,7 @@ Ray create_Ray(
     return Ray(ray_origin, rot_ray_dir);
 }
 
+
 struct Sphere{
     vec3 pos;
     float r;

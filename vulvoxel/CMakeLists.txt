@@ -23,5 +23,8 @@ target_shader_postbuild(vulvoxel
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/rle_render.vert
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/rle_render.frag
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/jfa_init.comp
-        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/jfa_iteration.comp)
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/jfa_iteration.comp
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/raytrace_bitfield.comp
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/fullscreen.vert
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/fullscreen.frag)
 

@@ -13,6 +13,12 @@ vec3 endpoint(const in Ray ray, float t){
     return ray.pos + ray.dir * t;
 }
 
+Ray to_endpoint(const in Ray ray, float t){
+    Ray new_ray = ray;
+    new_ray.pos = endpoint(ray, t);
+    return new_ray;
+}
+
 vec3 calc_frag_dir(
     const in vec2 fragCoord,
     const in vec2 resolution,
@@ -77,6 +83,16 @@ Ray create_Ray(
     vec3 ray_origin = camera_origin;
     float cosA = ray_dir.z;// needed for depth calculation.
     return Ray(ray_origin, rot_ray_dir);
+}
+
+
+Ray create_Ray(
+const in vec2 frag_coord,
+const in vec2 resolution,
+const in vec3 camera_origin,
+const in vec3 camera_rotation,
+const in float fov){
+    return create_Ray(frag_coord, resolution, camera_origin, camera_rotation, fov, vec2(0.0), 1.0);
 }
 
 //more accurate difference of products using FMA:
@@ -377,7 +393,9 @@ bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_m
     hit_range.to_end = tmax;
     return true;
 }
-
+bool intersect(const in Ray ray, const in CornerAABB box, float t_min, float t_max, out float t){
+    return intersect(ray, toCenterAABB(box), t_min, t_max, t);
+}
 
 vec3 endpoint(const in Ray ray, const in HitRange hit_range){
     return endpoint(ray, hit_range.to_object);
