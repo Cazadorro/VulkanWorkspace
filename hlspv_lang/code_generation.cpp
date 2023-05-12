@@ -200,7 +200,7 @@ hlspv::codegen::copy_constructor_formatter(
     return prototype_builder.copy()
     .set_name(fmt::format("{0}", class_builder.name()))
     .set_parameters({TypeNameParameter::class_scoped(
-            {fmt::format("const {}&", class_builder.name())}})
+            {fmt::format("const {}&", class_builder.name())})});
             //TODO need to deal with type parameter, currently... doesn't really work?
             //TODO use function for each parameter!
             //ie need const CLASS::NAME& to work in impl

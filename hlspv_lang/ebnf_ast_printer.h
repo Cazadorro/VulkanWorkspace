@@ -27,28 +27,45 @@ namespace hlspv::ebnf{
             }, expr.expr);
         }
         std::string visit(const AlternationExpr& expr){
-            return parenthesize_list("AlternationExpr", expr.exprs);
+            return parenthesize_list(to_string(expr.type), expr.exprs);
         }
         std::string visit(const ConcatenationExpr& expr){
-            return parenthesize_list("AlternationExpr", expr.exprs);
+            return parenthesize_list(to_string(expr.type), expr.exprs);
         }
-        std::string visit(const PostFixableExpr& expr){
+        std::string visit(const PreAndPostFixableExpr& expr){
             return std::visit([=,this](auto& field) -> std::string{
                 return this->visit(*field);
             }, expr.expr);
         }
 
         std::string visit(const OptionalExpr& expr){
-            return parenthesize("Optional", expr) + "?";
+            return parenthesize(to_string(expr.type), expr) + "?";
         }
         std::string visit(const AtLeastOneExpr& expr){
-            return parenthesize("Optional", expr) + "+";
+            return parenthesize(to_string(expr.type), expr) + "+";
         }
         std::string visit(const RepeatExpr& expr){
-            return parenthesize("Optional", expr) + "*";
+            return parenthesize(to_string(expr.type), expr) + "*";
+        }
+        std::string visit(const BracketExpr& expr){
+            if(expr.min == 0 && expr.max == 0){
+                return parenthesize(to_string(expr.type), expr)+ "[" + ":" + "]";
+            }else if(expr.min == expr.max){
+                return parenthesize(to_string(expr.type), expr)+ "[" + std::to_string(expr.min) + "]";
+            }else if(expr.max == 0){
+                return parenthesize(to_string(expr.type), expr)+ "[" + std::to_string(expr.min)  + ":" + "]";
+            }else {
+                return parenthesize(to_string(expr.type), expr)+ "[" + std::to_string(expr.min)  + ":" + std::to_string(expr.max) + "]";
+            }
+        }
+        std::string visit(const AndPredicateExpr& expr){
+            return "&" + parenthesize(to_string(expr.type), expr);
+        }
+        std::string visit(const NotPredicateExpr& expr){
+            return "!" + parenthesize(to_string(expr.type), expr);
         }
         std::string visit(const GroupingExpr& expr){
-            return parenthesize("GroupingExpr", expr.expr);
+            return parenthesize(to_string(expr.type), expr.expr);
         }
         std::string visit(const NonSymbolExpr& expr){
             return expr.token.lexeme();

@@ -235,21 +235,21 @@ namespace vul {
         explicit DescriptorSetLayoutBuilder(const Device &device,
                                             const VkAllocationCallbacks *pAllocator = nullptr);
 
-        void setFlags(vul::DescriptorSetLayoutCreateBitMask flags);
+        DescriptorSetLayoutBuilder& setFlags(vul::DescriptorSetLayoutCreateBitMask flags);
 
-        void setStageFlags(vul::ShaderStageBitMask stageFlags);
+        DescriptorSetLayoutBuilder& setStageFlags(vul::ShaderStageBitMask stageFlags);
 
 
-        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
+        DescriptorSetLayoutBuilder& setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
                          const TempArrayProxy<std::string const> &bindingName);
 
-        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
+        DescriptorSetLayoutBuilder& setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
                          const TempArrayProxy<std::string const> &bindingName,
                          const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags);
 
-        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings);
+        DescriptorSetLayoutBuilder& setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings);
 
-        void setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
+        DescriptorSetLayoutBuilder& setBindings(const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
                          const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags);
 
         [[nodiscard]]

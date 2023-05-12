@@ -514,6 +514,42 @@ int main() {
         jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
     }
 
+//    layout(set = 0, binding = 0) uniform UniformBufferObject {
+//            uvec2 u_resolution;
+//            float u_fov;
+//            float u_focus_distance;
+//    };
+//
+//    layout(set = 0, binding = 1, r32f) uniform writeonly image2D u_output_image[];
+//
+//    layout(push_constant, scalar) uniform PushConstantBlock{
+//            vec3 u_camera_origin;
+//            uint u_frame_idx;
+//            vec3 u_camera_rotation;
+//            float u_time;
+////32 bytes, max 128 bytes.
+//            uint32_array u_bitmask;
+//            uint64_t padding;
+//    };
+
+
+    auto raytraceBitfieldDescriptorSetLayout = vul::DescriptorSetLayoutBuilder(device)
+            .setBindings({vul::UniformBufferBinding(0,vul::ShaderStageFlagBits::ComputeBit),
+                                          vul::StorageImageBinding(1,vul::ShaderStageFlagBits::ComputeBit)});
+    auto raytraceBitfieldPipelineLayout = device.createPipelineLayout(
+
+            vul::PushConstantRange::create<JFAIterationPushConstant>(
+                    vul::ShaderStageFlagBits::ComputeBit)).assertValue();
+    auto jfaIterationComputeBuilder = vul::ComputePipelineBuilder(device);
+    vul::ComputePipeline jfaIterationPipleline;
+    {
+        auto computeShader = device.createShaderModule("spirv/jfa_iteration.comp.spv").assertValue();
+        jfaIterationComputeBuilder.setShaderCreateInfo(
+                computeShader.createComputeStageInfo());
+        jfaIterationComputeBuilder.setPipelineLayout(jfaIterationPipelineLayout);
+        jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
+    }
+
 
     vul::GraphicsPipeline graphicsPipeline;
 
@@ -567,7 +603,43 @@ int main() {
                 fragmentShader.createFragmentStageInfo());
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
+    struct FullscreenPushConstant {
+        std::uint32_t u_frame_idx;
+    };
 
+    auto descriptorSetLayoutBuilder2 = vul::DescriptorSetLayoutBuilder(device);
+    descriptorSetLayoutBuilder2.setFlags(
+            vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
+    descriptorSetLayoutBuilder2.setBindings(
+            {vul::CombinedSamplerBinding(0,
+                                         vul::ShaderStageFlagBits::FragmentBit,
+                                         3)
+            },
+            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
+
+    auto descriptorLayout2 = vul::DescriptorSetLayoutBuilder(device)
+            .setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit)
+            .setBindings({vul::CombinedSamplerBinding(0, vul::ShaderStageFlagBits::FragmentBit, 3)},
+                         {vul::DescriptorBindingFlagBits::UpdateAfterBindBit})
+            .create()
+            .assertValue();
+    auto pipelineLayout2 = device.createPipelineLayout(
+            descriptorLayout2,
+            vul::PushConstantRange::create<FullscreenPushConstant>((vul::ShaderStageFlagBits::VertexBit |
+                                                                    vul::ShaderStageFlagBits::FragmentBit))
+    ).assertValue();
+
+
+    vul::GraphicsPipeline graphicsPipeline2;
+    pipelineBuilder.setPipelineLayout(pipelineLayout2);
+    {
+        auto vertexShader = device.createShaderModule("spirv/fullscreenr32f.vert.spv").assertValue();
+        auto fragmentShader = device.createShaderModule("spirv/fullscreenr32f.frag.spv").assertValue();
+        pipelineBuilder.setShaderCreateInfo(
+                vertexShader.createVertexStageInfo(),
+                fragmentShader.createFragmentStageInfo());
+        graphicsPipeline2 = pipelineBuilder.create().assertValue();
+    }
 
     vul::Image depthImage = allocator.createDeviceImage(
             vul::createDepthStencilImageInfo(swapchain.getExtent())).assertValue();

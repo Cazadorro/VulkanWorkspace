@@ -9,15 +9,21 @@ namespace hlspv{
         NonTerminalIdentifier,
         TerminalString,
         TerminalUserCode,
+        UnsignedInteger,
         Comma,
         VerticalLine,
         QuestionMark,
+        Ampersand,
+        ExclamationPoint,
         Plus,
         Star,
         Equals,
+        Colon,
         SemiColon,
         LeftParenthesis,
         RightParenthesis,
+        LeftSquareBracket,
+        RightSquareBracket,
         EndOfFile
     };
 }

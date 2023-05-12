@@ -41,6 +41,7 @@ namespace hlspv {
     template<typename TokenT>
     struct ParseState {
         using TokenTypeT = decltype(((TokenT *) nullptr)->type());
+
         std::span<const TokenT> tokens;
         std::size_t start_token_index = 0;
         std::size_t current_token_index = 0;
@@ -135,8 +136,10 @@ namespace hlspv {
 
         [[nodiscard]]
         ParseError<TokenT> create_error(std::string_view error_string) {
-            return ParseError{tokens.subspan(start_token_index, size()),
-                              std::string(error_string)};
+            auto sub_span = tokens.subspan(start_token_index, size());
+            auto new_error_string = std::string(error_string);
+            return ParseError{sub_span,
+                              new_error_string};
         }
 
         void reset_start_index(std::size_t index) {

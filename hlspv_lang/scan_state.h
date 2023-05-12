@@ -143,6 +143,9 @@ namespace hlspv {
         [[nodiscard]]
         tl::expected<ScanState, ScanError> consume_if_identifier() const;
 
+        [[nodiscard]]
+        tl::expected<ScanState, ScanError> consume_if_unsigned_integer() const;
+
         template<typename TokenEnumType>
         [[nodiscard]]
         auto consume_token(TokenEnumType token_type) {

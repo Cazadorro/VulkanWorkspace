@@ -13,7 +13,7 @@
 
 namespace hlspv{
     //technically we could replace with std::optional, but may need numbers in future.
-    using EbnfTokenLiteralVariant = std::variant<std::monostate, std::string>;
+    using EbnfTokenLiteralVariant = std::variant<std::monostate, std::string, std::uint64_t>;
     class EbnfToken {
     public:
         EbnfToken(EbnfTokenType type, LexemeView lexeme_view, EbnfTokenLiteralVariant literal, std::size_t line_number);

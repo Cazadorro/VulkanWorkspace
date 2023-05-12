@@ -318,7 +318,15 @@ namespace hlspv {
         current_state.consume_while_literal_body();
         return current_state;
     }
-
+    tl::expected<ScanState, ScanError> ScanState::consume_if_unsigned_integer() const {
+        auto current_state = *this;
+        if(!is_digit(current_state.current_char())){
+            return tl::make_unexpected(current_state.create_error("Invalid digit character"));
+        }
+        current_state.consume_current_char();
+        current_state.consume_while_next_char_matches(is_digit);
+        return current_state;
+    }
     char ScanState::current_char() const {
         if(at_end()){
             return '\0';
@@ -326,6 +334,8 @@ namespace hlspv {
             return source_code[current_char_index];
         }
     }
+
+
 
 
 } // hlspv

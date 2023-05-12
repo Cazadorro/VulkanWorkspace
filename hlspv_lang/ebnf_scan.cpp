@@ -19,6 +19,10 @@ namespace hlspv{
                 return {token_type, lexeme_view, std::string(trim(lexeme_view.to_sv(), 1)),
                         scan_state.line_index};
             }
+            case UnsignedInteger: {
+                return {token_type, lexeme_view, static_cast<std::uint64_t>(std::stoi(std::string(lexeme_view.to_sv()))),
+                        scan_state.line_index};
+            }
             default: {
                 return {token_type, lexeme_view, {}, scan_state.line_index};
             }
@@ -35,9 +39,24 @@ namespace hlspv::ebnf{
         while (!scan_state.at_end()) {
             auto last_scan_state = scan_state;
             switch (scan_state.current_char()) {
+                case ':' : {
+                    tokens.push_back(scan_state.consume_token(
+                            EbnfTokenType::Colon));
+                    break;
+                }
                 case ';' : {
                     tokens.push_back(scan_state.consume_token(
                             EbnfTokenType::SemiColon));
+                    break;
+                }
+                case '[' : {
+                    tokens.push_back(scan_state.consume_token(
+                            EbnfTokenType::LeftSquareBracket));
+                    break;
+                }
+                case ']' : {
+                    tokens.push_back(scan_state.consume_token(
+                            EbnfTokenType::RightSquareBracket));
                     break;
                 }
                 case '(' : {
@@ -69,6 +88,18 @@ namespace hlspv::ebnf{
                     tokens.push_back(
                             scan_state.consume_token(
                                     EbnfTokenType::QuestionMark));
+                    break;
+                }
+                case '!' : {
+                    tokens.push_back(
+                            scan_state.consume_token(
+                                    EbnfTokenType::ExclamationPoint));
+                    break;
+                }
+                case '&' : {
+                    tokens.push_back(
+                            scan_state.consume_token(
+                                    EbnfTokenType::Ampersand));
                     break;
                 }
                 case '|' : {
@@ -145,6 +176,11 @@ namespace hlspv::ebnf{
                     break;
                 }
                 default : {
+                    if(auto new_scan_state = scan_state.consume_if_unsigned_integer(); new_scan_state.has_value()){
+                        scan_state = new_scan_state.value();
+                        tokens.push_back(scan_state.consume_token(
+                                EbnfTokenType::UnsignedInteger));
+                    }
                     if (auto new_scan_state = scan_state.consume_if_identifier(); new_scan_state.has_value()) {
                         scan_state = new_scan_state.value();
                         tokens.push_back(scan_state.consume_token(

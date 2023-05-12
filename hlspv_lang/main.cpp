@@ -48,7 +48,7 @@ int main() {
     hlspv::codegen::FunctionBuilder accept_builder;
 //static constexpr auto type = ExprType::ConcatenationExpr;
     hlspv::codegen::FunctionBuilder constructor_builder;
-    {
+    if(false){
         using namespace hlspv::codegen;
         auto accept_prototype = FunctionPrototypeBuilder()
                 .set_template_types({TemplateParameter::from_typed("Visitor")})
@@ -118,7 +118,7 @@ int main() {
 
 
     std::ifstream in(
-            "C:/Users/Shae Bolt/Documents/GitRepositories/VulkanWorkspace/hlspv_lang/test_parse.txt");
+            "C:/Users/Bolt/Documents/GitRepositories/VulkanWorkspace/hlspv_lang/test_parse.txt");
     std::string contents((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
     auto scan_result = hlspv::scan(contents);
@@ -154,12 +154,22 @@ int main() {
 
     std::cout << hlspv::AstPrinter().print(expression) << std::endl;
 
+//    auto ebnf_scan_result = hlspv::ebnf::scan(
+//            "hello_world = 'abc' | 'abcd' | nothing, turtle;\n"
+//            "turtle = ((hello_world)*)+;\n"
+//            "turtle2 = !((hello_world));\n"
+//            "turtle3 = (&(hello_world))[10:200];\n"
+//            "turtle4 = (&(hello_world))[:];\n"
+//            "turtle4 = (&(hello_world))[10:];\n"
+//            "turtle4 = (&(hello_world))[10];\n"
+//            "turtle4 = (&(hello_world))[:10];\n"
+//            "nothing = turtle;\n"
+//            "temp = hello_shouldnt_find;\n"
+//            "temp2 = hello_shouldnt_find2;");
     auto ebnf_scan_result = hlspv::ebnf::scan(
-            "hello_world = 'abc' | 'abcd' | nothing, turtle;\n"
-            "turtle = hello_world;\n"
-            "nothing = turtle;\n"
-            "temp = hello;\n"
-            "temp2 = hello2;");
+//            "hello_world = 'abc' | 'abcd' | nothing, turtle;\n"
+            "turtle = ((hello_world)*)+;"
+   );
     for (const auto &error: ebnf_scan_result.errors) {
         std::cout << error.create_info_string() << std::endl;
     }
@@ -172,6 +182,13 @@ int main() {
                   << std::endl;
         auto symbol_table = hlspv::ebnf::calc_symbol_table(
                 ebnf_parse_result.value());
+        std::cout << std::endl;
+        std::cout << std::endl;
+        for(auto& entry : symbol_table){
+            std::cout << entry << std::endl;
+        }
+        std::cout << std::endl;
+        std::cout << std::endl;
         auto symbol_errors = hlspv::ebnf::analyze_symbols(
                 ebnf_scan_result.tokens, symbol_table);
         for (const auto &errors: symbol_errors) {

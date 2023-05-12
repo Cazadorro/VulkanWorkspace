@@ -184,12 +184,13 @@ vul::DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(
 
 }
 
-void vul::DescriptorSetLayoutBuilder::setFlags(
+vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setFlags(
         vul::DescriptorSetLayoutCreateBitMask flags) {
     m_flags = flags.to_underlying();
+    return *this;
 }
 
-void vul::DescriptorSetLayoutBuilder::setBindings(
+vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<const DescriptorSetLayoutBinding> &descriptorSetBindings,
         const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags) {
 
@@ -232,9 +233,10 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
     UUL_ASSERT(max_value.get().binding == (m_bindings.size() - 1), fmt::format(
             "Expected max_value.binding {} to be the same as binding size {} - 1",
             max_value.get().binding, m_bindings.size()).c_str());
+    return *this;
 }
 
-void vul::DescriptorSetLayoutBuilder::setBindings(
+vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<const DescriptorSetLayoutBinding> &descriptorSetBindings,
         const TempArrayProxy<const std::string> &bindingName,
         const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags) {
@@ -287,17 +289,18 @@ void vul::DescriptorSetLayoutBuilder::setBindings(
     UUL_ASSERT(max_value.get().binding == (m_bindings.size() - 1), fmt::format(
             "Expected max_value.binding {} to be the same as binding size {} - 1",
             max_value.get().binding, m_bindings.size()).c_str());
+    return *this;
 }
 
-void vul::DescriptorSetLayoutBuilder::setBindings(
+vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const vul::TempArrayProxy<const DescriptorSetLayoutBinding> &descriptorSetBindings) {
-    setBindings(descriptorSetBindings, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
+    return setBindings(descriptorSetBindings, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
 }
 
-void vul::DescriptorSetLayoutBuilder::setBindings(
+vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
         const TempArrayProxy<std::string const> &bindingName) {
-    setBindings(descriptorSetBindings, bindingName, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
+    return setBindings(descriptorSetBindings, bindingName, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
 }
 
 
@@ -380,11 +383,12 @@ vul::DescriptorSetLayoutBuilder::getBinding(
     return getBinding(m_nameBindingMap.at(std::string(name)));
 }
 
-void vul::DescriptorSetLayoutBuilder::setStageFlags(
+vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setStageFlags(
         vul::ShaderStageBitMask stageFlags) {
     for (auto &binding: m_bindings) {
         binding.stageFlags = stageFlags;
     }
+    return *this;
 }
 
 vul::DescriptorSetUpdateBuilder
