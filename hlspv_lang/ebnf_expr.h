@@ -51,7 +51,7 @@ namespace hlspv::ebnf {
 
     struct Expression {
         static constexpr auto type = ExprType::Expression;
-        std::vector<RuleDefinitionExpr> exprs;
+        std::vector<RuleDefinitionExpr*> exprs;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -63,7 +63,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        Expression(std::vector<RuleDefinitionExpr> exprs);
+        Expression(std::vector<RuleDefinitionExpr*> exprs);
 
         Expression(Expression &&) = default;
 
@@ -77,23 +77,21 @@ namespace hlspv::ebnf {
         static constexpr auto type = ExprType::RhsExpr;
         //technically Rhs expr is also allowed, but by definition, that would be any of these other expressions, which creates the indirection for us.
         using expr_variant = std::variant<
-                std::unique_ptr<AlternationExpr>,
-                std::unique_ptr<ConcatenationExpr>,
-                std::unique_ptr<OptionalExpr>,
-                std::unique_ptr<AtLeastOneExpr>,
-                std::unique_ptr<RepeatExpr>,
-                std::unique_ptr<BracketExpr>,
-                std::unique_ptr<AndPredicateExpr>,
-                std::unique_ptr<NotPredicateExpr>,
-                std::unique_ptr<GroupingExpr>,
-                std::unique_ptr<NonSymbolExpr>
+                AlternationExpr*,
+                ConcatenationExpr*,
+                OptionalExpr*,
+                AtLeastOneExpr*,
+                RepeatExpr*,
+                BracketExpr*,
+                AndPredicateExpr*,
+                NotPredicateExpr*,
+                GroupingExpr*,
+                NonSymbolExpr*
         >;
         expr_variant expr;
 
         template<typename T>
-        explicit RhsExpr(T value) : expr(std::make_unique<T>(std::move(value))) {
-
-        }
+        explicit RhsExpr(T value) : expr(value) {}
 
         RhsExpr(RhsExpr &&) = default;
 
@@ -115,7 +113,7 @@ namespace hlspv::ebnf {
     struct RuleDefinitionExpr {
         static constexpr auto type = ExprType::RuleDefinitionExpr;
         EbnfToken non_terminal;
-        RhsExpr right;
+        RhsExpr* right;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -127,7 +125,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        RuleDefinitionExpr(EbnfToken non_terminal, RhsExpr right);
+        RuleDefinitionExpr(EbnfToken non_terminal, RhsExpr* right);
 
         RuleDefinitionExpr(RuleDefinitionExpr &&) = default;
 
@@ -138,7 +136,7 @@ namespace hlspv::ebnf {
 
     struct AlternationExpr {
         static constexpr auto type = ExprType::AlternationExpr;
-        std::vector<RhsExpr> exprs;
+        std::vector<RhsExpr*> exprs;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -150,7 +148,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        AlternationExpr(std::vector<RhsExpr> exprs);
+        AlternationExpr(std::vector<RhsExpr*> exprs);
 
         AlternationExpr(AlternationExpr &&) = default;
 
@@ -161,7 +159,7 @@ namespace hlspv::ebnf {
 
     struct ConcatenationExpr {
         static constexpr auto type = ExprType::ConcatenationExpr;
-        std::vector<RhsExpr> exprs;
+        std::vector<RhsExpr*> exprs;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -173,7 +171,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        ConcatenationExpr(std::vector<RhsExpr> expr);
+        ConcatenationExpr(std::vector<RhsExpr*> expr);
 
         ConcatenationExpr(ConcatenationExpr &&) = default;
 
@@ -186,13 +184,13 @@ namespace hlspv::ebnf {
         static constexpr auto type = ExprType::PreAndPostFixableExpr;
         //technically Rhs expr is also allowed, but by definition, that would be any of these other expressions, which creates the indirection for us.
         using expr_variant = std::variant<
-                std::unique_ptr<GroupingExpr>,
-                std::unique_ptr<NonSymbolExpr>
+                GroupingExpr*,
+                NonSymbolExpr*
         >;
         expr_variant expr;
 
         template<typename T>
-        explicit PreAndPostFixableExpr(T value) : expr(std::make_unique<T>(std::move(value))) {
+        explicit PreAndPostFixableExpr(T* value) : expr(value) {
 
         }
 
@@ -216,7 +214,7 @@ namespace hlspv::ebnf {
 
     struct OptionalExpr {
         static constexpr auto type = ExprType::OptionalExpr;
-        PreAndPostFixableExpr expr;
+        PreAndPostFixableExpr* expr;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -228,7 +226,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        OptionalExpr(PreAndPostFixableExpr expr);
+        OptionalExpr(PreAndPostFixableExpr* expr);
 
         OptionalExpr(OptionalExpr &&) = default;
 
@@ -239,7 +237,7 @@ namespace hlspv::ebnf {
 
     struct AtLeastOneExpr {
         static constexpr auto type = ExprType::AtLeastOneExpr;
-        PreAndPostFixableExpr expr;
+        PreAndPostFixableExpr* expr;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -251,7 +249,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        AtLeastOneExpr(PreAndPostFixableExpr expr);
+        AtLeastOneExpr(PreAndPostFixableExpr* expr);
 
         AtLeastOneExpr(AtLeastOneExpr &&) = default;
 
@@ -262,7 +260,7 @@ namespace hlspv::ebnf {
 
     struct RepeatExpr {
         static constexpr auto type = ExprType::RepeatExpr;
-        PreAndPostFixableExpr expr;
+        PreAndPostFixableExpr* expr;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -274,7 +272,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        RepeatExpr(PreAndPostFixableExpr expr);
+        RepeatExpr(PreAndPostFixableExpr* expr);
 
         RepeatExpr(RepeatExpr &&) = default;
 
@@ -285,7 +283,7 @@ namespace hlspv::ebnf {
 
     struct BracketExpr {
         static constexpr auto type = ExprType::BracketExpr;
-        PreAndPostFixableExpr expr;
+        PreAndPostFixableExpr* expr;
         std::uint64_t min;
         std::uint64_t max;
 
@@ -299,7 +297,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        BracketExpr(PreAndPostFixableExpr expr, std::uint64_t min, std::uint64_t max);
+        BracketExpr(PreAndPostFixableExpr* expr, std::uint64_t min, std::uint64_t max);
 
         BracketExpr(BracketExpr &&) = default;
 
@@ -310,7 +308,7 @@ namespace hlspv::ebnf {
 
     struct AndPredicateExpr {
         static constexpr auto type = ExprType::AndPredicateExpr;
-        PreAndPostFixableExpr expr;
+        PreAndPostFixableExpr* expr;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -322,7 +320,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        AndPredicateExpr(PreAndPostFixableExpr expr);
+        AndPredicateExpr(PreAndPostFixableExpr* expr);
 
         AndPredicateExpr(AndPredicateExpr &&) = default;
 
@@ -333,7 +331,7 @@ namespace hlspv::ebnf {
 
     struct NotPredicateExpr {
         static constexpr auto type = ExprType::NotPredicateExpr;
-        PreAndPostFixableExpr expr;
+        PreAndPostFixableExpr* expr;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -345,7 +343,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        NotPredicateExpr(PreAndPostFixableExpr expr);
+        NotPredicateExpr(PreAndPostFixableExpr* expr);
 
         NotPredicateExpr(NotPredicateExpr &&) = default;
 
@@ -357,7 +355,7 @@ namespace hlspv::ebnf {
 
     struct GroupingExpr {
         static constexpr auto type = ExprType::GroupingExpr;
-        RhsExpr expr;
+        RhsExpr* expr;
 
         template<typename Visitor>
         auto accept(Visitor &visitor) {
@@ -369,7 +367,7 @@ namespace hlspv::ebnf {
             return visitor.visit(*this);
         }
 
-        GroupingExpr(RhsExpr expr);
+        GroupingExpr(RhsExpr* expr);
 
         GroupingExpr(GroupingExpr &&) = default;
 
@@ -402,6 +400,7 @@ namespace hlspv::ebnf {
     };
 
     using AnyExpression = std::variant<
+            Expression,
             RuleDefinitionExpr,
             RhsExpr,
             AlternationExpr,
@@ -416,6 +415,42 @@ namespace hlspv::ebnf {
             GroupingExpr,
             NonSymbolExpr
     >;
+
+    using AnyExpressionPtr = std::variant<
+            Expression*,
+            RuleDefinitionExpr*,
+            RhsExpr*,
+            AlternationExpr*,
+            ConcatenationExpr*,
+            PreAndPostFixableExpr*,
+            OptionalExpr*,
+            AtLeastOneExpr*,
+            RepeatExpr*,
+            BracketExpr*,
+            AndPredicateExpr*,
+            NotPredicateExpr*,
+            GroupingExpr*,
+            NonSymbolExpr*
+    >;
+
+    using AnyExpressionUniquePtr = std::variant<
+            std::unique_ptr<Expression>,
+            std::unique_ptr<RuleDefinitionExpr>,
+            std::unique_ptr<RhsExpr>,
+            std::unique_ptr<AlternationExpr>,
+            std::unique_ptr<ConcatenationExpr>,
+            std::unique_ptr<PreAndPostFixableExpr>,
+            std::unique_ptr<OptionalExpr>,
+            std::unique_ptr<AtLeastOneExpr>,
+            std::unique_ptr<RepeatExpr>,
+            std::unique_ptr<BracketExpr>,
+            std::unique_ptr<AndPredicateExpr>,
+            std::unique_ptr<NotPredicateExpr>,
+            std::unique_ptr<GroupingExpr>,
+            std::unique_ptr<NonSymbolExpr>
+    >;
+
+
 
     template<typename T>
     ExprType get_expression_type() = delete;

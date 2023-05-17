@@ -50,128 +50,157 @@ namespace hlspv::ebnf {
         ParseState<EbnfToken> parse_state;
     };
 
+    template<typename T>
+    struct MemoizationValue{
+        std::uint64_t consume_size = 0;
+        T* expr_ptr;
+    };
 
-    struct MemoizationState {
-        std::unordered_map<ExprStateKey, AnyExpression> cache;
+    struct MemoizationAnyValue{
+        std::uint64_t consume_size = 0;
+        AnyExpressionPtr expr_ptr;
 
         template<typename T>
-        std::optional<T> get_cached(std::uint64_t token_point) {
+        [[nodiscard]]
+        explicit operator MemoizationValue<T>(){
+            return MemoizationValue<T>{consume_size, std::get<T*>(expr_ptr)};
+        }
+    };
+
+
+
+    struct MemoizationState {
+        std::unordered_map<ExprStateKey, MemoizationAnyValue> cache;
+
+        std::vector<AnyExpressionUniquePtr> expressions;
+
+
+        template<typename T>
+        std::optional<MemoizationValue<T>> get_cached(std::uint64_t token_point) {
             auto key = ExprStateKey{get_expression_type<T>(),
                                     token_point};
             if (auto value = cache.find(key);  value != cache.end()) {
-                return value;
+                return static_cast<MemoizationValue<T>>(value->second);
             }
             return std::nullopt;
         }
 
         template<typename T>
-        void cache_value(T value, std::uint64_t token_point) {
+        T* cache_value(std::unique_ptr<T>&& value, std::uint64_t token_point, std::uint64_t consume_size) {
+            auto ret_ptr = value.get();
+            expressions.push_back(std::move(value));
             auto key = ExprStateKey{get_expression_type<T>(),
                                     token_point};
-            cache[key] = value;
+            cache[key] = {consume_size,ret_ptr};
+            return ret_ptr;
         }
     };
 
     //Exclude List is what you *can't* match against later on, so for example, if you were previously trying to match against a value
     //and recursevily you run into something that would violate trying to match *that* value, you would no longer be able to match against that value.
     template<typename T>
-    tl::expected<T, ParseError<EbnfToken> >
+    tl::expected<T*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<Expression, ParseError<EbnfToken> >
+    tl::expected<Expression*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<RuleDefinitionExpr, ParseError<EbnfToken> >
+    tl::expected<RuleDefinitionExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<RhsExpr, ParseError<EbnfToken> >
+    tl::expected<RhsExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<AlternationExpr, ParseError<EbnfToken> >
+    tl::expected<AlternationExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<ConcatenationExpr, ParseError<EbnfToken> >
+    tl::expected<ConcatenationExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<PreAndPostFixableExpr, ParseError<EbnfToken> >
+    tl::expected<PreAndPostFixableExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<OptionalExpr, ParseError<EbnfToken> >
+    tl::expected<OptionalExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<AtLeastOneExpr, ParseError<EbnfToken> >
+    tl::expected<AtLeastOneExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<RepeatExpr, ParseError<EbnfToken> >
+    tl::expected<RepeatExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<BracketExpr, ParseError<EbnfToken> >
+    tl::expected<BracketExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<AndPredicateExpr, ParseError<EbnfToken> >
+    tl::expected<AndPredicateExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<NotPredicateExpr, ParseError<EbnfToken> >
+    tl::expected<NotPredicateExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<GroupingExpr, ParseError<EbnfToken> >
+    tl::expected<GroupingExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<NonSymbolExpr, ParseError<EbnfToken> >
+    tl::expected<NonSymbolExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list);
 
     template<>
-    tl::expected<Expression, ParseError<EbnfToken> >
+    tl::expected<Expression*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
-        std::vector<RuleDefinitionExpr> rules;
+        std::vector<RuleDefinitionExpr*> rules;
         while (!parse_state.at_end()) {
             if (auto result = consume<RuleDefinitionExpr>(parse_state,
                                                           memoization_state,
                                                           exclude_list); result.has_value()) {
-                rules.push_back(std::move(result.value()));
+                rules.push_back(result.value());
             } else {
                 return tl::make_unexpected(result.error());
             }
         }
-        return Expression{std::move(rules)};
+        return memoization_state.cache_value(std::make_unique<Expression>(rules), parse_state.current_token_index, parse_state.size());
     }
 
     template<>
-    tl::expected<RuleDefinitionExpr, ParseError<EbnfToken> >
+    tl::expected<RuleDefinitionExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
 
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<RuleDefinitionExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         current_parse_state.reset_start_index();
         if (current_parse_state.current_token().type() !=
             EbnfTokenType::NonTerminalIdentifier) {
@@ -199,7 +228,7 @@ namespace hlspv::ebnf {
             }
             current_parse_state.consume_current_token();
             parse_state = current_parse_state;
-            return RuleDefinitionExpr{non_terminal, std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<RuleDefinitionExpr>(non_terminal, result.value()), parse_state.current_token_index, parse_state.size());
         } else {
             return tl::make_unexpected(result.error());
         }
@@ -207,23 +236,27 @@ namespace hlspv::ebnf {
     }
 
     template<>
-    tl::expected<RhsExpr, ParseError<EbnfToken> >
+    tl::expected<RhsExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
-        ParseError<EbnfToken> longest_error{{}, "All excluded"};
 
         if(auto cached_expr = memoization_state.get_cached<RhsExpr>(parse_state.current_token_index); cached_expr.has_value()) {
-            return  RhsExpr{cached_expr.value()};
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
         }
+
+        ParseError<EbnfToken> longest_error{{}, "All excluded"};
+
+
         if (ranges::find(exclude_list, ConcatenationExpr::type) ==
             exclude_list.end()) {
             if (auto result = consume<ConcatenationExpr>(current_parse_state,
                                                          memoization_state,
                                                          exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -235,9 +268,9 @@ namespace hlspv::ebnf {
             if (auto result = consume<AlternationExpr>(current_parse_state,
                                                        memoization_state,
                                                        exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
+
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -249,9 +282,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<AndPredicateExpr>(current_parse_state,
                                                         memoization_state,
                                                         exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -263,9 +295,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<NotPredicateExpr>(current_parse_state,
                                                         memoization_state,
                                                         exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -277,9 +308,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<OptionalExpr>(current_parse_state,
                                                     memoization_state,
                                                     exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -291,9 +321,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<AtLeastOneExpr>(current_parse_state,
                                                       memoization_state,
                                                       exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -305,9 +334,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<RepeatExpr>(current_parse_state,
                                                   memoization_state,
                                                   exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -319,9 +347,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<BracketExpr>(current_parse_state,
                                                    memoization_state,
                                                    exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -333,9 +360,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<GroupingExpr>(current_parse_state,
                                                     memoization_state,
                                                     exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -347,9 +373,8 @@ namespace hlspv::ebnf {
             if (auto result = consume<NonSymbolExpr>(current_parse_state,
                                                      memoization_state,
                                                      exclude_list); result.has_value()) {
-                memoization_state.cache_value(RhsExpr{std::move(result.value())}, parse_state.current_token_index);
                 parse_state = current_parse_state;
-                return RhsExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<RhsExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -363,20 +388,27 @@ namespace hlspv::ebnf {
     //Exclude list used because if we didn't, it would attempt to keep matching list all the way down. eg a | b | c | d would match:
     // a | (b |(c |(d |))) instead of a | b | c | d and wouldn't be able to deal with a | b, c | d.
     template<>
-    tl::expected<AlternationExpr, ParseError<EbnfToken> >
+    tl::expected<AlternationExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
-        auto current_parse_state = parse_state;
 
+
+
+        auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<AlternationExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         auto new_exclude_list = exclude_list;
         new_exclude_list.push_back(ExprType::AlternationExpr);
-        std::vector<RhsExpr> exprs;
+        std::vector<RhsExpr*> exprs;
         while (true) {
             auto rhs_expr = consume<RhsExpr>(current_parse_state,
                                              memoization_state,
                                              new_exclude_list);
             if (rhs_expr.has_value()) {
-                exprs.push_back(std::move(rhs_expr.value()));
+                exprs.push_back(rhs_expr.value());
                 if (current_parse_state.current_token().type() != EbnfTokenType::VerticalLine) {
                     break;
                 }
@@ -392,25 +424,30 @@ namespace hlspv::ebnf {
                             "Expected VerticalLine symbol"));
         }
         parse_state = current_parse_state;
-        return AlternationExpr{std::move(exprs)};
+        return memoization_state.cache_value(std::make_unique<AlternationExpr>(exprs), parse_state.current_token_index, parse_state.size());
+
     }
 
     //Exclude list used because if we didn't, it would attempt to keep matching list all the way down.
     template<>
-    tl::expected<ConcatenationExpr, ParseError<EbnfToken> >
+    tl::expected<ConcatenationExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
-
+        if(auto cached_expr = memoization_state.get_cached<ConcatenationExpr >(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         auto new_exclude_list = exclude_list;
         new_exclude_list.push_back(ExprType::ConcatenationExpr);
-        std::vector<RhsExpr> exprs;
+        std::vector<RhsExpr*> exprs;
         while (true) {
             auto rhs_expr = consume<RhsExpr>(current_parse_state,
                                              memoization_state,
                                              new_exclude_list);
             if (rhs_expr.has_value()) {
-                exprs.push_back(std::move(rhs_expr.value()));
+                exprs.push_back(rhs_expr.value());
                 if (current_parse_state.current_token().type() != EbnfTokenType::Comma) {
                     break;
                 }
@@ -425,14 +462,19 @@ namespace hlspv::ebnf {
                     "Expected Comma symbol"));
         }
         parse_state = current_parse_state;
-        return ConcatenationExpr{std::move(exprs)};
+        return memoization_state.cache_value(std::make_unique<ConcatenationExpr>(exprs), parse_state.current_token_index, parse_state.size());
     }
 
     template<>
-    tl::expected<PreAndPostFixableExpr, ParseError<EbnfToken> >
+    tl::expected<PreAndPostFixableExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<PreAndPostFixableExpr >(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         ParseError<EbnfToken> longest_error{{}, "All excluded"};
         if (ranges::find(exclude_list, GroupingExpr::type) ==
             exclude_list.end()) {
@@ -440,7 +482,7 @@ namespace hlspv::ebnf {
                                                     memoization_state,
                                                     exclude_list); result.has_value()) {
                 parse_state = current_parse_state;
-                return PreAndPostFixableExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<PreAndPostFixableExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -453,7 +495,7 @@ namespace hlspv::ebnf {
                                                      memoization_state,
                                                      exclude_list); result.has_value()) {
                 parse_state = current_parse_state;
-                return PreAndPostFixableExpr{std::move(result.value())};
+                return memoization_state.cache_value(std::make_unique<PreAndPostFixableExpr>(result.value()), parse_state.current_token_index, parse_state.size());
             } else {
                 if (longest_error.size() < result.error().size()) {
                     longest_error = result.error();
@@ -464,10 +506,15 @@ namespace hlspv::ebnf {
     }
 
     template<>
-    tl::expected<OptionalExpr, ParseError<EbnfToken> >
+    tl::expected<OptionalExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<OptionalExpr >(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (auto result = consume<PreAndPostFixableExpr>(current_parse_state,
                                                          memoization_state,
                                                          exclude_list); result.has_value()) {
@@ -479,17 +526,22 @@ namespace hlspv::ebnf {
             }
             current_parse_state.consume_current_token();
             parse_state = current_parse_state;
-            return OptionalExpr{std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<OptionalExpr>(result.value()), parse_state.current_token_index, parse_state.size());
         } else {
             return tl::make_unexpected(result.error());
         }
     }
 
     template<>
-    tl::expected<AtLeastOneExpr, ParseError<EbnfToken> >
+    tl::expected<AtLeastOneExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<AtLeastOneExpr >(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (auto result = consume<PreAndPostFixableExpr>(current_parse_state,
                                                          memoization_state,
                                                          exclude_list); result.has_value()) {
@@ -501,17 +553,22 @@ namespace hlspv::ebnf {
             }
             current_parse_state.consume_current_token();
             parse_state = current_parse_state;
-            return AtLeastOneExpr{std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<AtLeastOneExpr>(result.value()), parse_state.current_token_index, parse_state.size());
         } else {
             return tl::make_unexpected(result.error());
         }
     }
 
     template<>
-    tl::expected<RepeatExpr, ParseError<EbnfToken> >
+    tl::expected<RepeatExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<RepeatExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (auto result = consume<PreAndPostFixableExpr>(current_parse_state,
                                                          memoization_state,
                                                          exclude_list); result.has_value()) {
@@ -523,17 +580,22 @@ namespace hlspv::ebnf {
             }
             current_parse_state.consume_current_token();
             parse_state = current_parse_state;
-            return RepeatExpr{std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<RepeatExpr>(result.value()), parse_state.current_token_index, parse_state.size());
         } else {
             return tl::make_unexpected(result.error());
         }
     }
 
     template<>
-    tl::expected<BracketExpr, ParseError<EbnfToken> >
+    tl::expected<BracketExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<BracketExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (auto result = consume<PreAndPostFixableExpr>(current_parse_state,
                                                          memoization_state, exclude_list); result.has_value()) {
             if (current_parse_state.current_token().type() !=
@@ -585,17 +647,22 @@ namespace hlspv::ebnf {
             }
             current_parse_state.consume_current_token();
             parse_state = current_parse_state;
-            return BracketExpr{std::move(result.value()), min, max};
+            return memoization_state.cache_value(std::make_unique<BracketExpr>(result.value(), min, max), parse_state.current_token_index, parse_state.size());
         } else {
             return tl::make_unexpected(result.error());
         }
     }
 
     template<>
-    tl::expected<AndPredicateExpr, ParseError<EbnfToken> >
+    tl::expected<AndPredicateExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<AndPredicateExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (current_parse_state.current_token().type() != EbnfTokenType::Ampersand) {
             current_parse_state.reset_start_index(parse_state.get_current_token_index());
             return tl::make_unexpected(current_parse_state.create_error(
@@ -604,17 +671,23 @@ namespace hlspv::ebnf {
         if (auto result = consume<PreAndPostFixableExpr>(current_parse_state,
                                                          memoization_state, exclude_list); result.has_value()) {
             parse_state = current_parse_state;
-            return AndPredicateExpr{std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<AndPredicateExpr>(result.value()), parse_state.current_token_index, parse_state.size());
+
         } else {
             return tl::make_unexpected(result.error());
         }
     }
 
     template<>
-    tl::expected<NotPredicateExpr, ParseError<EbnfToken> >
+    tl::expected<NotPredicateExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<NotPredicateExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (current_parse_state.current_token().type() != EbnfTokenType::ExclamationPoint) {
             current_parse_state.reset_start_index(parse_state.get_current_token_index());
             return tl::make_unexpected(current_parse_state.create_error(
@@ -623,7 +696,7 @@ namespace hlspv::ebnf {
         if (auto result = consume<PreAndPostFixableExpr>(current_parse_state,
                                                          memoization_state, exclude_list); result.has_value()) {
             parse_state = current_parse_state;
-            return NotPredicateExpr{std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<NotPredicateExpr>(result.value()), parse_state.current_token_index, parse_state.size());
         } else {
             return tl::make_unexpected(result.error());
         }
@@ -632,10 +705,15 @@ namespace hlspv::ebnf {
 
     //We don't pass on exclude list in grouping expression because we know things "reset".
     template<>
-    tl::expected<GroupingExpr, ParseError<EbnfToken> >
+    tl::expected<GroupingExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<GroupingExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (current_parse_state.current_token().type() !=
             EbnfTokenType::LeftParenthesis) {
             current_parse_state.reset_start_index(parse_state.get_current_token_index());
@@ -654,17 +732,23 @@ namespace hlspv::ebnf {
             }
             current_parse_state.consume_current_token();
             parse_state = current_parse_state;
-            return GroupingExpr{std::move(result.value())};
+            return memoization_state.cache_value(std::make_unique<GroupingExpr>(result.value()), parse_state.current_token_index, parse_state.size());
+
         } else {
             return tl::make_unexpected(result.error());
         }
     }
 
     template<>
-    tl::expected<NonSymbolExpr, ParseError<EbnfToken> >
+    tl::expected<NonSymbolExpr*, ParseError<EbnfToken> >
     consume(ParseState<EbnfToken> &parse_state, MemoizationState &memoization_state,
             const std::vector<ExprType> &exclude_list) {
         auto current_parse_state = parse_state;
+        if(auto cached_expr = memoization_state.get_cached<NonSymbolExpr>(parse_state.current_token_index); cached_expr.has_value()) {
+            current_parse_state.consume_count_token(cached_expr.value().consume_size);
+            parse_state = current_parse_state;
+            return cached_expr.value().expr_ptr;
+        }
         if (current_parse_state.current_token().type() !=
             EbnfTokenType::NonTerminalIdentifier &&
             current_parse_state.current_token().type() !=
@@ -678,15 +762,16 @@ namespace hlspv::ebnf {
         auto non_symbol = current_parse_state.current_token();
         current_parse_state.consume_current_token();
         parse_state = current_parse_state;
-        return NonSymbolExpr{non_symbol};
+        return memoization_state.cache_value(std::make_unique<NonSymbolExpr>(non_symbol), parse_state.current_token_index, parse_state.size());
     }
 
 
-    tl::expected<Expression, ParseError<EbnfToken> >
+    ParseResult
     parse(std::span<const EbnfToken> tokens) {
         ParseState<EbnfToken> parse_state(tokens);
         MemoizationState memoization_state;
-        return consume<Expression>(parse_state, memoization_state, std::vector<ExprType>{});
+        auto expression_ptr = consume<Expression>(parse_state, memoization_state, std::vector<ExprType>{});
+        return {std::move(expression_ptr), std::move(memoization_state.expressions)};
     }
 
 

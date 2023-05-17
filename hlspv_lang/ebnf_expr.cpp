@@ -4,52 +4,52 @@
 
 #include "ebnf_expr.h"
 
-hlspv::ebnf::Expression::Expression(std::vector<RuleDefinitionExpr> exprs) : exprs(std::move(exprs)) {
+hlspv::ebnf::Expression::Expression(std::vector<RuleDefinitionExpr*> exprs) : exprs(std::move(exprs)) {
 
 }
 
 hlspv::ebnf::RuleDefinitionExpr::RuleDefinitionExpr(
-        hlspv::EbnfToken non_terminal, hlspv::ebnf::RhsExpr right) : non_terminal(std::move(non_terminal)), right(std::move(right)) {
+        hlspv::EbnfToken non_terminal, hlspv::ebnf::RhsExpr* right) : non_terminal(std::move(non_terminal)), right(right) {
 
 }
 
-hlspv::ebnf::AlternationExpr::AlternationExpr(std::vector<RhsExpr> exprs): exprs(std::move(exprs)) {
+hlspv::ebnf::AlternationExpr::AlternationExpr(std::vector<RhsExpr*> exprs): exprs(std::move(exprs)) {
 
 }
 
-hlspv::ebnf::OptionalExpr::OptionalExpr(hlspv::ebnf::PreAndPostFixableExpr expr): expr(std::move(expr)) {
+hlspv::ebnf::OptionalExpr::OptionalExpr(hlspv::ebnf::PreAndPostFixableExpr* expr): expr(expr) {
 
 }
 
-hlspv::ebnf::AtLeastOneExpr::AtLeastOneExpr(hlspv::ebnf::PreAndPostFixableExpr expr): expr(std::move(expr)) {
+hlspv::ebnf::AtLeastOneExpr::AtLeastOneExpr(hlspv::ebnf::PreAndPostFixableExpr* expr): expr(expr) {
 
 }
 
-hlspv::ebnf::RepeatExpr::RepeatExpr(hlspv::ebnf::PreAndPostFixableExpr expr): expr(std::move(expr)) {
+hlspv::ebnf::RepeatExpr::RepeatExpr(hlspv::ebnf::PreAndPostFixableExpr* expr): expr(expr) {
 
 }
 
-hlspv::ebnf::BracketExpr::BracketExpr(hlspv::ebnf::PreAndPostFixableExpr expr, std::uint64_t min, std::uint64_t max) : expr(std::move(expr)), min(min), max(max){
+hlspv::ebnf::BracketExpr::BracketExpr(hlspv::ebnf::PreAndPostFixableExpr* expr, std::uint64_t min, std::uint64_t max) : expr(expr), min(min), max(max){
 
 }
 
-hlspv::ebnf::ConcatenationExpr::ConcatenationExpr(std::vector<RhsExpr> exprs): exprs(std::move(exprs)) {
+hlspv::ebnf::ConcatenationExpr::ConcatenationExpr(std::vector<RhsExpr*> exprs): exprs(std::move(exprs)) {
 
 }
 
-hlspv::ebnf::AndPredicateExpr::AndPredicateExpr(hlspv::ebnf::PreAndPostFixableExpr expr) : expr(std::move(expr)){
+hlspv::ebnf::AndPredicateExpr::AndPredicateExpr(hlspv::ebnf::PreAndPostFixableExpr* expr) : expr(expr){
 
 }
 
-hlspv::ebnf::NotPredicateExpr::NotPredicateExpr(hlspv::ebnf::PreAndPostFixableExpr expr) : expr(std::move(expr)){
+hlspv::ebnf::NotPredicateExpr::NotPredicateExpr(hlspv::ebnf::PreAndPostFixableExpr* expr) : expr(expr){
 
 }
 
-hlspv::ebnf::GroupingExpr::GroupingExpr(hlspv::ebnf::RhsExpr expr): expr(std::move(expr)) {
+hlspv::ebnf::GroupingExpr::GroupingExpr(hlspv::ebnf::RhsExpr* expr): expr(expr) {
 
 }
 
-hlspv::ebnf::NonSymbolExpr::NonSymbolExpr(hlspv::EbnfToken token): token(std::move(token)){
+hlspv::ebnf::NonSymbolExpr::NonSymbolExpr(hlspv::EbnfToken token): token(token){
 
 }
 

@@ -12,6 +12,10 @@
 #include <span>
 namespace hlspv::ebnf{
 
-    tl::expected<Expression, ParseError<EbnfToken>> parse(std::span<const EbnfToken> tokens);
+    struct ParseResult{
+        tl::expected<Expression*, ParseError<EbnfToken>> result;
+        std::vector<AnyExpressionUniquePtr> memory;
+    };
+    ParseResult parse(std::span<const EbnfToken> tokens);
 }
 #endif //VULKANWORKSPACE_EBNF_PARSE_H

@@ -10,7 +10,7 @@ std::unordered_set<std::string>
 hlspv::ebnf::calc_symbol_table(const hlspv::ebnf::Expression &expr) {
     std::unordered_set<std::string> symbol_table;
     for (const auto &rule: expr.exprs) {
-        symbol_table.insert(rule.non_terminal.lexeme());
+        symbol_table.insert(rule->non_terminal.lexeme());
     }
     return symbol_table;
 }
