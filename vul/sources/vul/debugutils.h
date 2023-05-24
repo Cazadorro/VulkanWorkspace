@@ -5,17 +5,17 @@
 #ifndef VULKANWORKSPACE_DEBUGUTILS_H
 #define VULKANWORKSPACE_DEBUGUTILS_H
 #include "vul/instance.h"
-#include "vul/bitmasksfwd.h"
 #include "vul/enumsfwd.h"
 #include "vul/expectedresult.h"
 #include "vul/objecttypeutils.h"
+#include <uul/enumflags.h>
 #include <vulkan/vulkan.h>
 #include <functional>
 
 namespace vul{
     using DebugCallback = std::function<VkBool32(
             vul::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-            vul::DebugUtilsMessageTypeFlagBitMask messageTypes,
+            uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> messageTypes,
             const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData)>;
     class DebugCreateInfoBuilder;
     class DebugUtilsMessengerEXT{
@@ -40,8 +40,8 @@ namespace vul{
     public:
         explicit DebugCreateInfoBuilder(const Instance& instance, const VkAllocationCallbacks *pAllocator = nullptr);
         DebugCreateInfoBuilder& pNext(const void * value);
-        DebugCreateInfoBuilder& messageSeverity(vul::DebugUtilsMessageSeverityFlagBitMask value);
-        DebugCreateInfoBuilder& messageType(vul::DebugUtilsMessageTypeFlagBitMask value);
+        DebugCreateInfoBuilder& messageSeverity(uul::EnumFlags<vul::DebugUtilsMessageSeverityFlagBitsEXT> value);
+        DebugCreateInfoBuilder& messageType( uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> value);
         //removed to force you to use better stuff instead
         //DebugCreateInfoBuilder& pfnUserCallback(PFN_vkDebugUtilsMessengerCallbackEXT value);
         DebugCreateInfoBuilder& pfnUserCallback(DebugCallback value);
@@ -52,7 +52,9 @@ namespace vul{
         const VkDebugUtilsMessengerCreateInfoEXT& getCreateInfo() const;
 
         [[nodiscard]]
-        static VkDebugUtilsMessengerCreateInfoEXT createInstanceCallbackInfo(vul::DebugUtilsMessageSeverityFlagBitMask messageSeverity, vul::DebugUtilsMessageTypeFlagBitMask messageType, const void * pNext = nullptr);
+        static VkDebugUtilsMessengerCreateInfoEXT createInstanceCallbackInfo(
+                uul::EnumFlags<vul::DebugUtilsMessageSeverityFlagBitsEXT> messageSeverity,
+                uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> messageType, const void * pNext = nullptr);
     private:
         const Instance* m_pInstance = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
@@ -64,7 +66,7 @@ namespace vul{
 //    void setDebugObjectName(T handle)
     VkBool32 defaultDebugMessengerCallback(
             vul::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-            vul::DebugUtilsMessageTypeFlagBitMask messageType,
+            uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> messageType,
             const VkDebugUtilsMessengerCallbackDataEXT *callbackData);
 
     VkBool32 defaultDebugMessengerCallbackVk(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,

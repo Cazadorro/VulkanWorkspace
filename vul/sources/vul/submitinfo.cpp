@@ -5,7 +5,7 @@
 #include "submitinfo.h"
 #include "vul/temparrayproxy.h"
 
-vul::SubmitInfo2::SubmitInfo2(const void *pNext, vul::SubmitBitMask flags, std::uint32_t waitSemaphoreInfoCount,
+vul::SubmitInfo2::SubmitInfo2(const void *pNext, uul::EnumFlags<vul::SubmitFlagBits>flags, std::uint32_t waitSemaphoreInfoCount,
                               const VkSemaphoreSubmitInfo *pWaitSemaphoreInfos, std::uint32_t commandBufferInfoCount,
                               const VkCommandBufferSubmitInfo *pCommandBufferInfos,
                               std::uint32_t signalSemaphoreInfoCount,

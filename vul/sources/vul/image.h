@@ -7,11 +7,10 @@
 
 #include "vul/vmaallocation.h"
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
-#include "commandutils.h"
-#include "commandbuffer.h"
+#include "vul/commandutils.h"
+#include "vul/commandbuffer.h"
 
-
+#include <uul/enumflags.h>
 #include <gsl/span>
 #include <vulkan/vulkan.h>
 
@@ -30,13 +29,13 @@ namespace vul {
     public:
         ImageSubresourceRange() = default;
 
-        explicit ImageSubresourceRange(vul::ImageAspectBitMask aspectMask,
+        explicit ImageSubresourceRange(uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
                                        std::uint32_t baseMipLevel = 0,
                                        std::uint32_t levelCount = VK_REMAINING_MIP_LEVELS,
                                        std::uint32_t baseArrayLayer = 0,
                                        std::uint32_t layerCount = VK_REMAINING_ARRAY_LAYERS);
 
-        vul::ImageAspectBitMask aspectMask;
+        uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask;
         std::uint32_t baseMipLevel = 0;
         std::uint32_t levelCount = 0;
         std::uint32_t baseArrayLayer = 0;
@@ -50,12 +49,12 @@ namespace vul {
     public:
         ImageSubresourceLayers() = default;
 
-        explicit ImageSubresourceLayers(vul::ImageAspectBitMask aspectMask,
+        explicit ImageSubresourceLayers(uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
                                         std::uint32_t mipLevel = 0,
                                         std::uint32_t baseArrayLayer = 0,
                                         std::uint32_t layerCount = 1);
 
-        vul::ImageAspectBitMask aspectMask;
+        uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask;
         std::uint32_t mipLevel = 0;
         std::uint32_t baseArrayLayer = 0;
         std::uint32_t layerCount = 0;
@@ -76,7 +75,7 @@ namespace vul {
               vul::Extent3D extent,
               std::uint32_t mipLevels,
               std::uint32_t arrayLayers,
-              vul::SampleCountBitMask samples,
+              uul::EnumFlags<vul::SampleCountFlagBits> samples,
               vul::ImageTiling tiling);
 
         Image(const Image &) = delete;
@@ -118,10 +117,10 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
-                            vul::Access2BitMask srcAccessMask,
-                            vul::PipelineStage2BitMask dstStageMask,
-                            vul::Access2BitMask dstAccessMask,
+        createMemoryBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMask,
+                            uul::EnumFlags<vul::AccessFlagBits2> srcAccessMask,
+                            uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMask,
+                            uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                             vul::ImageLayout oldLayout,
                             vul::ImageLayout newLayout,
                             const ImageSubresourceRange &subresourceRange,
@@ -131,8 +130,8 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createToTransferBarrier(vul::PipelineStage2BitMask srcStageMask,
-                                vul::Access2BitMask srcAccessMask,
+        createToTransferBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMask,
+                                uul::EnumFlags<vul::AccessFlagBits2> srcAccessMask,
                                 const ImageSubresourceRange &subresourceRange,
                                 vul::ImageLayout oldLayout = vul::ImageLayout::Undefined,
                                 std::uint32_t srcQueueFamilyIndex = 0,
@@ -141,8 +140,8 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createFromnTransferBarrier(vul::PipelineStage2BitMask dstStageMask,
-                                   vul::Access2BitMask dstAccessMask,
+        createFromnTransferBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMask,
+                                   uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                                    vul::ImageLayout newLayout,
                                    const ImageSubresourceRange &subresourceRange,
                                    std::uint32_t srcQueueFamilyIndex = 0,
@@ -151,8 +150,8 @@ namespace vul {
 
         [[nodiscard]]
         VkImageMemoryBarrier2KHR
-        createTransitionBarrier(vul::PipelineStage2BitMask dstStageMask,
-                                vul::Access2BitMask dstAccessMask,
+        createTransitionBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMask,
+                                uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                                 vul::ImageLayout newLayout,
                                 const ImageSubresourceRange &subresourceRange,
                                 std::uint32_t srcQueueFamilyIndex = 0,
@@ -178,7 +177,7 @@ namespace vul {
         std::uint32_t getArrayLayerCount() const;
 
         [[nodiscard]]
-        vul::SampleCountBitMask getSamples() const;
+        uul::EnumFlags<vul::SampleCountFlagBits> getSamples() const;
 
         [[nodiscard]]
         vul::ImageTiling getImageTiling() const;
@@ -187,10 +186,10 @@ namespace vul {
         //Note will add stencil bit to depth/stencil format images in image view, if not wanted, use another.
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
-                vul::ImageAspectBitMask aspectBitMask = {},
+                uul::EnumFlags<vul::ImageAspectFlagBits> aspectBitMask = {},
                 bool isCube = false,
                 const VkComponentMapping &components = {},
-                vul::ImageViewCreateBitMask flags = {},
+                uul::EnumFlags<vul::ImageViewCreateFlagBits> flags = {},
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
@@ -199,7 +198,7 @@ namespace vul {
                 const vul::ImageSubresourceRange &subresourceRange,
                 bool isCube = false,
                 const VkComponentMapping &components = {},
-                vul::ImageViewCreateBitMask flags = {},
+                uul::EnumFlags<vul::ImageViewCreateFlagBits> flags = {},
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
@@ -208,7 +207,7 @@ namespace vul {
                 vul::ImageViewType viewType,
                 const vul::ImageSubresourceRange &subresourceRange,
                 const VkComponentMapping &components = {},
-                vul::ImageViewCreateBitMask flags = {},
+                uul::EnumFlags<vul::ImageViewCreateFlagBits> flags = {},
                 const void *pNext = nullptr,
                 const VkAllocationCallbacks *pAllocator = nullptr) const;
 
@@ -245,22 +244,22 @@ namespace vul {
         vul::Extent3D m_extent;
         std::uint32_t m_mipLevels;
         std::uint32_t m_arrayLayers;
-        vul::SampleCountBitMask m_samples;
+        uul::EnumFlags<vul::SampleCountFlagBits> m_samples;
         vul::ImageTiling m_tiling;
     };
 
     struct ImageCreateInfo {
         vul::StructureType sType = vul::StructureType::ImageCreateInfo;
         const void *pNext;
-        vul::ImageCreateBitMask flags;
+        uul::EnumFlags<vul::ImageCreateFlagBits> flags;
         vul::ImageType imageType;
         vul::Format format;
         vul::Extent3D extent;
         std::uint32_t mipLevels;
         std::uint32_t arrayLayers;
-        vul::SampleCountBitMask samples;
+        uul::EnumFlags<vul::SampleCountFlagBits> samples;
         vul::ImageTiling tiling;
-        vul::ImageUsageBitMask usage;
+        uul::EnumFlags<vul::ImageUsageFlagBits> usage;
         vul::SharingMode sharingMode;
         std::uint32_t queueFamilyIndexCount;
         const std::uint32_t *pQueueFamilyIndices;
@@ -271,15 +270,15 @@ namespace vul {
 
         explicit ImageCreateInfo(
                 const void *pNext,
-                vul::ImageCreateBitMask flags,
+                uul::EnumFlags<vul::ImageCreateFlagBits> flags,
                 vul::ImageType imageType,
                 vul::Format format,
                 vul::Extent3D extent,
                 std::uint32_t mipLevels,
                 std::uint32_t arrayLayers,
-                vul::SampleCountBitMask samples,
+                uul::EnumFlags<vul::SampleCountFlagBits> samples,
                 vul::ImageTiling tiling,
-                vul::ImageUsageBitMask usage,
+                uul::EnumFlags<vul::ImageUsageFlagBits> usage,
                 vul::SharingMode sharingMode,
                 std::uint32_t queueFamilyIndexCount,
                 const std::uint32_t *pQueueFamilyIndices,
@@ -300,45 +299,45 @@ namespace vul {
 
     [[nodiscard]]
     ImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, vul::Extent3D extent,
-                                            vul::ImageUsageBitMask usage, std::uint32_t mipLevels,
-                                            std::uint32_t arrayLayers,
-                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+                                          uul::EnumFlags<vul::ImageUsageFlagBits> usage, std::uint32_t mipLevels,
+                                          std::uint32_t arrayLayers,
+                                          vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
     ImageCreateInfo createSimpleImageInfo(vul::ImageType image_type, vul::Format format, vul::Extent3D extent,
-                                            vul::ImageUsageBitMask usage,
+                                          uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                          vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+
+    [[nodiscard]]
+    ImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                            std::uint32_t mipLevels, std::uint32_t arrayLayers,
                                             vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    ImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage,
-                                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
-                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    ImageCreateInfo createSimple1DImageInfo(vul::Format format, std::uint32_t extent, vul::ImageUsageBitMask usage,
-                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple2DImageInfo(vul::Format format, vul::Extent2D extent, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                            std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    ImageCreateInfo createSimple2DImageInfo(vul::Format format, vul::Extent2D extent, vul::ImageUsageBitMask usage,
-                                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
-                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple2DImageInfo(vul::Format format, vul::Extent2D extent, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    ImageCreateInfo createSimple2DImageInfo(vul::Format format,  vul::Extent2D extent, vul::ImageUsageBitMask usage,
-                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple3DImageInfo(vul::Format format, vul::Extent3D extent, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                            std::uint32_t mipLevels, std::uint32_t arrayLayers,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
-    ImageCreateInfo createSimple3DImageInfo(vul::Format format, vul::Extent3D extent, vul::ImageUsageBitMask usage,
-                                              std::uint32_t mipLevels, std::uint32_t arrayLayers,
-                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
-
-    [[nodiscard]]
-    ImageCreateInfo createSimple3DImageInfo(vul::Format format, vul::Extent3D extent, vul::ImageUsageBitMask usage,
-                                              vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+    ImageCreateInfo createSimple3DImageInfo(vul::Format format, vul::Extent3D extent, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
+                                            vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
     [[nodiscard]]
     ImageCreateInfo createDepthStencilImageInfo(vul::Extent2D extent, vul::Format format = vul::Format::D24UnormS8Uint,
-                                                  vul::ImageTiling tiling = vul::ImageTiling::Optimal);
+                                                vul::ImageTiling tiling = vul::ImageTiling::Optimal);
 
 
 }

@@ -47,7 +47,7 @@ vul::PipelineVertexShaderStageCreateInfo
 vul::ShaderModule::createVertexStageInfo(
         const VkSpecializationInfo *specializationInfo, const char *name,
         const void * pNext,
-        vul::PipelineShaderStageCreateBitMask flags) const {
+        uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags) const {
     return vul::PipelineVertexShaderStageCreateInfo(*this,
                                                     specializationInfo,
                                                     name, pNext, flags);
@@ -57,7 +57,7 @@ vul::PipelineFragmentShaderStageCreateInfo
 vul::ShaderModule::createFragmentStageInfo(
         const VkSpecializationInfo *specializationInfo, const char *name,
         const void * pNext,
-        vul::PipelineShaderStageCreateBitMask flags) const {
+        uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags) const {
     return vul::PipelineFragmentShaderStageCreateInfo(*this,
                                                     specializationInfo,
                                                     name, pNext, flags);
@@ -67,7 +67,7 @@ vul::PipelineComputeShaderStageCreateInfo
 vul::ShaderModule::createComputeStageInfo(
         const VkSpecializationInfo *specializationInfo, const char *name,
         const void * pNext,
-        vul::PipelineShaderStageCreateBitMask flags) const {
+        uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags) const {
     return vul::PipelineComputeShaderStageCreateInfo(*this,
                                                     specializationInfo,
                                                     name, pNext, flags);
@@ -76,7 +76,7 @@ vul::ShaderModule::createComputeStageInfo(
 vul::PipelineVertexShaderStageCreateInfo::PipelineVertexShaderStageCreateInfo(
         const vul::ShaderModule &module,
         const VkSpecializationInfo *pSpecializationInfo, const char *pName,
-        const void *pNext, vul::PipelineShaderStageCreateBitMask flags) :
+        const void *pNext, uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags) :
         m_createInfo{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, pNext,
                      flags.to_underlying(), VK_SHADER_STAGE_VERTEX_BIT,
                      module.get(), pName, pSpecializationInfo} {
@@ -91,7 +91,7 @@ vul::PipelineVertexShaderStageCreateInfo::get() const {
 vul::PipelineFragmentShaderStageCreateInfo::PipelineFragmentShaderStageCreateInfo(
         const vul::ShaderModule &module,
         const VkSpecializationInfo *pSpecializationInfo, const char *pName,
-        const void *pNext, vul::PipelineShaderStageCreateBitMask flags) :
+        const void *pNext, uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags) :
         m_createInfo{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, pNext,
                      flags.to_underlying(), VK_SHADER_STAGE_FRAGMENT_BIT,
                      module.get(), pName, pSpecializationInfo} {
@@ -107,7 +107,7 @@ vul::PipelineFragmentShaderStageCreateInfo::get() const {
 vul::PipelineComputeShaderStageCreateInfo::PipelineComputeShaderStageCreateInfo(
         const vul::ShaderModule &module,
         const VkSpecializationInfo *pSpecializationInfo, const char *pName,
-        const void *pNext, vul::PipelineShaderStageCreateBitMask flags)  :
+        const void *pNext, uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags)  :
         m_createInfo{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, pNext,
                      flags.to_underlying(), VK_SHADER_STAGE_COMPUTE_BIT,
                      module.get(), pName, pSpecializationInfo} {

@@ -8,6 +8,7 @@
 #include "vul/enums.h"
 #include "vul/temparrayproxy.h"
 #include "vul/tempvoidarrayproxy.h"
+#include <uul/enumflags.h>
 
 vul::ExpectedResult<vul::VmaAllocator>
 vul::VmaAllocator::create(const vul::Instance &instance,
@@ -87,7 +88,7 @@ const vul::Device &vul::VmaAllocator::getDevice() const {
 
 vul::ExpectedResult<vul::Buffer>
 vul::VmaAllocator::createMappedCoherentBuffer(VkDeviceSize size,
-                                              vul::BufferUsageBitMask usages) const {
+                                              uul::EnumFlags<vul::BufferUsageFlagBits> usages) const {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.flags = 0;
     allocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
@@ -115,7 +116,7 @@ vul::VmaAllocator::createMappedCoherentBuffer(VkDeviceSize size,
 
 vul::ExpectedResult<vul::Buffer>
 vul::VmaAllocator::createStagingBuffer(VkDeviceSize size,
-                                       vul::BufferUsageBitMask otherUsages) const {
+                                       uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages) const {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
                       | VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT
@@ -144,7 +145,7 @@ vul::VmaAllocator::createStagingBuffer(VkDeviceSize size,
 }
 
 vul::ExpectedResult<vul::Buffer>
-vul::VmaAllocator::createHostDestinationBuffer(VkDeviceSize size, vul::BufferUsageBitMask otherUsages) const {
+vul::VmaAllocator::createHostDestinationBuffer(VkDeviceSize size, uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages) const {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT
                       | VMA_ALLOCATION_CREATE_STRATEGY_FIRST_FIT_BIT
@@ -168,7 +169,7 @@ vul::VmaAllocator::createHostDestinationBuffer(VkDeviceSize size, vul::BufferUsa
 
 vul::ExpectedResult<vul::Buffer>
 vul::VmaAllocator::createDeviceBuffer(VkDeviceSize size,
-                                      vul::BufferUsageBitMask usages) const {
+                                      uul::EnumFlags<vul::BufferUsageFlagBits> usages) const {
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.flags = 0;
     allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -228,7 +229,7 @@ vul::VmaAllocator::createDeviceImage(const ImageCreateInfo &imageInfo) const {
 
 vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createMappedCoherentBuffer(
         const vul::TempConstVoidArrayProxy &array,
-        vul::BufferUsageBitMask otherUsages) const {
+        uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages) const {
     auto expectedResult = createMappedCoherentBuffer(array.size_bytes(),
                                                      otherUsages);
     if (!expectedResult.hasValue()) {
@@ -240,7 +241,7 @@ vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createMappedCoherentBuffer(
 
 vul::ExpectedResult<vul::Buffer> vul::VmaAllocator::createStagingBuffer(
         const vul::TempConstVoidArrayProxy &array,
-        vul::BufferUsageBitMask otherUsages) const {
+        uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages) const {
     auto expectedResult = createStagingBuffer(array.size_bytes(),
                                               otherUsages);
     if (!expectedResult.hasValue()) {
@@ -255,7 +256,7 @@ vul::ExpectedResult<vul::Buffer>
 vul::VmaAllocator::createDeviceBuffer(vul::CommandPool &commandPool,
                                       vul::Queue &queue,
                                       const vul::TempConstVoidArrayProxy &array,
-                                      vul::BufferUsageBitMask usages) const {
+                                      uul::EnumFlags<vul::BufferUsageFlagBits> usages) const {
     auto expectedStageBuffer = createStagingBuffer(array);
     if (!expectedStageBuffer.hasValue()) {
         return {expectedStageBuffer.result, {}};
@@ -274,8 +275,8 @@ vul::VmaAllocator::createDeviceBuffer(vul::CommandPool &commandPool,
 vul::ExpectedResult<vul::Image>
 vul::VmaAllocator::createDeviceImageInitImpl(vul::CommandPool &commandPool, vul::Queue &queue,
                                              vul::ExpectedResult<vul::Buffer> expectedStageBuffer,
-                                             const vul::ImageCreateInfo &imageInfo, vul::ImageAspectBitMask aspectMask,
-                                             vul::PipelineStage2BitMask dstStageMask, vul::Access2BitMask dstAccessMask,
+                                             const vul::ImageCreateInfo &imageInfo, uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                                             uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                                              vul::ImageLayout dstLayout, std::uint32_t mipLevel) const {
     if (!expectedStageBuffer.hasValue()) {
         fmt::print(stderr, "Couldn't create staging buffer\n");
@@ -304,9 +305,9 @@ vul::VmaAllocator::createDeviceImage(vul::CommandPool &commandPool,
                                      vul::Queue &queue,
                                      const vul::TempConstVoidArrayProxy &array,
                                      const ImageCreateInfo &imageInfo,
-                                     vul::ImageAspectBitMask aspectMask,
-                                     vul::PipelineStage2BitMask dstStageMask,
-                                     vul::Access2BitMask dstAccessMask,
+                                     uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                                     uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+                                    uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                                      vul::ImageLayout dstLayout,
                                      std::uint32_t mipLevel) const {
     return createDeviceImageInitImpl(commandPool, queue, createStagingBuffer(array), imageInfo, aspectMask,

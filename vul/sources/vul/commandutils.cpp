@@ -12,9 +12,9 @@
 #include "vul/queue.h"
 #include "vul/expectedresult.h"
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
 #include "vul/temparrayproxy.h"
 #include "vul/submitinfobuilder.h"
+#include <uul/enumflags.h>
 
 vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
                       Queue &queue, VkDeviceSize offset) {
@@ -91,9 +91,9 @@ vul::Result vul::copy(const Buffer &src, Buffer &dst, CommandPool &commandPool,
 }
 
 vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Queue &queue,
-                      vul::ImageAspectBitMask aspectMask,
-                      vul::PipelineStage2BitMask dstStageMask,
-                      vul::Access2BitMask dstAccessMask,
+                      uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                      uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+                     uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                       vul::ImageLayout dstLayout,
                       std::uint32_t mipLevel) {
 
@@ -195,9 +195,9 @@ vul::Result transition(const VkImageMemoryBarrier2KHR &barrier, vul::CommandPool
 }
 
 vul::Result vul::transition(vul::Image &image, vul::CommandPool &commandPool, vul::Queue &queue,
-                            vul::ImageAspectBitMask aspectMask,
-                            vul::PipelineStage2BitMask dstStageMask,
-                            vul::Access2BitMask dstAccessMask,
+                            uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                            uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+                           uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                             vul::ImageLayout dstLayout) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
 

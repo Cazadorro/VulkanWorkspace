@@ -6,8 +6,8 @@
 #define VULKANWORKSPACE_SWAPCHAIN_H
 
 #include "vul/enumsfwd.h"
-#include "vul/bitmasksfwd.h"
 #include "vul/vkstructutils.h"
+#include <uul/enumflagsfwd.h>
 #include <gsl/span>
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -35,7 +35,8 @@ namespace vul {
 
         SwapchainBuilder &pNext(const void *value);
 
-        SwapchainBuilder &flags(vul::SwapchainCreateFlagBitMask value);
+
+        SwapchainBuilder &flags(uul::EnumFlags<vul::SwapchainCreateFlagBitsKHR> value);
 
         SwapchainBuilder &minImageCount(uint32_t value);
 
@@ -49,16 +50,16 @@ namespace vul {
 
         SwapchainBuilder &imageArrayLayers(uint32_t value);
 
-        SwapchainBuilder &imageUsage(vul::ImageUsageBitMask value);
+        SwapchainBuilder &imageUsage(uul::EnumFlags<vul::ImageUsageFlagBits> value);
 
         SwapchainBuilder &imageSharingMode(vul::SharingMode value);
 
         SwapchainBuilder &
         queueFamilyIndices(const gsl::span<std::uint32_t> &value);
 
-        SwapchainBuilder &preTransform(vul::SurfaceTransformFlagBitMask value);
+        SwapchainBuilder &preTransform(uul::EnumFlags<vul::SurfaceTransformFlagBitsKHR> value);
 
-        SwapchainBuilder &compositeAlpha(vul::CompositeAlphaFlagBitMask value);
+        SwapchainBuilder &compositeAlpha( uul::EnumFlags<vul::CompositeAlphaFlagBitsKHR> value);
 
         SwapchainBuilder &presentMode(vul::PresentModeKHR value);
 

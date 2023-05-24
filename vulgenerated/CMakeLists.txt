@@ -24,7 +24,7 @@ target_sources(vulgenerated
         )
 
 get_filename_component(VUL_VULKAN_VERSION $ENV{VULKAN_SDK} NAME_WLE)
-message(${VUL_VULKAN_VERSION})
+message("GENERATOR HELLO ${VUL_VULKAN_VERSION}")
 file(DOWNLOAD
 https://raw.githubusercontent.com/KhronosGroup/Vulkan-Docs/v${VUL_VULKAN_VERSION}/xml/vk.xml
 ${CMAKE_CURRENT_SOURCE_DIR}/resources/vk.xml)

@@ -11,9 +11,8 @@
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
 #include "vul/containerutils.h"
-
+#include <uul/enumflags.h>
 
 vul::GraphicsPipeline::GraphicsPipeline(const vul::Device &device,
                                         VkPipeline handle,
@@ -110,7 +109,7 @@ void vul::GraphicsPipelineBuilder::setRasterizationState(
 }
 
 
-void vul::GraphicsPipelineBuilder::setDefaultRasterizationState(vul::CullModeBitMask cullMode) {
+void vul::GraphicsPipelineBuilder::setDefaultRasterizationState(uul::EnumFlags<vul::CullModeFlagBits>  cullMode) {
     m_rasterizationState.depthClampEnable = VK_FALSE;
     m_rasterizationState.rasterizerDiscardEnable = VK_FALSE;
     m_rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
@@ -212,7 +211,7 @@ vul::GraphicsPipelineBuilder::setTesselationState(uint32_t patchControlPoints) {
 
 
 
-void vul::GraphicsPipelineBuilder::setFlags(vul::PipelineCreateBitMask flags) {
+void vul::GraphicsPipelineBuilder::setFlags(uul::EnumFlags<vul::PipelineCreateFlagBits> flags) {
     m_flags = flags.to_underlying();
 }
 

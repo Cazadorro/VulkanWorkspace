@@ -5,7 +5,6 @@
 #include "vul/instance.h"
 #include "vul/physicaldevice.h"
 #include "vul/debugutils.h"
-#include "vul/bitmasks.h"
 #include "vul/enums.h"
 #include <range/v3/view/any_view.hpp>
 #include <range/v3/algorithm/any_of.hpp>

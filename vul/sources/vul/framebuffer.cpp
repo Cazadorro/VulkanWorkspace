@@ -5,10 +5,10 @@
 #include "framebuffer.h"
 #include "vul/renderpass.h"
 #include "vul/imageview.h"
-#include "vul/bitmasks.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/temparrayproxy.h"
+#include <uul/enumflags.h>
 #include <range/v3/view/transform.hpp>
 #include <range/v3/range/conversion.hpp>
 
@@ -55,7 +55,7 @@ vul::FramebufferBuilder::FramebufferBuilder(const vul::Device &device,
     m_createInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 }
 
-void vul::FramebufferBuilder::setCreateFlags(vul::SamplerCreateBitMask flags) {
+void vul::FramebufferBuilder::setCreateFlags(uul::EnumFlags<vul::SamplerCreateFlagBits> flags) {
     m_createInfo.flags = flags.to_underlying();
 }
 

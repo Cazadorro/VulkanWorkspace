@@ -44,6 +44,8 @@ int main() {
     std::unordered_map<std::string, std::string> enum_platform_define_map;
     std::unordered_map<std::string, std::string> type_platform_define_map;
     std::unordered_map<std::string, std::string> command_platform_define_map;
+    std::unordered_set<std::string> unsupported_enum_types;
+    std::unordered_set<std::string> unsupported_enum_values;
 
     for (pugi::xml_node platform: root.child("platforms").children(
             "platform")) {
@@ -137,6 +139,7 @@ int main() {
             continue;
         }
 
+
         std::cout << name << std::endl;
         std::string underlying_type;
         if (auto enum_itr = enum_underlying_type_map.find(name);
@@ -160,6 +163,28 @@ int main() {
     //TODO iterate through feature->require->enum->extends,name,bitpos,offset
     //TODO iterate through extensions->extension->require->enum->extends,name,bitpos,offset
     for (pugi::xml_node feature: root.children("feature")) {
+        std::string api_string_list = feature.attribute("api").as_string();
+        std::vector<std::string> api_list;
+        { //split string based on comma delimiter.
+            std::stringstream ss(api_string_list);
+            std::string str;
+            while (getline(ss, str, ',')) {
+                api_list.push_back(str);
+            }
+        }
+        if(std::find(api_list.begin(), api_list.end(), "vulkan") == api_list.end()){ //can't find vulkan, so maybe just vulkansc
+            for (pugi::xml_node require: feature.children("require")) {
+                if (require.attribute("comment").as_string() ==
+                    std::string("API constants")) {
+                    continue;
+                }
+                for (auto child : require.children("type")) {
+                    std::string name = child.attribute("name").as_string();
+                    unsupported_enum_types.insert(name);
+                }
+            }
+            continue;
+        }
         for (pugi::xml_node require: feature.children("require")) {
             if (require.attribute("comment").as_string() ==
                 std::string("API constants")) {
@@ -190,9 +215,22 @@ int main() {
                 std::string("disabled")) {
                 continue;
             }
+            if (extension.attribute("supported").as_string() ==
+                std::string("vulkansc")) {
+                continue;
+            }
             for (pugi::xml_node require: extension.children("require")) {
+                std::string api_string_list = require.attribute("api").as_string();
+                if(api_string_list == "vulkansc"){
+                    std::cout << "DUMB: " << std::endl;
+                    continue;
+                }
                 for (auto child : require.children("enum")) {
                     std::string name = child.attribute("name").as_string();
+                    auto deprecated_string = std::string(child.attribute("deprecated").as_string());
+                    if(!deprecated_string.empty()){
+                        continue;
+                    }
                     //already added....
                     //"Note that this defines what was previously a core enum, and so uses the 'value' attribute rather than 'offset', and does not have a suffix. This is a special case, and should not be repeated"/
                     if (name ==
@@ -200,7 +238,11 @@ int main() {
                         continue;
                     }
 
-
+                    std::string api_string_list_t = child.attribute("api").as_string();
+                    if(api_string_list_t == "vulkansc"){
+                        std::cout << "DUMB: " << name << std::endl;
+                        continue;
+                    }
                     std::string extends = child.attribute(
                             "extends").as_string();
                     if (extends.empty()) {
@@ -221,6 +263,10 @@ int main() {
             }
         }
     }
+    for(const auto& unsupported_enum : unsupported_enum_types){
+        enum_infos.erase(unsupported_enum);
+    }
+
 
 
 
@@ -240,6 +286,7 @@ int main() {
                                           "#include <string_view>\n"
                                           "#include <string>\n"
                                           "#include <optional>\n"
+                                          "#include <uul/enumflags.h>\n"
                                           "namespace {}{{\n", vul::start_include_guard("VUL_ENUMS_H"), namespace_str);
     std::string enum_forward = fmt::format("{}\n"
                                            "#include <vulkan/vulkan.h>\n"
@@ -266,6 +313,11 @@ int main() {
     for (auto[key, enum_info] : enum_infos) {
         if (enum_info.get_enum_values().empty()) {
             continue;
+        }
+        if(key == "VkStructureType"){
+            for(const auto& value : enum_info.enum_values){
+                std::cout << value.vk_name << std::endl;
+            }
         }
         if (!enum_info.define_string.empty()) {
             auto define_str = vul::start_define(enum_info.define_string);
@@ -308,6 +360,12 @@ int main() {
             enum_header += declaration;
             enum_source += definition;
         }
+        {
+           auto declaration = vul::generate_enum_operators(enum_info,
+                                     namespace_str,
+                                     indent);
+            enum_header += declaration;
+        }
         enum_forward += vul::generate_forward_declaration(enum_info, indent);
         if (enum_info.type == vul::EnumType::Bitmask) {
             auto[declaration, definition] = vul::generate_bitmask_wrapper(
@@ -342,16 +400,16 @@ int main() {
     std::ofstream enum_forward_file(output_dir + "enumsfwd.h");
     std::ofstream enum_header_file(output_dir + "enums.h");
     std::ofstream enum_source_file(output_dir + "enums.cpp");
-    std::ofstream bitmask_forward_file(output_dir + "bitmasksfwd.h");
-    std::ofstream bitmask_header_file(output_dir + "bitmasks.h");
-    std::ofstream bitmask_source_file(output_dir + "bitmasks.cpp");
+//    std::ofstream bitmask_forward_file(output_dir + "bitmasksfwd.h");
+//    std::ofstream bitmask_header_file(output_dir + "bitmasks.h");
+//    std::ofstream bitmask_source_file(output_dir + "bitmasks.cpp");
 
     enum_forward_file << enum_forward;
     enum_header_file << enum_header;
     enum_source_file << enum_source;
-    bitmask_forward_file << bitmask_forward;
-    bitmask_header_file << bitmask_header;
-    bitmask_source_file << bitmask_source;
+//    bitmask_forward_file << bitmask_forward;
+//    bitmask_header_file << bitmask_header;
+//    bitmask_source_file << bitmask_source;
 
 
     //add includes plus namespace

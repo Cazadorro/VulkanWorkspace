@@ -137,7 +137,7 @@ const vul::PhysicalDevice &vul::Device::getPhysicalDevice() const {
 
 vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
         const TempArrayProxy<const LayoutBuilderCount> &layoutBuilders,
-        vul::DescriptorPoolCreateBitMask flags,
+        uul::EnumFlags<vul::DescriptorPoolCreateFlagBits> flags,
         const void *pNext,
         const VkAllocationCallbacks *pAllocator) const {
 
@@ -169,7 +169,7 @@ vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
 
 vul::ExpectedResult<vul::DescriptorPool> vul::Device::createDescriptorPool(
         const vul::TempArrayProxy<const VkDescriptorPoolSize> &poolSizes,
-        std::uint32_t maxSets, vul::DescriptorPoolCreateBitMask flags,
+        std::uint32_t maxSets, uul::EnumFlags<vul::DescriptorPoolCreateFlagBits> flags,
         const void *pNext, const VkAllocationCallbacks *pAllocator) const {
 
 
@@ -288,7 +288,7 @@ vul::Result vul::Device::wait(const VkSemaphoreWaitInfo &waitInfo,
 vul::Result vul::Device::wait(
         const vul::TempArrayProxy<const TimelineSemaphore *> &semaphores,
         const vul::TempArrayProxy<const uint64_t> &values,
-        std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
+        std::uint64_t timeout, uul::EnumFlags<vul::SemaphoreWaitFlagBits> waitFlags,
         const void *pNext) const {
     UUL_ASSERT(semaphores.size() == values.size(),
                "Expected semaphore count to match value count");
@@ -308,7 +308,7 @@ vul::Result vul::Device::wait(
 vul::Result vul::Device::wait(
         const vul::TempArrayProxy<const std::reference_wrapper<TimelineSemaphore>> &semaphores,
         const vul::TempArrayProxy<const uint64_t> &values,
-        std::uint64_t timeout, vul::SemaphoreWaitBitMask waitFlags,
+        std::uint64_t timeout, uul::EnumFlags<vul::SemaphoreWaitFlagBits> waitFlags,
         const void *pNext) const {
     UUL_ASSERT(semaphores.size() == values.size(),
                "Expected semaphore count to match value count");
@@ -351,7 +351,7 @@ vul::Device::createShaderModule(std::string_view spv_source_loc, const void *pNe
 
 
 vul::ExpectedResult<vul::CommandPool>
-vul::Device::createCommandPool(std::uint32_t queueFamilyIndex, vul::CommandPoolCreateBitMask flags, const void *pNext,
+vul::Device::createCommandPool(std::uint32_t queueFamilyIndex, uul::EnumFlags<vul::CommandPoolCreateFlagBits> flags, const void *pNext,
                                const VkAllocationCallbacks *pAllocator) const {
     VkCommandPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -369,7 +369,7 @@ vul::ExpectedResult<vul::Framebuffer>
 vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                const vul::TempArrayProxy<const std::reference_wrapper<ImageView>> &imageViews,
                                VkExtent2D widthHeight, std::uint32_t layers,
-                               vul::FramebufferCreateBitMask flags,
+                               uul::EnumFlags<vul::FramebufferCreateFlagBits> flags,
                                const void *pNext,
                                const VkAllocationCallbacks *pAllocator) const {
     auto rawImageViews = imageViews | ranges::views::transform(
@@ -382,7 +382,7 @@ vul::ExpectedResult<vul::Framebuffer>
 vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                const vul::TempArrayProxy<const vul::ImageView> &imageViews,
                                VkExtent2D widthHeight, std::uint32_t layers,
-                               vul::FramebufferCreateBitMask flags,
+                               uul::EnumFlags<vul::FramebufferCreateFlagBits> flags,
                                const void *pNext,
                                const VkAllocationCallbacks *pAllocator) const {
     auto rawImageViews = imageViews | ranges::views::transform(
@@ -395,7 +395,7 @@ vul::ExpectedResult<vul::Framebuffer>
 vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                const vul::TempArrayProxy<const vul::ImageView *> &imageViews,
                                VkExtent2D widthHeight, std::uint32_t layers,
-                               vul::FramebufferCreateBitMask flags,
+                               uul::EnumFlags<vul::FramebufferCreateFlagBits> flags,
                                const void *pNext,
                                const VkAllocationCallbacks *pAllocator) const {
     auto rawImageViews = imageViews | ranges::views::transform(
@@ -408,7 +408,7 @@ vul::ExpectedResult<vul::Framebuffer>
 vul::Device::createFramebuffer(const vul::RenderPass &renderPass,
                                const vul::TempArrayProxy<VkImageView> &imageViews,
                                VkExtent2D widthHeight, std::uint32_t layers,
-                               vul::FramebufferCreateBitMask flags,
+                               uul::EnumFlags<vul::FramebufferCreateFlagBits> flags,
                                const void *pNext,
                                const VkAllocationCallbacks *pAllocator) const {
     VkFramebufferCreateInfo createInfo = {};

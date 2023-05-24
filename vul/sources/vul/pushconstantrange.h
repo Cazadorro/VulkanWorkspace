@@ -5,7 +5,9 @@
 #ifndef VULKANWORKSPACE_PUSHCONSTANTRANGE_H
 #define VULKANWORKSPACE_PUSHCONSTANTRANGE_H
 
-#include "vul/bitmasks.h"
+
+#include "vul/enumsfwd.h"
+#include <uul/enumflags.h>
 #include <vulkan/vulkan.h>
 #include <cstdint>
 
@@ -28,20 +30,20 @@ namespace vul {
     //        const VkRect2D &get() const;
     //    };
     struct PushConstantRange {
-        ShaderStageBitMask stageFlags;
+        uul::EnumFlags<vul::ShaderStageFlagBits> stageFlags;
         std::uint32_t offset;
         std::uint32_t size;
 
         PushConstantRange() = default;
 
 
-        explicit PushConstantRange(ShaderStageBitMask stageFlags, std::uint32_t offset, std::uint32_t size);
+        explicit PushConstantRange(uul::EnumFlags<vul::ShaderStageFlagBits> stageFlags, std::uint32_t offset, std::uint32_t size);
 
         explicit PushConstantRange(VkPushConstantRange pushConstantRange);
 
         template<typename T>
         [[nodiscard]]
-        static PushConstantRange create(ShaderStageBitMask stageFlags, std::uint32_t offset = 0){
+        static PushConstantRange create(uul::EnumFlags<vul::ShaderStageFlagBits> stageFlags, std::uint32_t offset = 0){
             return  PushConstantRange(stageFlags,
                                       offset,
                                       sizeof(T));

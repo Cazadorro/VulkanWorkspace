@@ -6,12 +6,11 @@
 #include "vul/device.h"
 #include "vul/physicaldevice.h"
 #include "vul/expectedresult.h"
-#include "vul/bitmasks.h"
 #include "vul/enums.h"
 #include "vul/features.h"
 #include "vul/instance.h"
 
-
+#include <uul/enumflags.h>
 #include <fmt/core.h>
 #include <range/v3/algorithm/all_of.hpp>
 #include <range/v3/view/enumerate.hpp>
@@ -28,7 +27,7 @@
 
 std::optional<std::uint32_t> vul::MemoryProperties::findMemoryType(
         const gsl::span<const VkMemoryRequirements> &memoryRequirementsList,
-        vul::MemoryPropertyBitMask properties) const {
+        uul::EnumFlags<MemoryPropertyFlagBits> properties) const {
     for (uint32_t memoryTypeIndex = 0; memoryTypeIndex <
                                        m_memoryProperties.memoryTypeCount; ++memoryTypeIndex) {
         bool typeSupported = ranges::all_of(memoryRequirementsList,
@@ -38,8 +37,7 @@ std::optional<std::uint32_t> vul::MemoryProperties::findMemoryType(
                                                         memoryRequirements.memoryTypeBits)[memoryTypeIndex];
                                             });
         if (typeSupported) {
-            bool propertiesSupported = vul::MemoryPropertyBitMask(
-                    m_memoryProperties.memoryTypes[memoryTypeIndex].propertyFlags).contains(
+            bool propertiesSupported = uul::EnumFlags<MemoryPropertyFlagBits>(m_memoryProperties.memoryTypes[memoryTypeIndex].propertyFlags).contains(
                     properties);
             if (propertiesSupported) {
                 return memoryTypeIndex;
@@ -51,7 +49,7 @@ std::optional<std::uint32_t> vul::MemoryProperties::findMemoryType(
 
 std::optional<std::uint32_t> vul::MemoryProperties::findMemoryType(
         const VkMemoryRequirements &memoryRequirements,
-        vul::MemoryPropertyBitMask properties) const {
+        uul::EnumFlags<MemoryPropertyFlagBits> properties) const {
     return findMemoryType(gsl::span(&memoryRequirements, 1), properties);
 }
 
@@ -75,10 +73,10 @@ vul::QueueFamilyProperties::QueueFamilyProperties(
 }
 
 std::vector<std::uint32_t> vul::QueueFamilyProperties::getQueueFamilyIndexes(
-        vul::QueueBitMask queueFamilyBits) const {
+        uul::EnumFlags<QueueFlagBits> queueFamilyBits) const {
     auto notHasQueueBits = [queueFamilyBits](const auto &props) {
         return !(props.queueCount > 0 &&
-               vul::QueueBitMask(props.queueFlags).contains(
+               uul::EnumFlags<QueueFlagBits>(props.queueFlags).contains(
                        queueFamilyBits));
     };
     auto getEnumeratedU32 = [](const auto &pair) {
@@ -94,14 +92,14 @@ std::vector<std::uint32_t> vul::QueueFamilyProperties::getQueueFamilyIndexes(
 
 std::vector<std::uint32_t>
 vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
-        const vul::Surface &surface, vul::QueueBitMask queueFamilyBits) const {
+        const vul::Surface &surface, uul::EnumFlags<QueueFlagBits> queueFamilyBits) const {
     auto notHasPresentationQueueBits =
             [&physicalDevice = *m_physicalDevice, &surface,
                     queueFamilyBits](const auto &pair) {
                 auto queueFamilyIndex = static_cast<std::uint32_t>(pair.first);
                 const auto &props = pair.second;
                 return !(props.queueCount > 0 &&
-                       vul::QueueBitMask(props.queueFlags).contains(
+                       uul::EnumFlags<QueueFlagBits>(props.queueFlags).contains(
                                queueFamilyBits) &&
                        surface.isSupportedBy(physicalDevice, queueFamilyIndex));
             };
@@ -119,7 +117,7 @@ vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
 std::vector<std::uint32_t>
 vul::QueueFamilyProperties::getPresentationQueueFamilyIndexes(
         const vul::Surface &surface) const {
-    return getPresentationQueueFamilyIndexes(surface, vul::QueueBitMask{});
+    return getPresentationQueueFamilyIndexes(surface, uul::EnumFlags<QueueFlagBits>{});
 }
 
 
@@ -143,26 +141,26 @@ vul::QueueFamilyProperties::findMinimumQueueFamilyIndex(
 
 std::optional<std::uint32_t>
 vul::QueueFamilyProperties::calcMinimumQueueFamilyIndex(
-        vul::QueueBitMask queueFamilyBits) {
+        uul::EnumFlags<QueueFlagBits> queueFamilyBits) {
     auto queueFamilyIndexes = getQueueFamilyIndexes(queueFamilyBits);
     return findMinimumQueueFamilyIndex(queueFamilyIndexes);
 }
 
 std::optional<std::uint32_t>
 vul::QueueFamilyProperties::calcMinimumPresentationQueueFamilyIndex(
-        const vul::Surface &surface, vul::QueueBitMask queueFamilyBits) {
+        const vul::Surface &surface, uul::EnumFlags<QueueFlagBits> queueFamilyBits) {
     auto queueFamilyIndexes = getPresentationQueueFamilyIndexes(surface, queueFamilyBits);
     return findMinimumQueueFamilyIndex(queueFamilyIndexes);
 }
 
 
 bool vul::QueueFamilyProperties::contains(
-        const std::vector<vul::QueueBitMask> &queueFamilies) const {
+        const std::vector<uul::EnumFlags<QueueFlagBits>> &queueFamilies) const {
     for (const auto &queueFamily: queueFamilies) {
         if (ranges::find_if(m_queueFamilyProperties, [queueFamily](
                 const VkQueueFamilyProperties &props) {
             return props.queueCount > 0 &&
-                   vul::QueueBitMask(props.queueFlags).contains(queueFamily);
+                   uul::EnumFlags<QueueFlagBits>(props.queueFlags).contains(queueFamily);
         }) == m_queueFamilyProperties.end()) {
             return false;
         }
@@ -171,12 +169,12 @@ bool vul::QueueFamilyProperties::contains(
 }
 
 bool
-vul::QueueFamilyProperties::contains(vul::QueueBitMask queueFamilies) const {
-    return contains(std::vector<vul::QueueBitMask>{queueFamilies});
+vul::QueueFamilyProperties::contains(uul::EnumFlags<QueueFlagBits> queueFamilies) const {
+    return contains(std::vector<uul::EnumFlags<QueueFlagBits>>{queueFamilies});
 }
 
 bool vul::QueueFamilyProperties::contains(const vul::Surface &surface,
-                                          vul::QueueBitMask queueFamilyBits) const {
+                                          uul::EnumFlags<QueueFlagBits> queueFamilyBits) const {
     using namespace ranges;
     auto enumerated = m_queueFamilyProperties | views::enumerate;
     if (ranges::find_if(enumerated,
@@ -185,7 +183,7 @@ bool vul::QueueFamilyProperties::contains(const vul::Surface &surface,
                             auto queueFamilyIndex = static_cast<std::uint32_t>(pair.first);
                             const auto &props = pair.second;
                             return props.queueCount > 0 &&
-                                   vul::QueueBitMask(props.queueFlags).contains(
+                                   uul::EnumFlags<QueueFlagBits>(props.queueFlags).contains(
                                            queueFamilyBits) &&
                                    surface.isSupportedBy(physicalDevice,
                                                          queueFamilyIndex);
@@ -294,24 +292,24 @@ vul::PhysicalDevice::getFormatProperties(vul::Format format) const {
 
 std::vector<vul::Format> vul::PhysicalDevice::filterOptimalTilingFormat(
         const gsl::span<const vul::Format> &candidates,
-        vul::FormatFeatureBitMask features) const {
+        uul::EnumFlags<FormatFeatureFlagBits> features) const {
     return candidates | ranges::views::remove_if(
             [&physicalDevice = *this, features](vul::Format format) {
                 auto formatProperties = physicalDevice.getFormatProperties(
                         format);
-                auto optimalTilingFeatures = static_cast<FormatFeatureBitMask>(formatProperties.optimalTilingFeatures);
+                auto optimalTilingFeatures = uul::EnumFlags<FormatFeatureFlagBits>(formatProperties.optimalTilingFeatures);
                 return !optimalTilingFeatures.contains(features);
             }) | ranges::to<std::vector>();
 }
 
 std::vector<vul::Format> vul::PhysicalDevice::filterLinearTilingFormat(
         const gsl::span<const vul::Format> &candidates,
-        vul::FormatFeatureBitMask features) const {
+        uul::EnumFlags<FormatFeatureFlagBits> features) const {
     return candidates | ranges::views::remove_if(
             [&physicalDevice = *this, features](vul::Format format) {
                 auto formatProperties = physicalDevice.getFormatProperties(
                         format);
-                auto linearTilingFeatures = static_cast<FormatFeatureBitMask>(formatProperties.linearTilingFeatures);
+                auto linearTilingFeatures =  uul::EnumFlags<FormatFeatureFlagBits>(formatProperties.linearTilingFeatures);
                 return !linearTilingFeatures.contains(features);
             }) | ranges::to<std::vector>();
 }
@@ -319,25 +317,25 @@ std::vector<vul::Format> vul::PhysicalDevice::filterLinearTilingFormat(
 std::vector<vul::Format>
 vul::PhysicalDevice::filterBufferFormat(
         const gsl::span<const vul::Format> &candidates,
-        vul::FormatFeatureBitMask features) const {
+        uul::EnumFlags<FormatFeatureFlagBits> features) const {
     return candidates | ranges::views::remove_if(
             [&physicalDevice = *this, features](vul::Format format) {
                 auto formatProperties = physicalDevice.getFormatProperties(
                         format);
-                auto bufferFeatures = static_cast<FormatFeatureBitMask>(formatProperties.bufferFeatures);
+                auto bufferFeatures =  uul::EnumFlags<FormatFeatureFlagBits>(formatProperties.bufferFeatures);
                 return !bufferFeatures.contains(features);
             }) | ranges::to<std::vector>();
 }
 
 std::vector<vul::Format> vul::PhysicalDevice::filterDepthFormat(
-        vul::FormatFeatureBitMask additionalFeatures) const {
+        uul::EnumFlags<FormatFeatureFlagBits> additionalFeatures) const {
     return filterOptimalTilingFormat(depthFormats,
                                      vul::FormatFeatureFlagBits::DepthStencilAttachmentBit |
                                      additionalFeatures);
 }
 
 std::vector<vul::Format> vul::PhysicalDevice::filterDepthFormat() const {
-    return filterDepthFormat(vul::FormatFeatureBitMask{});
+    return filterDepthFormat(uul::EnumFlags<FormatFeatureFlagBits>{});
 }
 
 vul::Features vul::PhysicalDevice::getFeatures() const {

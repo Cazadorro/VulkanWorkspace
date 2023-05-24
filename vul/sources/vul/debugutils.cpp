@@ -3,8 +3,7 @@
 //
 
 #include "vul/debugutils.h"
-#include "vul/bitmasks.h"
-#include "vul/enums.h"
+#include <uul/enumflags.h>
 #include <cassert>
 #include <iostream>
 
@@ -15,13 +14,13 @@ vul::DebugCreateInfoBuilder::pNext(const void *value) {
 }
 
 vul::DebugCreateInfoBuilder &vul::DebugCreateInfoBuilder::messageSeverity(
-        vul::DebugUtilsMessageSeverityFlagBitMask value) {
+        uul::EnumFlags<vul::DebugUtilsMessageSeverityFlagBitsEXT> value) {
     m_createInfo.messageSeverity = static_cast<VkDebugUtilsMessageSeverityFlagsEXT>(value);
     return *this;
 }
 
 vul::DebugCreateInfoBuilder &vul::DebugCreateInfoBuilder::messageType(
-        vul::DebugUtilsMessageTypeFlagBitMask value) {
+        uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> value) {
     m_createInfo.messageType = static_cast<VkDebugUtilsMessageTypeFlagsEXT>(value);
     return *this;
 }
@@ -57,7 +56,8 @@ vul::DebugCreateInfoBuilder::create() const {
             auto this_ptr = *static_cast<DebugUtilsMessengerEXT **>(pUserData);
             return this_ptr->m_debugCallback(
                     static_cast<DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity),
-                    static_cast<vul::DebugUtilsMessageTypeFlagBitMask>(
+
+                    uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT>(
                             static_cast<DebugUtilsMessageTypeFlagBitsEXT>(messageTypes)
                     ),
                     pCallbackData);
@@ -89,8 +89,8 @@ vul::DebugCreateInfoBuilder::getCreateInfo() const {
 
 VkDebugUtilsMessengerCreateInfoEXT
 vul::DebugCreateInfoBuilder::createInstanceCallbackInfo(
-        vul::DebugUtilsMessageSeverityFlagBitMask messageSeverity,
-        vul::DebugUtilsMessageTypeFlagBitMask messageType, const void *pNext) {
+        uul::EnumFlags<vul::DebugUtilsMessageSeverityFlagBitsEXT> messageSeverity,
+        uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> messageType, const void *pNext) {
     VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
     createInfo.flags = 0;
@@ -180,7 +180,7 @@ VkDebugUtilsMessengerEXT vul::DebugUtilsMessengerEXT::get() const {
 //source https://www.lunarg.com/wp-content/uploads/2018/05/Vulkan-Debug-Utils_05_18_v1.pdf
 VkBool32 vul::defaultDebugMessengerCallback(
         vul::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-        vul::DebugUtilsMessageTypeFlagBitMask messageType,
+        uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT> messageType,
         const VkDebugUtilsMessengerCallbackDataEXT *callbackData) {
 //    if(callbackData == nullptr){
 //        std::cout << "DefaultDebugMessenger NULLPTR" << std::endl;
@@ -275,7 +275,5 @@ VkBool32 vul::defaultDebugMessengerCallbackVk(
         void */*pUserData*/) {
     return vul::defaultDebugMessengerCallback(
             static_cast<DebugUtilsMessageSeverityFlagBitsEXT>(messageSeverity),
-            static_cast<vul::DebugUtilsMessageTypeFlagBitMask>(
-                    static_cast<DebugUtilsMessageTypeFlagBitsEXT>(messageTypes)
-            ), pCallbackData);
+            uul::EnumFlags<vul::DebugUtilsMessageTypeFlagBitsEXT>(messageTypes), pCallbackData);
 }

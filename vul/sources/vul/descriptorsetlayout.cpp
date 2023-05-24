@@ -6,7 +6,6 @@
 #include "vul/descriptorset.h"
 #include <uul/assert.h>
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/temparrayproxy.h"
@@ -17,7 +16,7 @@
 
 vul::DescriptorSetLayoutBinding::DescriptorSetLayoutBinding(std::uint32_t binding, vul::DescriptorType descriptorType,
                                                             std::uint32_t descriptorCount,
-                                                            vul::ShaderStageBitMask stageFlags,
+                                                            uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                             const VkSampler *pImmutableSamplers) :
         binding(binding), descriptorType(descriptorType), descriptorCount(descriptorCount),
         stageFlags(stageFlags), pImmutableSamplers(pImmutableSamplers) {
@@ -28,7 +27,7 @@ vul::DescriptorSetLayoutBinding::DescriptorSetLayoutBinding(VkDescriptorSetLayou
         DescriptorSetLayoutBinding(descriptorSetLayoutBinding.binding,
                                    static_cast<vul::DescriptorType>(descriptorSetLayoutBinding.descriptorType),
                                    descriptorCount,
-                                   static_cast<vul::ShaderStageBitMask>(stageFlags),
+                                   static_cast<uul::EnumFlags<vul::ShaderStageFlagBits> >(stageFlags),
                                    pImmutableSamplers) {
 
 }
@@ -47,80 +46,80 @@ vul::DescriptorSetLayoutBinding::operator VkDescriptorSetLayoutBinding() const {
 
 
 vul::SamplerBinding::SamplerBinding(std::uint32_t binding,
-                                    vul::ShaderStageBitMask stageFlags,
+                                    uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                     std::uint32_t descriptorCount) :
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::Sampler, descriptorCount, stageFlags, nullptr) {
 }
 
 vul::ImmutableSamplerBinding::ImmutableSamplerBinding(std::uint32_t binding,
-                                                      vul::ShaderStageBitMask stageFlags,
+                                                      uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                       const VkSampler *pImmutableSamplers,
                                                       std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::Sampler, descriptorCount, stageFlags, pImmutableSamplers) {
 }
 
 vul::CombinedSamplerBinding::CombinedSamplerBinding(std::uint32_t binding,
-                                                    vul::ShaderStageBitMask stageFlags,
+                                                    uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                     std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::CombinedImageSampler, descriptorCount, stageFlags, nullptr) {
 }
 
 
 vul::SampledImageBinding::SampledImageBinding(std::uint32_t binding,
-                                              vul::ShaderStageBitMask stageFlags,
+                                              uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                               std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::SampledImage, descriptorCount, stageFlags, nullptr) {
 }
 
 vul::StorageImageBinding::StorageImageBinding(std::uint32_t binding,
-                                              vul::ShaderStageBitMask stageFlags,
+                                              uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                               std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::StorageImage, descriptorCount, stageFlags, nullptr) {
 }
 
 
 vul::UniformTexelBufferBinding::UniformTexelBufferBinding(std::uint32_t binding,
-                                                          vul::ShaderStageBitMask stageFlags,
+                                                          uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                           std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::UniformTexelBuffer, descriptorCount, stageFlags, nullptr) {
 }
 
 vul::StorageTexelBufferBinding::StorageTexelBufferBinding(std::uint32_t binding,
-                                                          vul::ShaderStageBitMask stageFlags,
+                                                          uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                           std::uint32_t descriptorCount) :
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::StorageTexelBuffer, descriptorCount, stageFlags, nullptr) {
 }
 
 
 vul::UniformBufferBinding::UniformBufferBinding(std::uint32_t binding,
-                                                vul::ShaderStageBitMask stageFlags,
+                                                uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                 std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::UniformBuffer, descriptorCount, stageFlags, nullptr) {
 }
 
 
 vul::StorageBufferBinding::StorageBufferBinding(std::uint32_t binding,
-                                                vul::ShaderStageBitMask stageFlags,
+                                                uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                 std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::StorageBuffer, descriptorCount, stageFlags, nullptr) {
 }
 
 vul::DynamicUniformBufferBinding::DynamicUniformBufferBinding(
-        std::uint32_t binding, vul::ShaderStageBitMask stageFlags,
+        std::uint32_t binding, uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
         std::uint32_t descriptorCount) :
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::UniformBufferDynamic, descriptorCount, stageFlags, nullptr) {
 }
 
 
 vul::DynamicStorageBufferBinding::DynamicStorageBufferBinding(
-        std::uint32_t binding, vul::ShaderStageBitMask stageFlags,
+        std::uint32_t binding, uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
         std::uint32_t descriptorCount) :
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::StorageBufferDynamic, descriptorCount, stageFlags, nullptr) {
 }
 
 
 vul::InputAttachmentBinding::InputAttachmentBinding(std::uint32_t binding,
-                                                    vul::ShaderStageBitMask stageFlags,
+                                                    uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                     std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::InputAttachment, descriptorCount, stageFlags, nullptr) {
 }
@@ -128,13 +127,13 @@ vul::InputAttachmentBinding::InputAttachmentBinding(std::uint32_t binding,
 
 
 vul::InlineUniformBlockBinding::InlineUniformBlockBinding(std::uint32_t binding,
-                                                          vul::ShaderStageBitMask stageFlags,
+                                                          uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                           std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::InlineUniformBlock, descriptorCount, stageFlags, nullptr) {
 }
 
 vul::AccelerationStructureKHRBinding::AccelerationStructureKHRBinding(std::uint32_t binding,
-                                                                      vul::ShaderStageBitMask stageFlags,
+                                                                      uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags,
                                                                       std::uint32_t descriptorCount):
         DescriptorSetLayoutBinding(binding, vul::DescriptorType::AccelerationStructureKhr, descriptorCount, stageFlags, nullptr) {
 }
@@ -185,14 +184,14 @@ vul::DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder(
 }
 
 vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setFlags(
-        vul::DescriptorSetLayoutCreateBitMask flags) {
+        uul::EnumFlags<vul::DescriptorSetLayoutCreateFlagBits> flags) {
     m_flags = flags.to_underlying();
     return *this;
 }
 
 vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<const DescriptorSetLayoutBinding> &descriptorSetBindings,
-        const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags) {
+        const TempArrayProxy<uul::EnumFlags<vul::DescriptorBindingFlagBits>  const> &bindingFlags) {
 
     // first, figure out key order.
     std::vector<std::uint32_t> idxs(descriptorSetBindings.size());
@@ -219,7 +218,7 @@ vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         }
     } else { //if (bindingFlags.size() >= 1){  not needed because of assert.
         if (bindingFlags.size() == 1) {
-            m_bindingFlags = std::vector<vul::DescriptorBindingBitMask>(descriptorSetBindings.size(), bindingFlags[0]);
+            m_bindingFlags = std::vector<uul::EnumFlags<vul::DescriptorBindingFlagBits> >(descriptorSetBindings.size(), bindingFlags[0]);
         }
         for (const auto &idx: idxs) {
             m_bindings.push_back(descriptorSetBindings[idx]);
@@ -239,7 +238,7 @@ vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
 vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<const DescriptorSetLayoutBinding> &descriptorSetBindings,
         const TempArrayProxy<const std::string> &bindingName,
-        const TempArrayProxy<vul::DescriptorBindingBitMask const> &bindingFlags) {
+        const TempArrayProxy<uul::EnumFlags<vul::DescriptorBindingFlagBits>  const> &bindingFlags) {
 
     UUL_ASSERT(descriptorSetBindings.size() == bindingName.size(),
                fmt::format(
@@ -275,7 +274,7 @@ vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         }
     } else { //if (bindingFlags.size() >= 1){  not needed because of assert.
         if (bindingFlags.size() == 1) {
-            m_bindingFlags = std::vector<vul::DescriptorBindingBitMask>(descriptorSetBindings.size(), bindingFlags[0]);
+            m_bindingFlags = std::vector<uul::EnumFlags<vul::DescriptorBindingFlagBits> >(descriptorSetBindings.size(), bindingFlags[0]);
         }
         for (const auto &idx: idxs) {
             m_nameBindingMap[bindingName[idx]] = static_cast<std::uint32_t>(m_bindings.size());
@@ -294,13 +293,13 @@ vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
 
 vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const vul::TempArrayProxy<const DescriptorSetLayoutBinding> &descriptorSetBindings) {
-    return setBindings(descriptorSetBindings, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
+    return setBindings(descriptorSetBindings, vul::TempArrayProxy<const uul::EnumFlags<vul::DescriptorBindingFlagBits> >{});
 }
 
 vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setBindings(
         const TempArrayProxy<DescriptorSetLayoutBinding const> &descriptorSetBindings,
         const TempArrayProxy<std::string const> &bindingName) {
-    return setBindings(descriptorSetBindings, bindingName, vul::TempArrayProxy<const vul::DescriptorBindingBitMask>{});
+    return setBindings(descriptorSetBindings, bindingName, vul::TempArrayProxy<const uul::EnumFlags<vul::DescriptorBindingFlagBits> >{});
 }
 
 
@@ -384,7 +383,7 @@ vul::DescriptorSetLayoutBuilder::getBinding(
 }
 
 vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setStageFlags(
-        vul::ShaderStageBitMask stageFlags) {
+        uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags) {
     for (auto &binding: m_bindings) {
         binding.stageFlags = stageFlags;
     }

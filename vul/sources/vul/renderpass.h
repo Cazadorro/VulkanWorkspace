@@ -5,9 +5,9 @@
 #ifndef VULKANWORKSPACE_RENDERPASS_H
 #define VULKANWORKSPACE_RENDERPASS_H
 
-#include "vul/bitmasks.h"
-#include "vul/enums.h"
 
+#include "vul/enums.h"
+#include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
 #include <gsl/span>
 #include <optional>
@@ -39,100 +39,100 @@ namespace vul {
                               vul::AttachmentLoadOp stencilLoadOp,
                               vul::AttachmentStoreOp stencilStoreOp,
                               vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                              vul::AttachmentDescriptionBitMask flags = {});
+                              uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription PresentTemp(vul::Format format,
                                                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
+                                                 uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription PresentLast(vul::Format format,
                                                  vul::ImageLayout initialLayout,
                                                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
+                                                 uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription ColorFirst(vul::Format format,
                                                 vul::ImageLayout finalLayout,
                                                 vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                vul::AttachmentDescriptionBitMask flags = {});
+                                                uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription ColorNext(vul::Format format,
                                                vul::ImageLayout initialLayout,
                                                vul::ImageLayout finalLayout,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthStencilFirst(vul::Format format,
                                                        vul::ImageLayout finalLayout,
                                                        vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                       vul::AttachmentDescriptionBitMask flags = {});
+                                                       uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthStencilNext(vul::Format format,
                                                       vul::ImageLayout initialLayout,
                                                       vul::ImageLayout finalLayout,
                                                       vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                      vul::AttachmentDescriptionBitMask flags = {});
+                                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthFirst(vul::Format format,
                                                 vul::ImageLayout finalLayout,
                                                 vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                vul::AttachmentDescriptionBitMask flags = {});
+                                                uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthNext(vul::Format format,
                                                vul::ImageLayout initialLayout,
                                                vul::ImageLayout finalLayout,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription StencilFirst(vul::Format format,
                                                   vul::ImageLayout finalLayout,
                                                   vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                  vul::AttachmentDescriptionBitMask flags = {});
+                                                  uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription StencilNext(vul::Format format,
                                                  vul::ImageLayout initialLayout,
                                                  vul::ImageLayout finalLayout,
                                                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
+                                                 uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription ColorTemp(vul::Format format,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription ColorLast(vul::Format format,
                                                vul::ImageLayout initialLayout,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthStencilTemp(vul::Format format,
                                                       vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                      vul::AttachmentDescriptionBitMask flags = {});
+                                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthStencilLast(vul::Format format,
                                                       vul::ImageLayout initialLayout,
                                                       vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                      vul::AttachmentDescriptionBitMask flags = {});
+                                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthTemp(vul::Format format,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthReadOnly(vul::Format format,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription DepthLast(vul::Format format,
                                                vul::ImageLayout initialLayout,
                                                vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                               vul::AttachmentDescriptionBitMask flags = {});
+                                               uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription StencilTemp(vul::Format format,
                                                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
+                                                 uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         static AttachmentDescription StencilLast(vul::Format format,
                                                  vul::ImageLayout initialLayout,
                                                  vul::SampleCountFlagBits samples = vul::SampleCountFlagBits::_1Bit,
-                                                 vul::AttachmentDescriptionBitMask flags = {});
+                                                 uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags = {});
 
         [[nodiscard]]
         const VkAttachmentDescription &get() const;
@@ -272,16 +272,17 @@ namespace vul {
         // PipelineStageBitMask
         //TODO same with Access2BitMask AccessBitMask
         //set subpass depend on external
-        SubpassNode& setPreDependExternal(vul::PipelineStageBitMask srcStageMask,
-                                    vul::PipelineStageBitMask dstStageMask,
-                                    vul::AccessBitMask srcAccessMask,
-                                    vul::AccessBitMask dstAccessMask);
+
+        SubpassNode& setPreDependExternal(uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
+                                    uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
+                                    uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
+                                    uul::EnumFlags<vul::AccessFlagBits> dstAccessMask);
 
         //set external dependency that depends on *this subpass*
-        SubpassNode& setPostExternalDepend(vul::PipelineStageBitMask srcStageMask,
-                                       vul::PipelineStageBitMask dstStageMask,
-                                       vul::AccessBitMask srcAccessMask,
-                                       vul::AccessBitMask dstAccessMask);
+        SubpassNode& setPostExternalDepend(uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
+                                       uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
+                                       uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
+                                       uul::EnumFlags<vul::AccessFlagBits> dstAccessMask);
 
         void reset();
         //TODO didn't want them to be public, looks like I have to have them be public...
@@ -297,7 +298,7 @@ namespace vul {
 
 
         [[nodiscard]]
-        VkSubpassDescription createDescription(vul::SubpassDescriptionBitMask flags = {}) const;
+        VkSubpassDescription createDescription(uul::EnumFlags<vul::SubpassDescriptionFlagBits> flags = {}) const;
         [[nodiscard]]
         std::vector<VkSubpassDependency> createSubpassDependencies() const;
         SubpassGraph* m_parentGraph = nullptr;

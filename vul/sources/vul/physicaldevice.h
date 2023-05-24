@@ -4,9 +4,10 @@
 
 #ifndef VULKANWORKSPACE_PHYSICALDEVICE_H
 #define VULKANWORKSPACE_PHYSICALDEVICE_H
-#include "vul/bitmasksfwd.h"
+
 #include "vul/enumsfwd.h"
 #include "vul/featuresfwd.h"
+#include <uul/enumflagsfwd.h>
 #include <gsl/span>
 #include <vulkan/vulkan.h>
 #include <unordered_set>
@@ -41,23 +42,23 @@ namespace vul {
     public:
         explicit QueueFamilyProperties(const PhysicalDevice& physicalDevice, std::vector<VkQueueFamilyProperties> queueFamilyProperties);
         [[nodiscard]]
-        std::vector<std::uint32_t> getQueueFamilyIndexes(vul::QueueBitMask queueFamilyBits) const;
+        std::vector<std::uint32_t> getQueueFamilyIndexes(uul::EnumFlags<QueueFlagBits> queueFamilyBits) const;
         [[nodiscard]]
-        std::vector<std::uint32_t> getPresentationQueueFamilyIndexes(const vul::Surface& surface, vul::QueueBitMask queueFamilyBits) const;
+        std::vector<std::uint32_t> getPresentationQueueFamilyIndexes(const vul::Surface& surface, uul::EnumFlags<QueueFlagBits> queueFamilyBits) const;
         [[nodiscard]]
         std::vector<std::uint32_t> getPresentationQueueFamilyIndexes(const vul::Surface& surface) const;
         [[nodiscard]]
         std::optional<std::uint32_t> findMinimumQueueFamilyIndex(const gsl::span<std::uint32_t>& queueFamilyIndexes) const;
         [[nodiscard]]
-        std::optional<std::uint32_t> calcMinimumQueueFamilyIndex(vul::QueueBitMask queueFamilyBits);
+        std::optional<std::uint32_t> calcMinimumQueueFamilyIndex(uul::EnumFlags<QueueFlagBits> queueFamilyBits);
         [[nodiscard]]
-        std::optional<std::uint32_t> calcMinimumPresentationQueueFamilyIndex(const vul::Surface& surface, vul::QueueBitMask queueFamilyBits);
+        std::optional<std::uint32_t> calcMinimumPresentationQueueFamilyIndex(const vul::Surface& surface, uul::EnumFlags<QueueFlagBits> queueFamilyBits);
         [[nodiscard]]
-        bool contains(const std::vector<vul::QueueBitMask>& queueFamilies) const;
+        bool contains(const std::vector<uul::EnumFlags<QueueFlagBits>>& queueFamilies) const;
         [[nodiscard]]
-        bool contains(vul::QueueBitMask queueFamilies) const;
+        bool contains(uul::EnumFlags<QueueFlagBits> queueFamilies) const;
         [[nodiscard]]
-        bool contains(const vul::Surface& surface, vul::QueueBitMask queueFamilyBits) const;
+        bool contains(const vul::Surface& surface, uul::EnumFlags<QueueFlagBits> queueFamilyBits) const;
     private:
         const PhysicalDevice* m_physicalDevice = nullptr;
         std::vector<VkQueueFamilyProperties> m_queueFamilyProperties;
@@ -68,10 +69,10 @@ namespace vul {
         explicit MemoryProperties(VkPhysicalDeviceMemoryProperties memoryProperties);
         [[nodiscard]]
         std::optional<std::uint32_t> findMemoryType(const VkMemoryRequirements & memoryRequirements,
-                                                    vul::MemoryPropertyBitMask properties) const;
+                                                    uul::EnumFlags<MemoryPropertyFlagBits> properties) const;
         [[nodiscard]]
         std::optional<std::uint32_t> findMemoryType(const gsl::span<const VkMemoryRequirements> &memoryRequirementsList,
-                                                    vul::MemoryPropertyBitMask properties) const;
+                                                    uul::EnumFlags<MemoryPropertyFlagBits> properties) const;
         [[nodiscard]]
         const VkPhysicalDeviceMemoryProperties& get()const;
     private:
@@ -112,15 +113,15 @@ namespace vul {
         VkFormatProperties getFormatProperties(vul::Format format) const;
         [[nodiscard]]
         std::vector<vul::Format> filterOptimalTilingFormat(const gsl::span<const vul::Format> &candidates,
-                                                        vul::FormatFeatureBitMask features) const;
+                                                        uul::EnumFlags<FormatFeatureFlagBits> features) const;
         [[nodiscard]]
         std::vector<vul::Format> filterLinearTilingFormat(const gsl::span<const vul::Format> &candidates,
-                                                       vul::FormatFeatureBitMask features) const;
+                                                       uul::EnumFlags<FormatFeatureFlagBits> features) const;
         [[nodiscard]]
         std::vector<vul::Format> filterBufferFormat(const gsl::span<const vul::Format> &candidates,
-                                                 vul::FormatFeatureBitMask features) const;
+                                                 uul::EnumFlags<FormatFeatureFlagBits> features) const;
         [[nodiscard]]
-        std::vector<vul::Format> filterDepthFormat(vul::FormatFeatureBitMask additionalFeatures) const;
+        std::vector<vul::Format> filterDepthFormat(uul::EnumFlags<FormatFeatureFlagBits> additionalFeatures) const;
         [[nodiscard]]
         std::vector<vul::Format> filterDepthFormat() const;
 

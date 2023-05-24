@@ -10,7 +10,7 @@
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/vkstructutils.h"
-
+#include <uul/enumflags.h>
 
 vul::SwapchainBuilder::SwapchainBuilder(const vul::Device &device,
                                         const VkAllocationCallbacks *pAllocator)
@@ -27,7 +27,7 @@ vul::SwapchainBuilder &vul::SwapchainBuilder::pNext(const void *value) {
 }
 
 vul::SwapchainBuilder &
-vul::SwapchainBuilder::flags(vul::SwapchainCreateFlagBitMask value) {
+vul::SwapchainBuilder::flags(uul::EnumFlags<vul::SwapchainCreateFlagBitsKHR> value) {
     m_createInfo.flags = value.to_underlying();
     return *this;
 }
@@ -64,7 +64,7 @@ vul::SwapchainBuilder &vul::SwapchainBuilder::imageArrayLayers(uint32_t value) {
 }
 
 vul::SwapchainBuilder &
-vul::SwapchainBuilder::imageUsage(vul::ImageUsageBitMask value) {
+vul::SwapchainBuilder::imageUsage(uul::EnumFlags<vul::ImageUsageFlagBits> value) {
     //always use as color attachment, otherwise quite pointless.
     m_createInfo.imageUsage =
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | value.to_underlying();
@@ -85,14 +85,14 @@ vul::SwapchainBuilder &vul::SwapchainBuilder::queueFamilyIndices(
 }
 
 vul::SwapchainBuilder &
-vul::SwapchainBuilder::preTransform(vul::SurfaceTransformFlagBitMask value) {
+vul::SwapchainBuilder::preTransform(uul::EnumFlags<vul::SurfaceTransformFlagBitsKHR> value) {
     //the types of the enum bits and the actual flag types... aren't the same...
     m_createInfo.preTransform = static_cast<VkSurfaceTransformFlagBitsKHR>(value.to_underlying());
     return *this;
 }
 
 vul::SwapchainBuilder &
-vul::SwapchainBuilder::compositeAlpha(vul::CompositeAlphaFlagBitMask value) {
+vul::SwapchainBuilder::compositeAlpha( uul::EnumFlags<vul::CompositeAlphaFlagBitsKHR> value) {
     m_createInfo.compositeAlpha = static_cast<VkCompositeAlphaFlagBitsKHR>(value.to_underlying());
     return *this;
 }

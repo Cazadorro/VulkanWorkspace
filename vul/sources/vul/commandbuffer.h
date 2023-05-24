@@ -6,9 +6,10 @@
 #define VULKANWORKSPACE_COMMANDBUFFER_H
 
 #include "vul/enumsfwd.h"
-#include "vul/bitmasks.h"
+
 #include "vul/vkstructutils.h"
 #include "vul/temparrayproxyfwd.h"
+#include <uul/enumflags.h>
 #include <vulkan/vulkan.h>
 #include <string>
 
@@ -33,32 +34,32 @@ namespace vul {
 
     [[nodiscard]]
     VkMemoryBarrier2KHR
-    createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
-                        vul::Access2BitMask srcAccessMask,
-                        vul::PipelineStage2BitMask dstStageMask,
-                        vul::Access2BitMask dstAccessMask,
+    createMemoryBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMask,
+                        uul::EnumFlags<vul::AccessFlagBits2>  srcAccessMask,
+                        uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMask,
+                        uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                         const void *pNext = nullptr);
 
     [[nodiscard]]
-    VkMemoryBarrier2KHR createComputeBarrierRAW(vul::PipelineStage2BitMask srcStageMaskExtra = {},
-                                                vul::Access2BitMask srcAccessMaskExtra = {},
-                                                vul::PipelineStage2BitMask dstStageMaskExtra = {},
-                                                vul::Access2BitMask dstAccessMaskExtra = {});
+    VkMemoryBarrier2KHR createComputeBarrierRAW(uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMaskExtra = {},
+                                                uul::EnumFlags<vul::AccessFlagBits2> srcAccessMaskExtra = {},
+                                                uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMaskExtra = {},
+                                                uul::EnumFlags<vul::AccessFlagBits2> dstAccessMaskExtra = {});
     [[nodiscard]]
-    VkMemoryBarrier2KHR createComputeBarrierRWARW(vul::PipelineStage2BitMask srcStageMaskExtra = {},
-                                                vul::Access2BitMask srcAccessMaskExtra = {},
-                                                vul::PipelineStage2BitMask dstStageMaskExtra = {},
-                                                vul::Access2BitMask dstAccessMaskExtra = {});
+    VkMemoryBarrier2KHR createComputeBarrierRWARW(uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMaskExtra = {},
+                                                uul::EnumFlags<vul::AccessFlagBits2> srcAccessMaskExtra = {},
+                                                uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMaskExtra = {},
+                                                uul::EnumFlags<vul::AccessFlagBits2> dstAccessMaskExtra = {});
     [[nodiscard]]
-    VkMemoryBarrier2KHR createComputeFragmentBarrierRAW(vul::PipelineStage2BitMask srcStageMaskExtra = {},
-                                                        vul::Access2BitMask srcAccessMaskExtra = {},
-                                                        vul::PipelineStage2BitMask dstStageMaskExtra = {},
-                                                        vul::Access2BitMask dstAccessMaskExtra = {});
+    VkMemoryBarrier2KHR createComputeFragmentBarrierRAW(uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMaskExtra = {},
+                                                        uul::EnumFlags<vul::AccessFlagBits2> srcAccessMaskExtra = {},
+                                                        uul::EnumFlags<vul::PipelineStageFlagBits2> dstStageMaskExtra = {},
+                                                        uul::EnumFlags<vul::AccessFlagBits2> dstAccessMaskExtra = {});
 
     VkDependencyInfoKHR createDependencyInfo(const TempArrayProxy<VkMemoryBarrier2KHR>& memoryBarriers,
                                              const TempArrayProxy<VkBufferMemoryBarrier2KHR>& bufferMemoryBarriers,
                                              const TempArrayProxy<VkImageMemoryBarrier2KHR>& imageMemoryBarriers,
-                                             vul::DependencyBitMask dependencyFlags = {},
+                                             uul::EnumFlags<vul::DependencyFlagBits> dependencyFlags = {},
                                              const void* pNext = nullptr);
 
     class RenderPassBlock {
@@ -142,7 +143,7 @@ namespace vul {
                         const TempArrayProxy<const VkBufferCopy> &copyRegions);
 
         void copyBufferToImage(const Buffer &srcBuffer, Image &dstImage,
-                               vul::ImageAspectBitMask flags,
+                               uul::EnumFlags<vul::ImageAspectFlagBits> flags,
                                std::uint32_t mipLevel_t = 0,
                                std::uint32_t arrayLayerCount =1);
 
@@ -198,9 +199,9 @@ namespace vul {
         void setScissor(const TempArrayProxy<const vul::Rect2D>& scissors, std::uint32_t firstScissor = 0);
         void setViewport(const TempArrayProxy<const vul::Viewport>& viewports, std::uint32_t firstViewport = 0);
 
-        void pushConstants(const PipelineLayout& pipelineLayout, vul::ShaderStageBitMask stageFlags, std::uint32_t offset, std::uint32_t size, const void* pValues);
+        void pushConstants(const PipelineLayout& pipelineLayout, uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags, std::uint32_t offset, std::uint32_t size, const void* pValues);
         template<typename T>
-        void pushConstants(const PipelineLayout& pipelineLayout, vul::ShaderStageBitMask stageFlags, const T& values, std::uint32_t offset = 0){
+        void pushConstants(const PipelineLayout& pipelineLayout, uul::EnumFlags<vul::ShaderStageFlagBits>  stageFlags, const T& values, std::uint32_t offset = 0){
             pushConstants(pipelineLayout, stageFlags, offset, static_cast<std::uint32_t>(sizeof(values)), reinterpret_cast<const void*>(&values));
         }
     protected:
@@ -214,7 +215,8 @@ namespace vul {
 
         using CommandBuffer::CommandBuffer;
 
-        Result begin(vul::CommandBufferUsageBitMask flags,
+        Result begin(
+                uul::EnumFlags<vul::CommandBufferUsageFlagBits> flags,
                      const VkCommandBufferInheritanceInfo *pInheritanceInfo,
                      const void *pNext = nullptr);
 
@@ -246,7 +248,7 @@ namespace vul {
     public:
         using CommandBuffer::CommandBuffer;
 
-        Result begin(vul::CommandBufferUsageBitMask flags,
+        Result begin(uul::EnumFlags<vul::CommandBufferUsageFlagBits> flags,
                      const void *pNext = nullptr);
 
         [[nodiscard]]

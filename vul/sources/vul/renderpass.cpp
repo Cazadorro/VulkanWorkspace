@@ -7,8 +7,9 @@
 #include "vul/colorformatutils.h"
 #include "vul/enums.h"
 #include "vul/expectedresult.h"
-#include <uul/assert.h>
 #include "vul/containerutils.h"
+#include <uul/enumflags.h>
+#include <uul/assert.h>
 #include <fmt/core.h>
 #include <range/v3/view/enumerate.hpp>
 #include <array>
@@ -22,7 +23,7 @@ vul::AttachmentDescription::AttachmentDescription(vul::Format format,
                                                   vul::AttachmentLoadOp stencilLoadOp,
                                                   vul::AttachmentStoreOp stencilStoreOp,
                                                   vul::SampleCountFlagBits samples,
-                                                  vul::AttachmentDescriptionBitMask flags)
+                                                  uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags)
         :
         m_attachmentDescription{
                 static_cast<VkAttachmentDescriptionFlags>(flags),
@@ -40,7 +41,7 @@ vul::AttachmentDescription::AttachmentDescription(vul::Format format,
 vul::AttachmentDescription
 vul::AttachmentDescription::PresentTemp(vul::Format format,
                                         vul::SampleCountFlagBits samples,
-                                        vul::AttachmentDescriptionBitMask flags) {
+                                        uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
@@ -59,7 +60,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::PresentLast(vul::Format format,
                                         vul::ImageLayout initialLayout,
                                         vul::SampleCountFlagBits samples,
-                                        vul::AttachmentDescriptionBitMask flags) {
+                                        uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
@@ -78,7 +79,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::ColorFirst(vul::Format format,
                                        vul::ImageLayout finalLayout,
                                        vul::SampleCountFlagBits samples,
-                                       vul::AttachmentDescriptionBitMask flags) {
+                                       uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
@@ -98,7 +99,7 @@ vul::AttachmentDescription::ColorNext(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::ImageLayout finalLayout,
                                       vul::SampleCountFlagBits samples,
-                                      vul::AttachmentDescriptionBitMask flags) {
+                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
@@ -117,7 +118,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::DepthStencilFirst(vul::Format format,
                                               vul::ImageLayout finalLayout,
                                               vul::SampleCountFlagBits samples,
-                                              vul::AttachmentDescriptionBitMask flags) {
+                                              uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -137,7 +138,7 @@ vul::AttachmentDescription::DepthStencilNext(vul::Format format,
                                              vul::ImageLayout initialLayout,
                                              vul::ImageLayout finalLayout,
                                              vul::SampleCountFlagBits samples,
-                                             vul::AttachmentDescriptionBitMask flags) {
+                                             uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -156,7 +157,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::DepthFirst(vul::Format format,
                                        vul::ImageLayout finalLayout,
                                        vul::SampleCountFlagBits samples,
-                                       vul::AttachmentDescriptionBitMask flags) {
+                                       uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
@@ -176,7 +177,7 @@ vul::AttachmentDescription::DepthNext(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::ImageLayout finalLayout,
                                       vul::SampleCountFlagBits samples,
-                                      vul::AttachmentDescriptionBitMask flags) {
+                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
@@ -195,7 +196,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::StencilFirst(vul::Format format,
                                          vul::ImageLayout finalLayout,
                                          vul::SampleCountFlagBits samples,
-                                         vul::AttachmentDescriptionBitMask flags) {
+                                         uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -215,7 +216,7 @@ vul::AttachmentDescription::StencilNext(vul::Format format,
                                         vul::ImageLayout initialLayout,
                                         vul::ImageLayout finalLayout,
                                         vul::SampleCountFlagBits samples,
-                                        vul::AttachmentDescriptionBitMask flags) {
+                                        uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -233,7 +234,7 @@ vul::AttachmentDescription::StencilNext(vul::Format format,
 vul::AttachmentDescription
 vul::AttachmentDescription::ColorTemp(vul::Format format,
                                       vul::SampleCountFlagBits samples,
-                                      vul::AttachmentDescriptionBitMask flags) {
+                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
@@ -252,7 +253,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::ColorLast(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::SampleCountFlagBits samples,
-                                      vul::AttachmentDescriptionBitMask flags) {
+                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isColorFormat(format),
                fmt::format("Expected color format, found: {}",
                            vul::to_string(format)).c_str());
@@ -270,7 +271,7 @@ vul::AttachmentDescription::ColorLast(vul::Format format,
 vul::AttachmentDescription
 vul::AttachmentDescription::DepthStencilTemp(vul::Format format,
                                              vul::SampleCountFlagBits samples,
-                                             vul::AttachmentDescriptionBitMask flags) {
+                                             uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -289,7 +290,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::DepthStencilLast(vul::Format format,
                                              vul::ImageLayout initialLayout,
                                              vul::SampleCountFlagBits samples,
-                                             vul::AttachmentDescriptionBitMask flags) {
+                                             uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthStencilFormat(format),
                fmt::format("Expected depth stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -307,7 +308,7 @@ vul::AttachmentDescription::DepthStencilLast(vul::Format format,
 vul::AttachmentDescription
 vul::AttachmentDescription::DepthTemp(vul::Format format,
                                       vul::SampleCountFlagBits samples,
-                                      vul::AttachmentDescriptionBitMask flags) {
+                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
@@ -324,7 +325,7 @@ vul::AttachmentDescription::DepthTemp(vul::Format format,
 
 vul::AttachmentDescription
 vul::AttachmentDescription::DepthReadOnly(vul::Format format, vul::SampleCountFlagBits samples,
-                                          vul::AttachmentDescriptionBitMask flags) {
+                                          uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
@@ -344,7 +345,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::DepthLast(vul::Format format,
                                       vul::ImageLayout initialLayout,
                                       vul::SampleCountFlagBits samples,
-                                      vul::AttachmentDescriptionBitMask flags) {
+                                      uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isDepthFormat(format),
                fmt::format("Expected depth format, found: {}",
                            vul::to_string(format)).c_str());
@@ -362,7 +363,7 @@ vul::AttachmentDescription::DepthLast(vul::Format format,
 vul::AttachmentDescription
 vul::AttachmentDescription::StencilTemp(vul::Format format,
                                         vul::SampleCountFlagBits samples,
-                                        vul::AttachmentDescriptionBitMask flags) {
+                                        uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -381,7 +382,7 @@ vul::AttachmentDescription
 vul::AttachmentDescription::StencilLast(vul::Format format,
                                         vul::ImageLayout initialLayout,
                                         vul::SampleCountFlagBits samples,
-                                        vul::AttachmentDescriptionBitMask flags) {
+                                        uul::EnumFlags<vul::AttachmentDescriptionFlagBits> flags) {
     UUL_ASSERT(vul::isStencilFormat(format),
                fmt::format("Expected stencil format, found: {}",
                            vul::to_string(format)).c_str());
@@ -570,7 +571,7 @@ vul::SubpassNode::SubpassNode(SubpassGraph &parentGraph,
 }
 
 VkSubpassDescription vul::SubpassNode::createDescription(
-        vul::SubpassDescriptionBitMask flags) const {
+        uul::EnumFlags<vul::SubpassDescriptionFlagBits> flags) const {
     VkSubpassDescription subpassDescription = {};
     subpassDescription.flags = flags.to_underlying();
     subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -727,10 +728,10 @@ vul::SubpassNode::createSubpassDependencies() const {
 }
 
 vul::SubpassNode &vul::SubpassNode::setPreDependExternal(
-        vul::PipelineStageBitMask srcStageMask,
-        vul::PipelineStageBitMask dstStageMask,
-        vul::AccessBitMask srcAccessMask,
-        vul::AccessBitMask dstAccessMask) {
+        uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
+        uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
+        uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
+        uul::EnumFlags<vul::AccessFlagBits> dstAccessMask) {
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = m_subpassIndex;
@@ -744,10 +745,10 @@ vul::SubpassNode &vul::SubpassNode::setPreDependExternal(
 }
 
 vul::SubpassNode &vul::SubpassNode::setPostExternalDepend(
-        vul::PipelineStageBitMask srcStageMask,
-        vul::PipelineStageBitMask dstStageMask,
-        vul::AccessBitMask srcAccessMask,
-        vul::AccessBitMask dstAccessMask) {
+        uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
+        uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
+        uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
+        uul::EnumFlags<vul::AccessFlagBits> dstAccessMask) {
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = m_subpassIndex;
     dependency.dstSubpass = VK_SUBPASS_EXTERNAL;

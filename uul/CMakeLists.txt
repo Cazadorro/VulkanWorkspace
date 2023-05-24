@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 #Universal Utility Library
-add_library(uul STATIC uul/concepts.h uul/typename.h)
+add_library(uul STATIC )
 target_sources(uul
         PRIVATE
         ./uul/assert.h
@@ -15,6 +15,10 @@ target_sources(uul
         uul/math.h
         uul/aliasmethod.h
         uul/tempproxy.h
+        uul/concepts.h
+        uul/typename.h
+        uul/enumflags.h
+        uul/enumflagsfwd.h
         )
 target_include_directories(uul
         PUBLIC

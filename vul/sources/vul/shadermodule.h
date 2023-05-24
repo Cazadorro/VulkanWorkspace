@@ -4,7 +4,9 @@
 
 #ifndef VULKANWORKSPACE_SHADERMODULE_H
 #define VULKANWORKSPACE_SHADERMODULE_H
-#include "vul/bitmasks.h"
+
+#include "vul/enumsfwd.h"
+#include <uul/enumflags.h>
 #include <vulkan/vulkan.h>
 #include <string>
 #include <cstdint>
@@ -20,7 +22,7 @@ namespace vul{
                 const VkSpecializationInfo* pSpecializationInfo,
                 const char * pName = "main",
                 const void * pNext = nullptr,
-                vul::PipelineShaderStageCreateBitMask flags = {});
+                uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags = {});
         [[nodiscard]]
         VkPipelineShaderStageCreateInfo get() const;
     private:
@@ -33,7 +35,7 @@ namespace vul{
                 const VkSpecializationInfo* pSpecializationInfo,
                 const char * pName = "main",
                 const void * pNext = nullptr,
-                vul::PipelineShaderStageCreateBitMask flags = {});
+                uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags = {});
         [[nodiscard]]
         VkPipelineShaderStageCreateInfo get() const;
     private:
@@ -46,7 +48,7 @@ namespace vul{
                 const VkSpecializationInfo* pSpecializationInfo,
                 const char * pName = "main",
                 const void * pNext = nullptr,
-                vul::PipelineShaderStageCreateBitMask flags = {});
+                uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags = {});
         [[nodiscard]]
         VkPipelineShaderStageCreateInfo get() const;
     private:
@@ -81,19 +83,19 @@ namespace vul{
                 const VkSpecializationInfo* specializationInfo = nullptr,
                 const char * name = "main",
                 const void * pNext = nullptr,
-                vul::PipelineShaderStageCreateBitMask flags = {}) const;
+                uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags = {}) const;
         [[nodiscard]]
         PipelineFragmentShaderStageCreateInfo createFragmentStageInfo(
                 const VkSpecializationInfo* specializationInfo = nullptr,
                 const char * name = "main",
                 const void * pNext = nullptr,
-                vul::PipelineShaderStageCreateBitMask flags = {}) const;
+                uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags = {}) const;
         [[nodiscard]]
         PipelineComputeShaderStageCreateInfo createComputeStageInfo(
                 const VkSpecializationInfo* specializationInfo = nullptr,
                 const char * name = "main",
                 const void * pNext = nullptr,
-                vul::PipelineShaderStageCreateBitMask flags = {}) const;
+                uul::EnumFlags<vul::PipelineShaderStageCreateFlagBits> flags = {}) const;
     protected:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

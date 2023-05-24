@@ -7,8 +7,8 @@
 
 #include "vul/commandbuffer.h"
 #include "vul/enumsfwd.h"
-#include "vul/bitmasksfwd.h"
 #include "vul/temparrayproxyfwd.h"
+#include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
 #include <cstdint>
 #include <string>
@@ -60,7 +60,7 @@ namespace vul {
         explicit FramebufferBuilder(const Device &device,
                                     const VkAllocationCallbacks *pAllocator = nullptr);
 
-        void setCreateFlags(vul::SamplerCreateBitMask flags);
+        void setCreateFlags(uul::EnumFlags<vul::SamplerCreateFlagBits> flags);
 
         void setRenderPass(const RenderPass &renderPass);
 

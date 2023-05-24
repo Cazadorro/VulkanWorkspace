@@ -5,7 +5,7 @@
 #include "sampler.h"
 #include "vul/device.h"
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
+#include <uul/enumflags.h>
 
 vul::Sampler::Sampler(const vul::Device &device, VkSampler handle,
                       const VkAllocationCallbacks *pAllocator) : m_pDevice(
@@ -81,7 +81,7 @@ vul::SamplerBuilder::SamplerBuilder(const vul::Device &device,
     m_createInfo.unnormalizedCoordinates = VK_FALSE;
 }
 
-void vul::SamplerBuilder::setCreateFlags(vul::SamplerCreateBitMask flags) {
+void vul::SamplerBuilder::setCreateFlags(uul::EnumFlags<vul::SamplerCreateFlagBits> flags) {
     m_createInfo.flags = flags.to_underlying();
 }
 

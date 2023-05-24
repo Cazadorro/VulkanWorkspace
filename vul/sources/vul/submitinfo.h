@@ -6,8 +6,8 @@
 #define VULKANWORKSPACE_SUBMITINFO_H
 
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
 #include "vul/temparrayproxyfwd.h"
+#include <uul/enumflags.h>
 #include <vulkan/vulkan.h>
 #include <cstdint>
 
@@ -15,7 +15,7 @@ namespace vul {
     struct SubmitInfo2 {
         vul::StructureType sType = vul::StructureType::SubmitInfo2;
         const void *pNext = nullptr;
-        vul::SubmitBitMask flags = {};
+        uul::EnumFlags<vul::SubmitFlagBits> flags = {};
         std::uint32_t waitSemaphoreInfoCount = 0;
         //todo change submitinfos to be a custom struct
         const VkSemaphoreSubmitInfo *pWaitSemaphoreInfos = nullptr;
@@ -29,7 +29,7 @@ namespace vul {
 
         explicit SubmitInfo2(
                 const void *pNext,
-                vul::SubmitBitMask flags,
+                uul::EnumFlags<vul::SubmitFlagBits>flags,
                 std::uint32_t waitSemaphoreInfoCount,
                 const VkSemaphoreSubmitInfo *pWaitSemaphoreInfos,
                 std::uint32_t commandBufferInfoCount,

@@ -4,7 +4,7 @@
 
 #ifndef VULKANWORKSPACE_IMAGEVIEW_H
 #define VULKANWORKSPACE_IMAGEVIEW_H
-#include "vul/bitmasks.h"
+
 #include "vul/enumsfwd.h"
 #include "image.h"
 
@@ -66,7 +66,7 @@ namespace vul {
 
     class SubresourceRange{
     public:
-        vul::ImageAspectBitMask aspectMask;
+        uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask;
         std::uint32_t baseMipLevel = 0;
         std::uint32_t levelCount = 1;
         std::uint32_t baseArrayLayer = 0;
@@ -80,7 +80,7 @@ namespace vul {
         explicit ImageViewBuilder(const Device& device, const VkAllocationCallbacks *pAllocator = nullptr);
        // ImageViewBuilder& sType(VkStructureType value);
         ImageViewBuilder& pNext(const void* value);
-        ImageViewBuilder& flags(vul::ImageViewCreateBitMask value);
+        ImageViewBuilder& flags(uul::EnumFlags<vul::ImageViewCreateFlagBits> value);
         ImageViewBuilder& image(VkImage value);
         ImageViewBuilder& viewType(vul::ImageViewType value);
         ImageViewBuilder& format(vul::Format value);

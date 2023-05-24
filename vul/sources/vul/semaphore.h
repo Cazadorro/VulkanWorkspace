@@ -6,7 +6,7 @@
 #define VULKANWORKSPACE_SEMAPHORE_H
 
 #include "vul/enumsfwd.h"
-#include "vul/bitmasksfwd.h"
+#include <uul/enumflagsfwd.h>
 #include <gsl/span>
 #include <vulkan/vulkan.h>
 #include <string>
@@ -41,7 +41,7 @@ namespace vul {
         Result setObjectName(const std::string &string);
         [[nodiscard]]
         VkSemaphoreSubmitInfoKHR createSubmitInfo(
-                vul::PipelineStage2BitMask stageMask,
+                uul::EnumFlags<vul::PipelineStageFlagBits2>  stageMask,
                 std::uint32_t deviceIndex = 0, const void* pNext = nullptr) const;
     private:
         const Device *m_pDevice = nullptr;
@@ -85,7 +85,7 @@ namespace vul {
         static Result wait(const gsl::span<const TimelineSemaphore * const>& semaphores,
                     const gsl::span<std::uint64_t const>& waitValues,
                     std::uint64_t timeout_ns,
-                    SemaphoreWaitBitMask flags);
+                    uul::EnumFlags<vul::SemaphoreWaitFlagBits>  flags);
 
         static Result wait(const gsl::span<const TimelineSemaphore * const>& semaphores,
                     const gsl::span<std::uint64_t const>& waitValues,
@@ -97,7 +97,7 @@ namespace vul {
 
         [[nodiscard]]
         VkSemaphoreSubmitInfoKHR createSubmitInfo(
-                std::uint64_t value, vul::PipelineStage2BitMask stageMask,
+                std::uint64_t value, uul::EnumFlags<vul::PipelineStageFlagBits2>  stageMask,
                 std::uint32_t deviceIndex = 0, const void* pNext = nullptr) const;
 
 

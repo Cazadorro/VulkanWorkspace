@@ -6,7 +6,7 @@
 #define VULKANWORKSPACE_GRAPHICSPIPELINE_H
 
 #include "vul/vertexinputstate.h"
-#include "vul/bitmasks.h"
+#include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <array>
@@ -63,7 +63,7 @@ namespace vul {
         explicit GraphicsPipelineBuilder(const Device &device,
                                          const VkAllocationCallbacks *pAllocator = nullptr);
 
-        void setFlags(vul::PipelineCreateBitMask flags);
+        void setFlags(uul::EnumFlags<vul::PipelineCreateFlagBits> flags);
 
         void setShaderCreateInfo(
                 PipelineVertexShaderStageCreateInfo vertexInfo,
@@ -92,7 +92,8 @@ namespace vul {
         void setRasterizationState(
                 const VkPipelineRasterizationStateCreateInfo &rasterizer);
 
-        void setDefaultRasterizationState(vul::CullModeBitMask cullMode = vul::CullModeFlagBits::BackBit);
+
+        void setDefaultRasterizationState(uul::EnumFlags<vul::CullModeFlagBits>  cullMode = vul::CullModeFlagBits::BackBit);
 
         void setMultisampleState(
                 const VkPipelineMultisampleStateCreateInfo &multisampling);

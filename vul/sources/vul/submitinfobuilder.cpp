@@ -11,7 +11,7 @@ vul::SubmitInfoBuilder &vul::SubmitInfoBuilder::pNext(const void *value) {
     return *this;
 }
 
-vul::SubmitInfoBuilder &vul::SubmitInfoBuilder::flags(vul::SubmitBitMask value) {
+vul::SubmitInfoBuilder &vul::SubmitInfoBuilder::flags(uul::EnumFlags<vul::SubmitFlagBits>value) {
     m_submitInfo.flags = value;
     return *this;
 }
@@ -34,7 +34,7 @@ vul::SubmitInfoBuilder::signalSemaphoreInfos(vul::TempArrayProxy<const VkSemapho
     return *this;
 }
 
-vul::SubmitInfoBuilder &vul::SubmitInfoBuilder::addFlags(vul::SubmitBitMask value) {
+vul::SubmitInfoBuilder &vul::SubmitInfoBuilder::addFlags(uul::EnumFlags<vul::SubmitFlagBits>value) {
     m_submitInfo.flags |= value;
     return *this;
 }

@@ -45,7 +45,6 @@
 #include <vul/debugutils.h>
 #include <vul/physicaldevice.h>
 #include <vul/features.h>
-#include <vul/bitmasks.h>
 #include <vul/expectedresult.h>
 #include <vul/deviceaddress.h>
 #include <vul/submitinfo.h>
@@ -154,6 +153,7 @@ int main() {
                     .create()
                     .assertValue();
     auto features = vul::Features::withMaxFeatureSetNVMaxwell();
+    features.physicalDeviceVulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
 
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
@@ -540,16 +540,16 @@ int main() {
 
             vul::PushConstantRange::create<JFAIterationPushConstant>(
                     vul::ShaderStageFlagBits::ComputeBit)).assertValue();
-    auto jfaIterationComputeBuilder = vul::ComputePipelineBuilder(device);
-    vul::ComputePipeline jfaIterationPipleline;
-    {
-        auto computeShader = device.createShaderModule("spirv/jfa_iteration.comp.spv").assertValue();
-        jfaIterationComputeBuilder.setShaderCreateInfo(
-                computeShader.createComputeStageInfo());
-        jfaIterationComputeBuilder.setPipelineLayout(jfaIterationPipelineLayout);
-        jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
-    }
-
+//    auto jfaIterationComputeBuilder = vul::ComputePipelineBuilder(device);
+//    vul::ComputePipeline jfaIterationPipleline;
+//    {
+//        auto computeShader = device.createShaderModule("spirv/jfa_iteration.comp.spv").assertValue();
+//        jfaIterationComputeBuilder.setShaderCreateInfo(
+//                computeShader.createComputeStageInfo());
+//        jfaIterationComputeBuilder.setPipelineLayout(jfaIterationPipelineLayout);
+//        jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
+//    }
+//
 
     vul::GraphicsPipeline graphicsPipeline;
 

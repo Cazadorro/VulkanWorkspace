@@ -3,14 +3,15 @@
 //
 
 #include "pushconstantrange.h"
+#include "vul/enums.h"
 
-vul::PushConstantRange::PushConstantRange(vul::ShaderStageBitMask stageFlags, std::uint32_t offset,
+vul::PushConstantRange::PushConstantRange(uul::EnumFlags<vul::ShaderStageFlagBits> stageFlags, std::uint32_t offset,
                                           std::uint32_t size) : stageFlags(stageFlags), offset(offset), size(size) {
 
 }
 
 vul::PushConstantRange::PushConstantRange(VkPushConstantRange pushConstantRange) : PushConstantRange(
-        static_cast<vul::ShaderStageBitMask>(pushConstantRange.stageFlags), pushConstantRange.offset,
+        uul::EnumFlags<vul::ShaderStageFlagBits>(pushConstantRange.stageFlags), pushConstantRange.offset,
         pushConstantRange.size) {
 
 }

@@ -196,12 +196,13 @@ namespace hlspv::ebnf {
             const std::vector<ExprType> &exclude_list) {
 
         auto current_parse_state = parse_state;
+        current_parse_state.reset_start_index();
         if(auto cached_expr = memoization_state.get_cached<RuleDefinitionExpr>(parse_state.current_token_index); cached_expr.has_value()) {
             current_parse_state.consume_count_token(cached_expr.value().consume_size);
             parse_state = current_parse_state;
             return cached_expr.value().expr_ptr;
         }
-        current_parse_state.reset_start_index();
+
         if (current_parse_state.current_token().type() !=
             EbnfTokenType::NonTerminalIdentifier) {
             current_parse_state.reset_start_index(parse_state.get_current_token_index());

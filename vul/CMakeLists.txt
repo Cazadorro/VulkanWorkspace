@@ -86,11 +86,11 @@ target_sources(vul PRIVATE
         sources/vul/tempvoidarrayproxy.h
         sources/vul/traitutils.h)
 target_sources(vul PRIVATE
-        ./generated_sources/vul/bitmasks.cpp
+#        ./generated_sources/vul/bitmasks.cpp
         ./generated_sources/vul/enums.cpp
         ./generated_sources/vul/features.cpp
         ./generated_sources/vul/objecttypeutils.cpp
-        ./generated_sources/vul/bitmasks.h
+#        ./generated_sources/vul/bitmasks.h
         ./generated_sources/vul/enums.h
         ./generated_sources/vul/features.h
         ./generated_sources/vul/bitmasksfwd.h

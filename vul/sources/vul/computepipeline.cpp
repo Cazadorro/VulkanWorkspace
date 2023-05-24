@@ -9,8 +9,8 @@
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
 #include "vul/containerutils.h"
+#include <uul/enumflags.h>
 
 vul::ComputePipeline::ComputePipeline(const vul::Device &device,
                                       VkPipeline handle,
@@ -56,7 +56,7 @@ vul::ComputePipelineBuilder::ComputePipelineBuilder(const vul::Device &device,
 
 }
 
-void vul::ComputePipelineBuilder::setFlags(vul::PipelineCreateBitMask flags) {
+void vul::ComputePipelineBuilder::setFlags(uul::EnumFlags<vul::PipelineCreateFlagBits> flags) {
     m_flags = flags.to_underlying();
 }
 

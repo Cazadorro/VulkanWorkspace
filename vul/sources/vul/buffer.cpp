@@ -6,7 +6,6 @@
 #include "vul/vmaallocation.h"
 #include "vul/vmaallocator.h"
 #include "vul/device.h"
-#include "vul/bitmasks.h"
 #include "vul/temparrayproxy.h"
 #include "vul/tempvoidarrayproxy.h"
 #include "vul/deviceaddress.h"
@@ -73,10 +72,10 @@ vul::Buffer::createDescriptorInfo(VkDeviceSize offset, VkDeviceSize range) const
 }
 
 VkBufferMemoryBarrier2KHR
-vul::Buffer::createMemoryBarrier(vul::PipelineStage2BitMask srcStageMask,
-                                 vul::Access2BitMask srcAccessMask,
-                                 vul::PipelineStage2BitMask dstStageMask,
-                                 vul::Access2BitMask dstAccessMask,
+vul::Buffer::createMemoryBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2>  srcStageMask,
+                                uul::EnumFlags<vul::AccessFlagBits2> srcAccessMask,
+                                 uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+                                uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                                  VkDeviceSize offset, VkDeviceSize size,
                                  std::uint32_t srcQueueFamilyIndex,
                                  std::uint32_t dstQueueFamilyIndex,

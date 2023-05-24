@@ -181,20 +181,20 @@ int main() {
     if (ebnf_parse_result.has_value()) {
         std::cout << hlspv::ebnf::AstPrinter().print(*ebnf_parse_result_ptr)
                   << std::endl;
-//        auto symbol_table = hlspv::ebnf::calc_symbol_table(
-//                *ebnf_parse_result.value());
-//        std::cout << std::endl;
-//        std::cout << std::endl;
-//        for(auto& entry : symbol_table){
-//            std::cout << entry << std::endl;
-//        }
-//        std::cout << std::endl;
-//        std::cout << std::endl;
-//        auto symbol_errors = hlspv::ebnf::analyze_symbols(
-//                ebnf_scan_result.tokens, symbol_table);
-//        for (const auto &errors: symbol_errors) {
-//            std::cout << errors.message << std::endl;
-//        }
+        auto symbol_table = hlspv::ebnf::calc_symbol_table(
+                *ebnf_parse_result.value());
+        std::cout << std::endl;
+        std::cout << std::endl;
+        for(auto& entry : symbol_table){
+            std::cout << entry << std::endl;
+        }
+        std::cout << std::endl;
+        std::cout << std::endl;
+        auto symbol_errors = hlspv::ebnf::analyze_symbols(
+                ebnf_scan_result.tokens, symbol_table);
+        for (const auto &errors: symbol_errors) {
+            std::cout << errors.message << std::endl;
+        }
     } else {
         std::cout << ebnf_parse_result.error().create_info_string()
                   << std::endl;

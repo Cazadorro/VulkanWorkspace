@@ -224,6 +224,36 @@ std::string vul::generate_enum_class(const vul::EnumInfo &info,
     return declaration;
 }
 
+std::string vul::generate_enum_operators(const vul::EnumInfo &info, const std::string_view &namespace_str,const std::string_view &indent) {
+    std::string inline_definition;
+    inline_definition += fmt::format("{2}[[nodiscard]]\n"
+                                          "{2}constexpr uul::EnumFlags<{0}::{1}> operator|({0}::{1} lhs, {0}::{1} rhs) noexcept{{\n"
+                                          "{2}{2}return uul::EnumFlags<{0}::{1}>(lhs) | uul::EnumFlags<{0}::{1}>(rhs);\n"
+                                          "{2}}}\n",
+                                          namespace_str, info.name,
+                                          indent);
+    inline_definition += fmt::format("{2}[[nodiscard]]\n"
+                                     "{2}constexpr uul::EnumFlags<{0}::{1}> operator&({0}::{1} lhs, {0}::{1} rhs) noexcept{{\n"
+                                     "{2}{2}return uul::EnumFlags<{0}::{1}>(lhs) & uul::EnumFlags<{0}::{1}>(rhs);\n"
+                                     "{2}}}\n",
+                                     namespace_str, info.name,
+                                     indent);
+    inline_definition += fmt::format("{2}[[nodiscard]]\n"
+                                     "{2}constexpr uul::EnumFlags<{0}::{1}> operator^({0}::{1} lhs, {0}::{1} rhs) noexcept{{\n"
+                                     "{2}{2}return uul::EnumFlags<{0}::{1}>(lhs) ^ uul::EnumFlags<{0}::{1}>(rhs);\n"
+                                     "{2}}}\n",
+                                     namespace_str, info.name,
+                                     indent);
+    inline_definition += fmt::format("{2}[[nodiscard]]\n"
+                                     "{2}constexpr uul::EnumFlags<{0}::{1}> operator~({0}::{1} rhs) noexcept{{\n"
+                                     "{2}{2}return ~uul::EnumFlags<{0}::{1}>(rhs);\n"
+                                     "{2}}}\n",
+                                     namespace_str, info.name,
+                                     indent);
+    return inline_definition;
+}
+
+
 std::string vul::generate_forward_declaration(const vul::EnumInfo &info,
                                               const std::string_view &indent) {
     std::string underlying_string;
@@ -468,3 +498,4 @@ std::string vul::generate_bitmask_forward(const vul::EnumInfo &info,
     }
     return fmt::format("{1}class {0}BitMask;\n", bitmask_name, indent);
 }
+

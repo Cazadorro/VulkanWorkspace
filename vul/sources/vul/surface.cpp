@@ -10,7 +10,6 @@
 #include "vul/instance.h"
 #include "vul/expectedresult.h"
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
 #include <range/v3/algorithm/find.hpp>
 
 bool

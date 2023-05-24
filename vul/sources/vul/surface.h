@@ -6,10 +6,10 @@
 #define VULKANWORKSPACE_SURFACE_H
 
 #include "vul/enumsfwd.h"
-#include "vul/bitmasksfwd.h"
-#include "vul/bitmasks.h"
+#include <uul/enumflags.h>
 #include <vulkan/vulkan.h>
 #include <gsl/span>
+#include <string>
 #include <vector>
 #include <optional>
 #include <memory>
@@ -76,10 +76,10 @@ namespace vul {
         VkExtent2D minImageExtent;
         VkExtent2D maxImageExtent;
         std::uint32_t maxImageArrayLayers;
-        vul::SurfaceTransformFlagBitMask supportedTransforms;
+        uul::EnumFlags<vul::SurfaceTransformFlagBitsKHR> supportedTransforms;
         vul::SurfaceTransformFlagBitsKHR currentTransform;
-        vul::CompositeAlphaFlagBitMask supportedCompositeAlpha;
-        vul::ImageUsageBitMask supportedUsageFlags;
+        uul::EnumFlags<vul::CompositeAlphaFlagBitsKHR> supportedCompositeAlpha;
+        uul::EnumFlags<vul::ImageUsageFlagBits> supportedUsageFlags;
         [[nodiscard]]
         std::uint32_t calcSwapchainImageCount() const;
         [[nodiscard]]

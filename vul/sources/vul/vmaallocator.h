@@ -9,7 +9,6 @@
 #include "vul/device.h"
 #include "vul/physicaldevice.h"
 #include "vul/instance.h"
-#include "vul/bitmasks.h"
 #include "vul/expectedresult.h"
 #include "vul/buffer.h"
 #include "vul/image.h"
@@ -17,6 +16,7 @@
 #include "vul/temparrayproxyfwd.h"
 #include "uul/concepts.h"
 #include "uul/array.h"
+#include <uul/enumflagsfwd.h>
 #include <vk_mem_alloc.h>
 
 
@@ -75,34 +75,34 @@ namespace vul {
 
         [[nodiscard]]
         ExpectedResult<Buffer> createMappedCoherentBuffer(VkDeviceSize size,
-                                                          vul::BufferUsageBitMask usages) const;
+                                                          uul::EnumFlags<vul::BufferUsageFlagBits> usages) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer> createStagingBuffer(VkDeviceSize size,
-                                                   vul::BufferUsageBitMask otherUsages = {}) const;
+                                                   uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages = {}) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer> createHostDestinationBuffer(VkDeviceSize size,
-                                                           vul::BufferUsageBitMask otherUsages = {}) const;
+                                                           uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages = {}) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer> createDeviceBuffer(VkDeviceSize size,
-                                                  vul::BufferUsageBitMask usages) const;
+                                                  uul::EnumFlags<vul::BufferUsageFlagBits> usages) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer>
         createMappedCoherentBuffer(const TempConstVoidArrayProxy &array,
-                                   vul::BufferUsageBitMask otherUsages = {}) const;
+                                   uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages = {}) const;
 
         [[nodiscard]]
         ExpectedResult<Buffer>
         createStagingBuffer(const TempConstVoidArrayProxy &array,
-                            vul::BufferUsageBitMask otherUsages = {}) const;
+                            uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages = {}) const;
 
         template<uul::ContiguousContainer container>
         [[nodiscard]]
         vul::ExpectedResult<vul::Buffer> createStagingBufferFromMany(const vul::TempArrayProxy<container> &arrayList,
-                                                                     vul::BufferUsageBitMask otherUsages = {}) const {
+                                                                     uul::EnumFlags<vul::BufferUsageFlagBits> otherUsages = {}) const {
             VkDeviceSize totalSizeBytes = 0;
             for (const auto &array: arrayList) {
                 totalSizeBytes += uul::size_bytes(array);
@@ -121,7 +121,7 @@ namespace vul {
         ExpectedResult<Buffer> createDeviceBuffer(
                 CommandPool &commandPool, Queue &queue,
                 const TempConstVoidArrayProxy &array,
-                vul::BufferUsageBitMask usages) const;
+                uul::EnumFlags<vul::BufferUsageFlagBits> usages) const;
 
         [[nodiscard]]
         ExpectedResult<Image>
@@ -138,9 +138,9 @@ namespace vul {
                 CommandPool &commandPool, Queue &queue,
                 ExpectedResult<Buffer> expectedStageBuffer,
                 const ImageCreateInfo &imageInfo,
-                vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStage2BitMask dstStageMask,
-                vul::Access2BitMask dstAccessMask,
+                uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+               uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0) const;
 
@@ -149,9 +149,9 @@ namespace vul {
                 CommandPool &commandPool, Queue &queue,
                 const TempConstVoidArrayProxy &array,
                 const ImageCreateInfo &imageInfo,
-                vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStage2BitMask dstStageMask,
-                vul::Access2BitMask dstAccessMask,
+                uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+               uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0) const;
 
@@ -161,9 +161,9 @@ namespace vul {
                 CommandPool &commandPool, Queue &queue,
                 const TempArrayProxy<container> &arrayList,
                 const ImageCreateInfo &imageInfo,
-                vul::ImageAspectBitMask aspectMask,
-                vul::PipelineStage2BitMask dstStageMask,
-                vul::Access2BitMask dstAccessMask,
+                uul::EnumFlags<vul::ImageAspectFlagBits> aspectMask,
+                uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+               uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                 vul::ImageLayout dstLayout,
                 std::uint32_t mipLevel = 0) const {
             return createDeviceImageInitImpl(commandPool, queue, createStagingBufferFromMany(arrayList), imageInfo,

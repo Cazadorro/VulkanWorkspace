@@ -7,7 +7,7 @@
 #include "vul/expectedresult.h"
 #include <uul/assert.h>
 #include "vul/enums.h"
-#include "vul/bitmasks.h"
+#include <uul/enumflags.h>
 #include <vector>
 
 vul::BinarySemaphore::BinarySemaphore(const vul::Device &device,
@@ -47,7 +47,7 @@ vul::Result vul::BinarySemaphore::setObjectName(const std::string &string) {
 }
 
 VkSemaphoreSubmitInfoKHR
-vul::BinarySemaphore::createSubmitInfo(vul::PipelineStage2BitMask stageMask,
+vul::BinarySemaphore::createSubmitInfo(uul::EnumFlags<vul::PipelineStageFlagBits2>  stageMask,
                                        std::uint32_t deviceIndex,
                                        const void *pNext) const{
     VkSemaphoreSubmitInfoKHR submitInfo = {};
@@ -119,7 +119,7 @@ vul::Result vul::TimelineSemaphore::wait(std::uint64_t waitValue,
 vul::Result
 vul::TimelineSemaphore::wait(const gsl::span<const TimelineSemaphore *const> &semaphores,
           const gsl::span<const std::uint64_t> &waitValues,
-          std::uint64_t timeout_ns, SemaphoreWaitBitMask flags) {
+          std::uint64_t timeout_ns, uul::EnumFlags<vul::SemaphoreWaitFlagBits>  flags) {
 
     UUL_ASSERT(!semaphores.empty(), "Semaphore array can't be is_empty");
     UUL_ASSERT(semaphores.size() == waitValues.size(), "Wait values size differs from semaphore array size");
@@ -145,7 +145,7 @@ vul::Result
 vul::TimelineSemaphore::wait(const gsl::span<const TimelineSemaphore *const> &semaphores,
           const gsl::span<const std::uint64_t> &waitValues,
           std::uint64_t timeout_ns) {
-    return wait(semaphores, waitValues, timeout_ns, SemaphoreWaitBitMask{});
+    return wait(semaphores, waitValues, timeout_ns, uul::EnumFlags<vul::SemaphoreWaitFlagBits> {});
 }
 
 vul::Result
@@ -165,7 +165,7 @@ vul::Result vul::TimelineSemaphore::signal(std::uint64_t signalValue) {
 
 VkSemaphoreSubmitInfoKHR
 vul::TimelineSemaphore::createSubmitInfo(std::uint64_t value,
-                                         vul::PipelineStage2BitMask stageMask,
+                                         uul::EnumFlags<vul::PipelineStageFlagBits2>  stageMask,
                                          std::uint32_t deviceIndex,
                                          const void *pNext) const{
     VkSemaphoreSubmitInfoKHR submitInfo = {};

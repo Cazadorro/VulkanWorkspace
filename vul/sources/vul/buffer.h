@@ -7,7 +7,6 @@
 
 #include "vul/vmaallocation.h"
 #include "vul/enumsfwd.h"
-#include "vul/bitmasksfwd.h"
 #include "vul/commandutils.h"
 #include "vul/temparrayproxyfwd.h"
 #include "uul/concepts.h"
@@ -64,10 +63,10 @@ namespace vul {
         [[nodiscard]]
         VkDescriptorBufferInfo createDescriptorInfo(VkDeviceSize offset = 0, VkDeviceSize range = VK_WHOLE_SIZE) const;
 
-        VkBufferMemoryBarrier2KHR createMemoryBarrier( vul::PipelineStage2BitMask srcStageMask,
-                                                       vul::Access2BitMask srcAccessMask,
-                                                       vul::PipelineStage2BitMask dstStageMask,
-                                                       vul::Access2BitMask dstAccessMask,
+        VkBufferMemoryBarrier2KHR createMemoryBarrier( uul::EnumFlags<vul::PipelineStageFlagBits2>  srcStageMask,
+                                                      uul::EnumFlags<vul::AccessFlagBits2> srcAccessMask,
+                                                       uul::EnumFlags<vul::PipelineStageFlagBits2>  dstStageMask,
+                                                      uul::EnumFlags<vul::AccessFlagBits2> dstAccessMask,
                                                        VkDeviceSize offset = 0,
                                                        VkDeviceSize size = VK_WHOLE_SIZE,
                                                        std::uint32_t srcQueueFamilyIndex = 0,

@@ -6,8 +6,8 @@
 #define VULKANWORKSPACE_COMPUTEPIPELINE_H
 
 
-#include "vul/bitmasksfwd.h"
 #include "vul/shadermodule.h"
+#include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
 #include <vector>
 namespace vul{
@@ -59,7 +59,7 @@ namespace vul{
         explicit ComputePipelineBuilder(const Device &device,
                                          const VkAllocationCallbacks *pAllocator = nullptr);
 
-        void setFlags(vul::PipelineCreateBitMask flags);
+        void setFlags(uul::EnumFlags<vul::PipelineCreateFlagBits> flags);
 
         void setShaderCreateInfo(
                 PipelineComputeShaderStageCreateInfo computeInfo);

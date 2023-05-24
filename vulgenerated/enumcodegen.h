@@ -35,6 +35,11 @@ namespace vul{
     [[nodiscard]]
     std::string generate_enum_class(const vul::EnumInfo &info,
                                     const std::string_view &indent);
+
+    [[nodiscard]]
+    std::string generate_enum_operators(const vul::EnumInfo &info,
+                                            const std::string_view &namespace_str,
+                                    const std::string_view &indent);
     [[nodiscard]]
     std::string generate_forward_declaration(const vul::EnumInfo &info,
                                              const std::string_view &indent);

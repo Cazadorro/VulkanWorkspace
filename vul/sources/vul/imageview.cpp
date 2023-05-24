@@ -5,7 +5,6 @@
 #include "imageview.h"
 #include "vul/device.h"
 #include "vul/expectedresult.h"
-#include "vul/bitmasks.h"
 #include "vul/enums.h"
 #include "vul/sampler.h"
 
@@ -21,7 +20,7 @@ vul::ImageViewBuilder &vul::ImageViewBuilder::pNext(const void *value) {
 }
 
 vul::ImageViewBuilder &
-vul::ImageViewBuilder::flags(vul::ImageViewCreateBitMask value) {
+vul::ImageViewBuilder::flags(uul::EnumFlags<vul::ImageViewCreateFlagBits> value) {
     m_createInfo.flags = value.to_underlying();
     return *this;
 }

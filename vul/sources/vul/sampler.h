@@ -4,9 +4,9 @@
 
 #ifndef VULKANWORKSPACE_SAMPLER_H
 #define VULKANWORKSPACE_SAMPLER_H
+#include "vul/enumsfwd.h"
+#include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
-#include <vul/enumsfwd.h>
-#include <vul/bitmasksfwd.h>
 #include <cstdint>
 #include <string>
 namespace vul{
@@ -46,7 +46,7 @@ namespace vul{
     public:
         explicit SamplerBuilder(const Device &device,
                        const VkAllocationCallbacks *pAllocator = nullptr);
-        void setCreateFlags(vul::SamplerCreateBitMask flags);
+        void setCreateFlags(uul::EnumFlags<vul::SamplerCreateFlagBits> flags);
         void setFilter(vul::Filter filter);
         void setFilter(vul::Filter minFilter, vul::Filter magFilter);
         void setMipmapMode(vul::SamplerMipmapMode mipmapMode);
