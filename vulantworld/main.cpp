@@ -39,8 +39,9 @@
 #include <vul/debugutils.h>
 #include <vul/physicaldevice.h>
 #include <vul/features.h>
-#include <vul/bitmasks.h>
 #include <vul/expectedresult.h>
+#include <vul/pushconstantrange.h>
+#include <vul/submitinfobuilder.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -85,13 +86,13 @@ struct alignas(8) FullScreenPushConstant {
     std::uint32_t image_display_enum;
     float image_zoom;
     std::uint32_t u_ant_grid_dim;
-    std::uint64_t u_ant_grid;
+    vul::DeviceAddress u_ant_grid;
 };
 
 struct alignas(8) AntComputePushConstant {
-    std::uint64_t u_ant_grid;
-    std::uint64_t u_ant_pos;
-    std::uint64_t u_ant_dir;
+    vul::DeviceAddress u_ant_grid;
+    vul::DeviceAddress u_ant_pos;
+    vul::DeviceAddress u_ant_dir;
 
     std::uint32_t u_ant_grid_dim;
     std::uint32_t u_ant_count;
@@ -255,10 +256,10 @@ int main() {
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
     descriptorSetLayoutBuilder.setBindings({
-                                                   vul::CombinedSamplerBinding(0,
+                                               vul::CombinedSamplerBinding(0,
 
-                                                                               vul::ShaderStageFlagBits::FragmentBit,
-                                                                               3).get(),
+                                                                           vul::ShaderStageFlagBits::FragmentBit,
+                                                                           3),
                                            });
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
@@ -269,12 +270,10 @@ int main() {
 
     auto pipelineLayout = device.createPipelineLayout(
             descriptorLayout,
-            VkPushConstantRange{
-                    (vul::ShaderStageFlagBits::VertexBit |
-                     vul::ShaderStageFlagBits::FragmentBit).to_underlying(),
-                    0,
-                    sizeof(FullScreenPushConstant)
-            }).assertValue();
+            vul::PushConstantRange::create<FullScreenPushConstant>(
+                    vul::ShaderStageFlagBits::VertexBit |
+                    vul::ShaderStageFlagBits::FragmentBit)
+            ).assertValue();
 //    auto pipelineLayout = device.createPipelineLayout(
 //            descriptorLayout).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
@@ -427,9 +426,8 @@ int main() {
             colors[i * 128 + j] = ColorRGBA{0xFFu, 0x00u, 0x00u, 0xFFu};
         }
     }
-
     for (std::size_t i = 0; i < swapchainSize; ++i) {
-        host_staging_buffers[i].mappedCopyFromArray(colors);
+        host_staging_buffers[i].mappedCopyFrom(colors);
     }
 
     vul::SamplerBuilder samplerBuilder(device);
@@ -443,11 +441,9 @@ int main() {
 
 
     auto antWorldPipelineLayout = device.createPipelineLayout(
-            VkPushConstantRange{
-                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::ComputeBit),
-                    0,
-                    sizeof(AntComputePushConstant)
-            }).assertValue();
+            vul::PushConstantRange::create<AntComputePushConstant>(
+                    vul::ShaderStageFlagBits::ComputeBit)
+                    ).assertValue();
     auto computeBuilder = vul::ComputePipelineBuilder(device);
     vul::ComputePipeline antWorldPipeline;
     {
@@ -848,21 +844,13 @@ int main() {
                 vul::PipelineStageFlagBits2::AllCommandsBit);
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
                 vul::PipelineStageFlagBits2::AllCommandsBit);
-        auto commandBufferInfo = commandBuffer.createSubmitInfo();
-
-        VkSubmitInfo2KHR submitInfo = {};
-        submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2_KHR;
-        submitInfo.pNext = nullptr; // All 3 struct above are built into VkSubmitInfo2KHR
-        submitInfo.flags = 0; // VK_SUBMIT_PROTECTED_BIT_KHR also can be zero, replaces VkProtectedSubmitInfo
-        submitInfo.waitSemaphoreInfoCount = 1;
-        submitInfo.pWaitSemaphoreInfos = &presentationWaitInfo;
-        submitInfo.commandBufferInfoCount = 1;
-        submitInfo.pCommandBufferInfos = &commandBufferInfo;
-        submitInfo.signalSemaphoreInfoCount = signalInfos.size();
-        submitInfo.pSignalSemaphoreInfos = signalInfos.data();
 
 
-        presentationQueue.submit(submitInfo);
+        presentationQueue.submit(vul::SubmitInfoBuilder()
+                .waitSemaphoreInfos(presentationWaitInfo)
+                .commandBufferInfos(commandBuffer.createSubmitInfo())
+                .signalSemaphoreInfos(signalInfos)
+                .create());
         //TODO do actual render here
 
         imguiRenderer.postSubmit();
