@@ -1,0 +1,122 @@
+ModuleExpression = (StructDefinition | FunctionDefinition | MemberDeclaration)+;
+
+
+EqualsExpression = 'Equals',RhsExpression;
+MemberDeclaration = 'Const'?,'Identifier','Colon','Identifier',EqualsExpression?,'Comma';
+StructDefinition = 'Struct', 'Identifier',
+                   'LeftCurlyBrace',
+                      (TypeInstantiation)*,
+                  'RightCurlyBrace';
+// xyz : y
+ParameterDeclaration = AttributeExpression*, 'Identifier', ('Colon', 'Identifier')?;
+// [ x : A, y : B, c ]
+TemplateDefinition = 'LeftBrace', (ParameterDeclaration, ('Comma', !'RightBrace')?)+, 'RightBrace';
+FunctionParameterList = 'LeftParenthesis', (ParameterDeclaration, ('Comma', !'RightParenthesis')?)*, 'RightParenthesis';
+FunctionDefinition = 'Const'?, 'Function', 'Identifier', TemplateDefinition?, FunctionParameterList,
+    'LeftCurlyBrace',
+        StatementExpression*
+    'RightCurlyBrace';
+
+Literal = 'String',
+          'DecimalUnsignedLiteral',
+          'DecimalIntegerLiteral',
+          'BinaryLiteral',
+          'HexidecimalLiteral',
+          'OctalLiteral',
+          'DecimalFloatingPointLiteral',
+          'BooleanLiteral';
+
+GroupExpression = 'LeftParenthesis',RhsExpression, 'RightParenthesis';
+RangeExpression = ('Identifier' | Literal), 'ShortEllipses' 'Equals'?('Identifier' | Literal);
+RhsExpression = FunctionCall | GroupExpression | ArithmeticExpression | RangeExpression | 'Identifier' | Literal;
+NonArithmeticRhsExpression = FunctionCall | GroupExpression | 'Identifier' | Literal;
+FunctionCallArgumentList = 'LeftParenthesis', (RhsExpression, ('Comma', !'RightBrace')?)*, 'RightParenthesis';
+TemplateInstantiation = 'LeftBrace', (RhsExpression, ('Comma', !'RightBrace')?)+, 'RightBrace';
+FunctionCall = 'Identifier' TemplateInstantiation? FunctionCallArgumentList;
+
+StatementExpression = (FunctionCall,'SemiColon') | (InlineAssignmentExpression,'SemiColon')
+     ConditionalStatement | WhileLoopStatement | ForInStatement | ScopeStatement | VariableDefinitionExpression | 'Return';
+
+LoopStatementExpression =  (FunctionCall,'SemiColon') | (InlineAssignmentExpression,'SemiColon') |
+    LoopConditionalStatement | WhileLoopStatement | ForInStatement | LoopScopeStatement | VariableDefinitionExpression
+    | 'Return' | 'Break' | 'Continue';
+
+ScopeStatement =   'LeftCurlyBrace',
+                         StatementExpression*,
+                     'RightCurlyBrace';
+
+ConditionalStatement =
+'If', RhsExpression, ScopeStatement,
+('Elif', RhsExpression, ScopeStatement)*,
+('Else', ScopeStatement)?;
+
+LoopScopeStatement =  'LeftCurlyBrace',
+                         LoopStatementExpression*,
+                     'RightCurlyBrace';
+
+LoopConditionalStatement =
+'If', RhsExpression, LoopScopeStatement,
+('Elif', RhsExpression, LoopScopeStatement)*,
+('Else', LoopScopeStatement)?;
+
+WhileLoopStatement = 'While', RhsExpression, LoopScopeStatement;
+
+
+
+ForInStatement = 'For', 'Identifier', 'In', RhsExpression | RangeExpression, LoopScopeStatement;
+
+NormExpression = 'DoublePipe', RhsExpression, 'DoublePipe';
+UnaryMinusExpression = 'Minus', RhsExpression;
+UnaryPlusExpression = 'Plus', RhsExpression;
+UnaryNotExpression = 'Not', RhsExpression;
+
+
+UnaryOperatorExpression = NormExpression | UnaryExpression | UnaryPlusExpression | NonArithmeticRhsExpression;
+PowExpression = UnaryOperatorExpression, ('DoubleStar', UnaryOperatorExpression)*;
+MulExpression = PowExpression, ('Star', PowExpression)*;
+DivExpression = PowExpression, ('ForwardSlash', PowExpression)*;
+ModExpression = PowExpression, ('Percent', PowExpression)*;
+MatMulExpression = PowExpression, ('At', PowExpression)*;
+
+MulPrecedenceExpression = MulExpression | DivExpression | ModExpression | MatMulExpression;
+
+AddExpression = MulPrecedenceExpression, ('Plus', MulPrecedenceExpression)*;
+SubExpression = MulPrecedenceExpression, ('Minus', MulPrecedenceExpression)*;
+
+AddPrecedenceExpression = AddExpression | SubExpression;
+
+EqualExpression = AddPrecedenceExpression, ('DoubleEquals', AddPrecedenceExpression)*;
+NotEqualExpression = AddPrecedenceExpression, ('NotEquals', AddPrecedenceExpression)*;
+GreaterThanExpression = AddPrecedenceExpression, ('GreaterThan', AddPrecedenceExpression)*;
+GreaterThanEqualsExpression = AddPrecedenceExpression, ('GreaterThanEquals', AddPrecedenceExpression)*;
+LessThanExpression = AddPrecedenceExpression, ('LessThan', AddPrecedenceExpression)*;
+LessThanEqualsExpression = AddPrecedenceExpression, ('LessThanEquals', AddPrecedenceExpression)*;
+
+ComparisonPrecedenceExpression = EqualExpression | NotEqualExpression | GreaterThanExpression
+                                 | GreaterThanEqualsExpression | LessThanExpression | LessThanEqualsExpression;
+
+AndExpression = ComparisonPrecedenceExpression, ('And', ComparisonPrecedenceExpression)*;
+OrExpression = ComparisonPrecedenceExpression, ('Or', ComparisonPrecedenceExpression)*;
+XorExpression = ComparisonPrecedenceExpression, ('Xor', ComparisonPrecedenceExpression)*;
+
+ArithmeticExpression = AndExpression | OrExpression | XorExpression;
+
+InlineAssignmentExpression = 'Identifier', 'Equals', RhsExpression;
+
+RequiredAssignmentExpression = 'Identifier', ('Colon' 'Identifier')?, 'Equals', RhsExpression;
+
+OptionalAssignmentExpression = 'Identifier', ('Colon' 'Identifier'), ('Equals', RhsExpression)?;
+
+
+DeclarationAssignmentExpression = RequiredAssignmentExpression | OptionalAssignmentExpression;
+
+
+AttributeExpression = 'LeftBrace', 'LeftBrace', ('Identifier', ( 'Equals', RhsExpression)?, ('Comma', !'RightBrace')?)+ 'RightBrace', 'RightBrace';
+
+
+VarDefinitionExpression = AttributeExpression*, 'Var', TemplateDefinition?, DeclarationAssignmentExpression;
+LetDefinitionExpression = AttributeExpression*, 'Let', DeclarationAssignmentExpression;
+
+VariableDefinitionExpression = VarDefinitionExpression | LetDefinitionExpression;
+
+//Match stuff match(x) => ... also elipses

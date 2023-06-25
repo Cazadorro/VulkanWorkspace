@@ -57,6 +57,10 @@ namespace hlspv {
         }
 
         [[nodiscard]]
+        std::size_t consume_size() const {
+            return (current_token_index) - start_token_index;
+        }
+        [[nodiscard]]
         std::size_t get_current_token_index() const {
             return current_token_index;
         }
@@ -148,6 +152,16 @@ namespace hlspv {
 
         void reset_start_index() {
             reset_start_index(current_token_index);
+        }
+        void set_current_token_index(std::size_t index){
+            current_token_index = index;
+        }
+        void reset_current_token_index(){
+            set_current_token_index(start_token_index);
+        }
+
+        void set_current_token_index(const ParseState& parse_state){
+            current_token_index = parse_state.current_token_index;
         }
     };
 

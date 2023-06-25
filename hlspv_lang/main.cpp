@@ -3,13 +3,16 @@
 //
 
 #include "code_generation.h"
-#include "scan.h"
+#include "lang_scan.h"
 //#include "ebnfgenerator.h"
 #include "ebnf_scan.h"
 #include "ebnf_parse.h"
+#include "ebnf_parser_gen.h"
 #include "ebnf_semantics.h"
 #include "ebnf_ast_printer.h"
-#include "astprinter.h"
+
+#include "lang_expr_type.h"
+#include "lang_token_type.h"
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -121,38 +124,22 @@ int main() {
             "C:/Users/Bolt/Documents/GitRepositories/VulkanWorkspace/hlspv_lang/test_parse.txt");
     std::string contents((std::istreambuf_iterator<char>(in)),
                          std::istreambuf_iterator<char>());
-    auto scan_result = hlspv::scan(contents);
+    auto scan_result = hlspv::lang::scan(contents);
     for (const auto &error: scan_result.errors) {
         std::cout << error.create_info_string() << std::endl;
     }
     for (const auto &token: scan_result.tokens) {
         std::cout << token.lexeme() << std::endl;
     }
-    auto minus_token = hlspv::Token{hlspv::TokenType::Minus, {"-", 0, 0}, {},
+    auto minus_token = hlspv::lang::LangToken{hlspv::lang::TokenType::Minus, {"-", 0, 0}, {},
                                     1};
-    auto num_0_token = hlspv::Token{
-            hlspv::TokenType::DecimalFloatingPointLiteral, {"123.0", 0, 0},
+    auto num_0_token = hlspv::lang::LangToken
+            {hlspv::lang::TokenType::DecimalFloatingPointLiteral, {"123.0", 0, 0},
             123.0, 1};
-    auto star_token = hlspv::Token{hlspv::TokenType::Star, {"*", 0, 0}, {}, 1};
-    auto num_1_token = hlspv::Token{
-            hlspv::TokenType::DecimalFloatingPointLiteral, {"45.67", 0, 0},
+    auto star_token = hlspv::lang::LangToken{hlspv::lang::TokenType::Star, {"*", 0, 0}, {}, 1};
+    auto num_1_token = hlspv::lang::LangToken{
+                hlspv::lang::TokenType::DecimalFloatingPointLiteral, {"45.67", 0, 0},
             45.67, 1};
-//    hlspv::Expression expression2 =  hlspv::Expression{hlspv::NumericLiteral{num_0_token}};
-    hlspv::Expression expression{hlspv::BinaryExpression{
-            hlspv::Expression{hlspv::UnaryExpression{hlspv::UnaryOperator{
-                    hlspv::Token{hlspv::TokenType::Minus, {"-", 0, 0}, {}, 1}},
-                                                     hlspv::PrimaryExpression{
-                                                             hlspv::NumericLiteral{
-                                                                     num_0_token}}
-            }},
-            hlspv::BinaryOperator{star_token},
-            hlspv::Expression{
-                    hlspv::GroupingExpression{
-                            hlspv::NumericLiteral{num_1_token}}
-            }
-    }};
-
-    std::cout << hlspv::AstPrinter().print(expression) << std::endl;
 
 //    auto ebnf_scan_result = hlspv::ebnf::scan(
 //            "hello_world = 'abc' | 'abcd' | nothing, turtle;\n"
@@ -166,6 +153,52 @@ int main() {
 //            "nothing = turtle;\n"
 //            "temp = hello_shouldnt_find;\n"
 //            "temp2 = hello_shouldnt_find2;");
+    {
+        std::cout << "STUUUUF\n\n\n" << std::endl;
+        std::ifstream in(
+                "C:/Users/Bolt/Documents/GitRepositories/VulkanWorkspace/hlspv_lang/lang_peg.txt");
+        std::string contents((std::istreambuf_iterator<char>(in)),
+                             std::istreambuf_iterator<char>());
+        auto ebnf_scan_result = hlspv::ebnf::scan(contents);
+        for (const auto &error: ebnf_scan_result.errors) {
+            std::cout << error.create_info_string() << std::endl;
+        }
+        for (const auto &token: ebnf_scan_result.tokens) {
+            std::cout << token.lexeme() << std::endl;
+        }
+        auto [ebnf_parse_result, parse_memory] = hlspv::ebnf::parse(ebnf_scan_result.tokens);
+        if(true) {
+            if (ebnf_parse_result.has_value()) {
+                auto ebnf_parse_result_ptr = ebnf_parse_result.value();
+                std::cout << hlspv::ebnf::AstPrinter().print(*ebnf_parse_result_ptr)
+                          << std::endl;
+                auto symbol_table = hlspv::ebnf::calc_symbol_table(
+                        *ebnf_parse_result.value());
+                std::cout << std::endl;
+                std::cout << std::endl;
+                for (auto &entry: symbol_table) {
+                    std::cout << entry << std::endl;
+                }
+                std::cout << std::endl;
+                std::cout << std::endl;
+                auto symbol_errors = hlspv::ebnf::analyze_symbols(
+                        ebnf_scan_result.tokens, symbol_table);
+                for (const auto &errors: symbol_errors) {
+                    std::cout << errors.message << std::endl;
+                }
+            } else {
+                std::cout << ebnf_parse_result.error().create_info_string()
+                          << std::endl;
+            }
+        }
+        std::cout << "STUUUUF\n\n\n" << std::endl;
+        hlspv::ebnf::ParserGenerator<hlspv::lang::ExpressionType, hlspv::lang::LangToken> parser_gen;
+
+        auto parse_gen_result = parser_gen.generate(*(ebnf_parse_result.value()), hlspv::lang::ExpressionType::ModuleExpression );
+
+
+
+    }
     auto ebnf_scan_result = hlspv::ebnf::scan(
 //            "hello_world = 'abc' | 'abcd' | nothing, turtle;\n"
             "turtle = ((hello_world)*)+;"
@@ -177,8 +210,9 @@ int main() {
         std::cout << token.lexeme() << std::endl;
     }
     auto [ebnf_parse_result, parse_memory] = hlspv::ebnf::parse(ebnf_scan_result.tokens);
-    auto ebnf_parse_result_ptr = ebnf_parse_result.value();
+
     if (ebnf_parse_result.has_value()) {
+        auto ebnf_parse_result_ptr = ebnf_parse_result.value();
         std::cout << hlspv::ebnf::AstPrinter().print(*ebnf_parse_result_ptr)
                   << std::endl;
         auto symbol_table = hlspv::ebnf::calc_symbol_table(

@@ -2,9 +2,12 @@
 // Created by Shae Bolt on 9/18/2022.
 //
 
-#include "scan.h"
+#include "lang_scan.h"
 #include "token.h"
-#include "utils.h"
+#include "scan_state.h"
+#include <uul/constexprmap.h>
+#include <uul/string.h>
+#include <uul/char.h>
 #include <fmt/core.h>
 #include <string_view>
 #include <string>
@@ -16,50 +19,24 @@
 #include <array>
 #include <stdexcept>
 
-namespace hlspv {
-
-    template<typename Key, typename Value, std::size_t Size>
-    struct ConstexprMap {
-        std::array<std::pair<Key, Value>, Size> data;
-
-        [[nodiscard]]
-        constexpr Value at(const Key &key) const {
-            const auto itr = std::find_if(begin(data), end(data),
-                                          [&key](const auto &v) {
-                                              return v.first == key;
-                                          });
-            if (itr != end(data)) {
-                return itr->second;
-            } else {
-                throw std::range_error("Not Found");
-            }
-        }
-
-        [[nodiscard]]
-        constexpr std::optional<Value> get(const Key &key) const {
-            const auto itr = std::find_if(begin(data), end(data),
-                                          [&key](const auto &v) {
-                                              return v.first == key;
-                                          });
-            if (itr != end(data)) {
-                return itr->second;
-            } else {
-                return std::nullopt;
-            }
-        }
-
-    };
-
-    using KeywordMap = ConstexprMap<std::string_view, TokenType, 27>;
-
+namespace hlspv{
+    struct ScanState;
+}
+namespace hlspv::lang {
+    
+    using KeywordMap = uul::ConstexprMap<std::string_view, TokenType, 37>;
     using namespace std::literals::string_view_literals;
-    static constexpr std::array<std::pair<std::string_view, TokenType>, 27> keyword_pairs = {
+    static constexpr std::array<std::pair<std::string_view, TokenType>, KeywordMap::max_size> keyword_pairs = {
             {
                     {"true"sv, TokenType::BooleanLiteral},
                     {"false"sv, TokenType::BooleanLiteral},
+                    {"null"sv, TokenType::Null},
                     {"let"sv, TokenType::Let},
+                    {"var"sv, TokenType::Var},
                     {"const"sv, TokenType::Const},
                     {"fn"sv, TokenType::Function},
+                    {"lit"sv, TokenType::LiteralFunction},
+                    {"op"sv, TokenType::OperatorOverload},
                     {"struct"sv, TokenType::Struct},
                     {"enum"sv, TokenType::Enum},
                     {"trait"sv, TokenType::Trait},
@@ -81,39 +58,44 @@ namespace hlspv {
                     {"not"sv, TokenType::Not},
                     {"pub"sv, TokenType::Pub},
                     {"mod"sv, TokenType::Mod},
+                    {"where"sv, TokenType::Where},
+                    {"use"sv, TokenType::Use},
+                    {"in"sv, TokenType::In},
+                    {"static"sv, TokenType::Static},
+                    {"Mut"sv, TokenType::Mut},
+                    {"Extern"sv, TokenType::Extern},
                     {"return"sv, TokenType::Return}
             }
     };
     static constexpr auto keyword_map = KeywordMap{{keyword_pairs}};
 
 
-    struct ScanState;
 
 
 
     template<typename T>
-    Token create_token(TokenType token_type, const ScanState &scan_state);
+    LangToken create_token(TokenType token_type, const ScanState &scan_state);
 
     template<TokenType token_type>
-    Token create_token(const ScanState &scan_state);
+    LangToken create_token(const ScanState &scan_state);
 
-    Token create_token(TokenType token_type, const ScanState &scan_state);
+    LangToken create_token(TokenType token_type, const ScanState &scan_state);
 
 
 
     template<typename T = std::monostate>
-    Token create_token(TokenType token_type, const ScanState &scan_state) {
+    LangToken create_token(TokenType token_type, const ScanState &scan_state) {
         auto lexeme_view = scan_state.create_lexeme_view();
         if constexpr (std::is_same_v<T, std::monostate>) {
             return {token_type, lexeme_view, {},
                     scan_state.line_index};
         } else if constexpr (std::is_same_v<T, std::string>) {
             //TODO strip escape characters!
-            return {token_type, lexeme_view, std::string(trim(lexeme_view.to_sv(), 1)),
+            return {token_type, lexeme_view, std::string(uul::trim(lexeme_view.to_sv(), 1)),
                     scan_state.line_index};
         } else if constexpr (std::is_same_v<T, double>) {
             //TODO stod could fail? how would we propogate such errors here?
-            std::string stripped = remove_char(lexeme_view.to_sv(), '_');
+            std::string stripped = uul::remove_char(lexeme_view.to_sv(), '_');
 
             //TODO we need to insert a dot here for C++ to properly parse this...
             try {
@@ -131,16 +113,16 @@ namespace hlspv {
                         scan_state.line_index};
             }
         } else if constexpr (std::is_same_v<T, std::uint64_t>) {
-            std::string stripped = remove_char(lexeme_view.to_sv(), '_');
+            std::string stripped = uul::remove_char(lexeme_view.to_sv(), '_');
             std::uint64_t value;
             if (stripped.size() > 2 && stripped[1] == 'x') {
-                stripped = trim_left(stripped, 2);
+                stripped = uul::trim_left(stripped, 2);
                 value = std::stoull(stripped, nullptr, 16);
             } else if (stripped.size() > 2 && stripped[1] == 'o') {
-                stripped = trim_left(stripped, 2);
+                stripped = uul::trim_left(stripped, 2);
                 value = std::stoull(stripped, nullptr, 8);
             } else if (stripped.size() > 2 && stripped[1] == 'b') {
-                stripped = trim_left(stripped, 2);
+                stripped = uul::trim_left(stripped, 2);
                 value = std::stoull(stripped, nullptr, 2);
             } else {
                 value = std::stoull(std::string(stripped));
@@ -148,7 +130,7 @@ namespace hlspv {
             return {token_type, lexeme_view, value,
                     scan_state.line_index};
         } else if constexpr (std::is_same_v<T, std::int64_t>) {
-            std::string stripped = remove_char(lexeme_view.to_sv(), '_');
+            std::string stripped = uul::remove_char(lexeme_view.to_sv(), '_');
             std::int64_t value = std::stoll(std::string(stripped));
             return {token_type, lexeme_view, value,
                     scan_state.line_index};
@@ -165,7 +147,7 @@ namespace hlspv {
     }
 
     template<TokenType token_type>
-    Token create_token(const ScanState &scan_state) {
+    LangToken create_token(const ScanState &scan_state) {
         switch (token_type) {
             case TokenType::String: {
                 return create_token<std::string>(token_type, scan_state);
@@ -196,7 +178,7 @@ namespace hlspv {
         }
     }
 
-    Token create_token(TokenType token_type, const ScanState &scan_state) {
+    LangToken create_token(TokenType token_type, const ScanState &scan_state) {
         switch (token_type) {
             case TokenType::String: {
                 return create_token<std::string>(token_type, scan_state);
@@ -228,9 +210,9 @@ namespace hlspv {
     }
 
 
-    ScanResult<Token> scan(std::string_view source_code) {
+    ScanResult<LangToken> scan(std::string_view source_code) {
         ScanState scan_state(source_code);
-        std::vector<Token> tokens;
+        std::vector<LangToken> tokens;
         std::vector<ScanError> errors;
         while (!scan_state.at_end()) {
             auto last_scan_state = scan_state;
@@ -263,6 +245,10 @@ namespace hlspv {
                     tokens.push_back(scan_state.consume_token(TokenType::Comma));
                     break;
                 }
+                case '\'' : {
+                    tokens.push_back(scan_state.consume_token(TokenType::Apostrophe));
+                    break;
+                }
                 case '+' : {
                     tokens.push_back(scan_state.consume_token(TokenType::Plus));
                     break;
@@ -273,12 +259,38 @@ namespace hlspv {
                     break;
                 }
                 case '*' : {
-                    tokens.push_back(scan_state.consume_token(TokenType::Star));
+                    if (scan_state.consume_if_next_char_matches('*')) {
+                        tokens.push_back(
+                                scan_state.consume_token(TokenType::DoubleStar));
+                    } else {
+                        tokens.push_back(
+                                scan_state.consume_token(TokenType::Star));
+                    }
                     break;
                 }
                 case '?' : {
                     tokens.push_back(
                             scan_state.consume_token(TokenType::QuestionMark));
+                    break;
+                }
+                case '^' : {
+                    tokens.push_back(
+                            scan_state.consume_token(TokenType::Caret));
+                    break;
+                }
+                case '&' : {
+                    tokens.push_back(
+                            scan_state.consume_token(TokenType::Ampersand));
+                    break;
+                }
+                case '@' : {
+                    tokens.push_back(
+                            scan_state.consume_token(TokenType::At));
+                    break;
+                }
+                case '%' : {
+                    tokens.push_back(
+                            scan_state.consume_token(TokenType::Percent));
                     break;
                 }
                 case '!' : {
@@ -304,7 +316,7 @@ namespace hlspv {
                     if (scan_state.consume_if_next_char_matches('>')) {
                         tokens.push_back(
                                 scan_state.consume_token(TokenType::LeftArrow));
-                    } else if (scan_state.next_char_matches(is_digit)) {
+                    } else if (scan_state.next_char_matches(uul::is_digit)) {
                         scan_state.consume_while_decimal_literal();
                         if (scan_state.next_char_matches('.')) {
                             if (scan_state.consume_while_decimal_literal()) {
@@ -331,8 +343,13 @@ namespace hlspv {
                 }
                 case '.' : {
                     if (scan_state.consume_if_next_char_matches('.')) {
-                        tokens.push_back(
-                                scan_state.consume_token(TokenType::Elipses));
+                        if(scan_state.consume_if_next_char_matches('.')){
+                            tokens.push_back(
+                                    scan_state.consume_token(TokenType::Ellipses));
+                        }else{
+                            tokens.push_back(
+                                    scan_state.consume_token(TokenType::ShortEllipses));
+                        }
                     } else {
                         tokens.push_back(
                                 scan_state.consume_token(TokenType::Dot));
@@ -360,6 +377,14 @@ namespace hlspv {
                         tokens.push_back(scan_state.consume_token(TokenType::LessThanEquals));
                     } else {
                         tokens.push_back(scan_state.consume_token(TokenType::LessThan));
+                    }
+                    break;
+                }
+                case '|' : {
+                    if (scan_state.consume_if_next_char_matches('|')) {
+                        tokens.push_back(scan_state.consume_token(TokenType::DoublePipe));
+                    } else {
+                        tokens.push_back(scan_state.consume_token(TokenType::Pipe));
                     }
                     break;
                 }
@@ -406,7 +431,14 @@ namespace hlspv {
                     }
                     break;
                 }
-
+                case '_' : {
+                    if(scan_state.next_char_matches([](auto c){return !uul::is_valid_identifier_body_char(c);})){
+                        tokens.push_back(
+                                scan_state.consume_token(TokenType::UnderScore));
+                        break;
+                    }
+                    [[fallthrough]];
+                }
                 case '0': {
                     if (scan_state.consume_if_next_char_matches('x')) {
                         if (scan_state.consume_while_hexidecimal_literal()) {
@@ -457,7 +489,7 @@ namespace hlspv {
                         } else {
                             tokens.push_back(scan_state.consume_token(TokenType::DecimalIntegerLiteral));
                         }
-                    } else if (is_valid_identifier_start_char(
+                    } else if (uul::is_valid_identifier_start_char(
                             scan_state.current_char())) {
                         scan_state.consume_while_literal_body();
                         if (auto keyword_result = keyword_map.get(
@@ -476,9 +508,9 @@ namespace hlspv {
             }
         }
         if(!tokens.empty()){
-            tokens.push_back(Token{TokenType::EndOfFile, tokens.back().lexeme_view(), {}, scan_state.line_index});
+            tokens.push_back(LangToken{TokenType::EndOfFile, tokens.back().lexeme_view(), {}, scan_state.line_index});
         }else{
-            tokens.push_back(Token{TokenType::EndOfFile, {source_code, 0,0}, {}, scan_state.line_index});
+            tokens.push_back(LangToken{TokenType::EndOfFile, {source_code, 0,0}, {}, scan_state.line_index});
         }
         return {tokens, errors};
     }

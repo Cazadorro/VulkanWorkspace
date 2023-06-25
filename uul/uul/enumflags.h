@@ -68,7 +68,7 @@ namespace uul {
 
         constexpr EnumFlags() noexcept: m_bit_mask{} {};
 
-        constexpr EnumFlags(T bit) noexcept: m_bit_mask(static_cast<UnderlyingType>(bit)) {};
+        constexpr EnumFlags(T bit) noexcept: m_bit_mask(static_cast<UnderlyingType>(bit)) {}; //need implicit conversion here for convienence.
 
         constexpr explicit EnumFlags(UnderlyingType flags) noexcept: m_bit_mask(flags) {};
 

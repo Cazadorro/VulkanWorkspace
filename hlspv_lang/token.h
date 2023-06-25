@@ -5,25 +5,39 @@
 #ifndef VULKANWORKSPACE_TOKEN_H
 #define VULKANWORKSPACE_TOKEN_H
 
-#include "token_type.h"
+#include "lang_token_type.h"
 #include "lexeme_view.h"
+#include <uul/concepts.h>
 #include <string>
 #include <string_view>
 #include <variant>
 #include <cstdint>
+#include <type_traits>
 
 namespace hlspv {
 
-    using TokenLiteralVariant = std::variant<std::monostate, std::string, std::uint64_t, std::int64_t, double, bool>;
+    template<typename TokenType_T, uul::Variant TokenLiteralVariant_T>
     class Token {
     public:
-        Token(TokenType type, LexemeView lexeme_view, TokenLiteralVariant literal, std::size_t line_number);
+        using token_type = TokenType_T;
+
+        Token(TokenType_T type, LexemeView lexeme_view, TokenLiteralVariant_T literal, std::size_t line_number): m_type(type), m_lexeme_view(lexeme_view),
+                                                                                                                 m_literal(std::move(literal)),
+                                                                                                                 m_line_number(line_number) {
+
+        };
         [[nodiscard]]
-        std::string lexeme() const;
+        std::string lexeme() const {
+            return m_lexeme_view.to_string();
+        }
         [[nodiscard]]
-        hlspv::LexemeView lexeme_view() const;
+        hlspv::LexemeView lexeme_view() const{
+            return m_lexeme_view;
+        }
         [[nodiscard]]
-        TokenType type() const;
+        TokenType_T type() const{
+            return m_type;
+        }
         template<typename T>
         [[nodiscard]]
         auto value() const{
@@ -35,15 +49,33 @@ namespace hlspv {
             return std::holds_alternative<T>(m_literal);
         }
         [[nodiscard]]
-        bool is_empty() const;
+        bool is_empty() const{
+            return contains_type<std::monostate>();
+        }
         [[nodiscard]]
-        std::string get_value_string() const;
+        std::string get_value_string() const{
+            return std::visit(
+                    [](auto value) -> std::string {
+                        if constexpr (std::is_same_v<decltype(value), std::monostate>){
+                            return "monostate";
+                        }
+                        if constexpr (std::is_same_v<decltype(value), std::string>){
+                            return value;
+                        }
+                        else if constexpr(!std::is_same_v<decltype(value), std::monostate>){
+                            return std::to_string(value);
+                        }
+                    }
+                    , m_literal);
+        }
         [[nodiscard]]
-        std::size_t line_number() const;
+        std::size_t line_number() const{
+            return m_line_number;
+        }
     private:
-        TokenType m_type;
+        TokenType_T m_type;
         LexemeView m_lexeme_view;
-        TokenLiteralVariant m_literal;
+        TokenLiteralVariant_T m_literal;
         std::size_t m_line_number;
     };
 }

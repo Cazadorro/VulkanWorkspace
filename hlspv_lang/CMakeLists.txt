@@ -4,13 +4,9 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 add_executable(hlspv_lang
         main.cpp
-        token_type.h
+        lang_token_type.h
         token.cpp token.h
-        scan.cpp scan.h
-        parse.cpp parse.h
-        expression.cpp expression.h
-        astprinter.cpp astprinter.h
-        utils.cpp utils.h
+        lang_scan.cpp lang_scan.h
         scan_state.cpp scan_state.h
         ebnf_token_type.cpp ebnf_token_type.h
         ebnf_token.cpp ebnf_token.h
@@ -19,7 +15,12 @@ add_executable(hlspv_lang
         ebnf_parse.cpp ebnf_parse.h
         ebnf_ast_printer.cpp ebnf_ast_printer.h
         ebnf_semantics.cpp ebnf_semantics.h
-        lexeme_view.cpp lexeme_view.h parse_state.h code_generation.cpp code_generation.h ebnf_code_gen.cpp ebnf_code_gen.h)
+        lexeme_view.cpp lexeme_view.h
+        parse_state.h
+        code_generation.cpp code_generation.h
+#        ebnf_code_gen.cpp ebnf_code_gen.h
+        ebnf_parser_gen.cpp ebnf_parser_gen.h
+        memoizationstate.h lang_token_type.cpp lang_expr.h lang_expr.cpp lang_expr_type.cpp lang_expr_type.h)
 
 target_include_directories(hlspv_lang
         PRIVATE

@@ -4,7 +4,7 @@
 
 #include "scan_state.h"
 #include "lexeme_view.h"
-#include "utils.h"
+#include <uul/char.h>
 #include <fmt/core.h>
 
 namespace hlspv {
@@ -176,38 +176,50 @@ namespace hlspv {
     bool ScanState::consume_until_current_sequence_matches(
             std::string_view sequence) {
         bool found = consume_until_next_sequence_matches(sequence);
-        consume_count_chars(sequence.size());
+        if(found){
+            consume_count_chars(sequence.size());
+        }
         return found;
     }
 
     bool ScanState::consume_until_current_char_matches(char c) {
         bool found = consume_until_next_char_matches(c);
-        consume_current_char();
+        if(found){
+            consume_current_char();
+        }
         return found;
     }
 
     bool
     ScanState::consume_until_current_char_matches(char c, char escape_char) {
         bool found = consume_until_next_char_matches(c, escape_char);
-        consume_current_char();
+        if(found){
+            consume_current_char();
+        }
         return found;
     }
 
     bool ScanState::start_next_scan_after_char(char c) {
         bool found = consume_until_current_char_matches(c);
-        start_next_scan();
+        if(found){
+            start_next_scan();
+        }
         return found;
     }
 
     bool ScanState::start_next_scan_after_char(char c, char escape_char)  {
         bool found = consume_until_current_char_matches(c, escape_char);
-        start_next_scan();
+        if(found){
+            start_next_scan();
+        }
         return found;
     }
 
     bool ScanState::start_next_scan_after_sequence(std::string_view sequence) {
         bool found = consume_until_current_sequence_matches(sequence);
-        start_next_scan();
+        if(found){
+            start_next_scan();
+        }
         return found;
     }
 
@@ -233,9 +245,9 @@ namespace hlspv {
     }
 
     void ScanState::consume_count_chars(std::size_t n) {
-        current_char_index += n;
         line_index += count_matched_chars_between(current_char_index, n,
                                                   '\n');
+        current_char_index += n;
     }
 
     void ScanState::consume_current_char() {
@@ -263,17 +275,17 @@ namespace hlspv {
     bool ScanState::consume_while_octal_literal() {
         return consume_while_next_char_matches(
                 [](char previous_char, char current_char) -> bool {
-                    return is_octal(current_char) ||
-                           (current_char == '_' && is_octal(previous_char));
+                    return uul::is_octal(current_char) ||
+                           (current_char == '_' &&  uul::is_octal(previous_char));
                 });
     }
 
     bool ScanState::consume_while_binary_literal() {
         return consume_while_next_char_matches(
                 [](char previous_char, char current_char) -> bool {
-                    return is_binary(current_char) ||
+                    return  uul::is_binary(current_char) ||
                            (current_char == '_' &&
-                            is_binary(previous_char));
+                                   uul::is_binary(previous_char));
                 });
     }
 
@@ -301,7 +313,7 @@ namespace hlspv {
     }
 
     bool ScanState::consume_while_literal_body() {
-        return consume_while_next_char_matches(is_valid_identifier_body_char);
+        return consume_while_next_char_matches( uul::is_valid_identifier_body_char);
     }
 
     ScanError ScanState::create_error(std::string_view error_string) {
@@ -311,7 +323,7 @@ namespace hlspv {
 
     tl::expected<ScanState, ScanError> ScanState::consume_if_identifier() const{
         auto current_state = *this;
-        if(!is_valid_identifier_start_char(current_state.current_char())){
+        if(! uul::is_valid_identifier_start_char(current_state.current_char())){
             return tl::make_unexpected(current_state.create_error("Invalid start char"));
         }
         current_state.consume_current_char();
@@ -320,11 +332,11 @@ namespace hlspv {
     }
     tl::expected<ScanState, ScanError> ScanState::consume_if_unsigned_integer() const {
         auto current_state = *this;
-        if(!is_digit(current_state.current_char())){
+        if(! uul::is_digit(current_state.current_char())){
             return tl::make_unexpected(current_state.create_error("Invalid digit character"));
         }
         current_state.consume_current_char();
-        current_state.consume_while_next_char_matches(is_digit);
+        current_state.consume_while_next_char_matches( uul::is_digit);
         return current_state;
     }
     char ScanState::current_char() const {

@@ -28,6 +28,7 @@ namespace hlspv::ebnf {
 
 
 
+
     enum class ExprType {
         Expression,
         RuleDefinitionExpr,
@@ -451,9 +452,9 @@ namespace hlspv::ebnf {
     >;
 
 
-
     template<typename T>
     ExprType get_expression_type() = delete;
+
     template<>
     ExprType get_expression_type<Expression>();
     template<>
@@ -482,7 +483,6 @@ namespace hlspv::ebnf {
     ExprType get_expression_type<GroupingExpr>();
     template<>
     ExprType get_expression_type<NonSymbolExpr>();
-
 
 
 }

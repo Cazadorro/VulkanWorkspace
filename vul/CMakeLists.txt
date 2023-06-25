@@ -93,7 +93,7 @@ target_sources(vul PRIVATE
 #        ./generated_sources/vul/bitmasks.h
         ./generated_sources/vul/enums.h
         ./generated_sources/vul/features.h
-        ./generated_sources/vul/bitmasksfwd.h
+#        ./generated_sources/vul/bitmasksfwd.h
         ./generated_sources/vul/enumsfwd.h
         ./generated_sources/vul/featuresfwd.h
         ./generated_sources/vul/objecttypeutils.h)

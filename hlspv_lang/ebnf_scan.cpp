@@ -7,7 +7,7 @@
 #include "ebnf_token.h"
 #include "ebnf_token_type.h"
 #include "lexeme_view.h"
-#include "utils.h"
+#include <uul/string.h>
 namespace hlspv{
     EbnfToken
     create_token(EbnfTokenType token_type, const ScanState &scan_state) {
@@ -16,7 +16,7 @@ namespace hlspv{
             using enum EbnfTokenType;
             case TerminalString:
             case TerminalUserCode: {
-                return {token_type, lexeme_view, std::string(trim(lexeme_view.to_sv(), 1)),
+                return {token_type, lexeme_view, std::string(uul::trim(lexeme_view.to_sv(), 1)),
                         scan_state.line_index};
             }
             case UnsignedInteger: {

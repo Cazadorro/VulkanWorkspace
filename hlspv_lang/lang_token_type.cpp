@@ -1,0 +1,206 @@
+//
+// Created by Bolt on 5/31/2023.
+//
+#include "lang_token_type.h"
+#include <uul/assert.h>
+namespace hlspv::lang{
+#define UUL_CREATE_ENUM_CASE_TO_STRING(X) \
+        case X:{                          \
+           return #X;                     \
+        }                                 \
+                                          \
+
+
+#define UUL_CREATE_ENUM_CASE_FROM_STRING(X) \
+        if(value == #X){                   \
+           return X;                        \
+        }                                   \
+                                            \
+
+
+    
+
+
+
+    std::string to_string(TokenType token){
+        using enum TokenType;
+        switch(token) {
+            UUL_CREATE_ENUM_CASE_TO_STRING(LeftParenthesis)
+            UUL_CREATE_ENUM_CASE_TO_STRING(RightParenthesis)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LeftCurlyBrace)
+            UUL_CREATE_ENUM_CASE_TO_STRING(RightCurlyBrace)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LeftSquareBracket)
+            UUL_CREATE_ENUM_CASE_TO_STRING(RightSquareBracket)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Comma)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Apostrophe)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Dot)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Ellipses)
+            UUL_CREATE_ENUM_CASE_TO_STRING(ShortEllipses)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Minus)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Plus)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Colon)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Semicolon)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DoubleColon)
+            UUL_CREATE_ENUM_CASE_TO_STRING(ForwardSlash)
+            UUL_CREATE_ENUM_CASE_TO_STRING(BackSlash)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Star)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DoubleStar)
+            UUL_CREATE_ENUM_CASE_TO_STRING(ExclamationPoint)
+            UUL_CREATE_ENUM_CASE_TO_STRING(QuestionMark)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LeftArrow)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LeftMatchArrow)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Equals)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DoubleEquals)
+            UUL_CREATE_ENUM_CASE_TO_STRING(NotEquals)
+            UUL_CREATE_ENUM_CASE_TO_STRING(GreaterThan)
+            UUL_CREATE_ENUM_CASE_TO_STRING(GreaterThanEquals)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LessThan)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LessThanEquals)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Pipe)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DoublePipe)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Caret)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Ampersand)
+            UUL_CREATE_ENUM_CASE_TO_STRING(At)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Percent)
+            UUL_CREATE_ENUM_CASE_TO_STRING(UnderScore)
+            UUL_CREATE_ENUM_CASE_TO_STRING(String)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DecimalUnsignedLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DecimalIntegerLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(BinaryLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(HexidecimalLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(OctalLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(DecimalFloatingPointLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(BooleanLiteral)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Null)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Let)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Var)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Const)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Function)
+            UUL_CREATE_ENUM_CASE_TO_STRING(LiteralFunction)
+            UUL_CREATE_ENUM_CASE_TO_STRING(OperatorOverload)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Struct)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Enum)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Trait)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Impl)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Type)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Loop)
+            UUL_CREATE_ENUM_CASE_TO_STRING(For)
+            UUL_CREATE_ENUM_CASE_TO_STRING(While)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Continue)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Break)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Match)
+            UUL_CREATE_ENUM_CASE_TO_STRING(As)
+            UUL_CREATE_ENUM_CASE_TO_STRING(If)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Else)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Elif)
+            UUL_CREATE_ENUM_CASE_TO_STRING(And)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Or)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Xor)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Not)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Pub)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Mod)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Where)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Use)
+            UUL_CREATE_ENUM_CASE_TO_STRING(In)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Static)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Mut)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Extern)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Return)
+            UUL_CREATE_ENUM_CASE_TO_STRING(Identifier)
+            UUL_CREATE_ENUM_CASE_TO_STRING(EndOfFile)
+            default:{
+                return "UNKNOWN";
+            }
+        }
+    }
+}
+
+namespace uul{
+    hlspv::lang::TokenType from_string(std::string_view value){
+        using enum hlspv::lang::TokenType;
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LeftParenthesis)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(RightParenthesis)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LeftCurlyBrace)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(RightCurlyBrace)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LeftSquareBracket)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(RightSquareBracket)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Comma)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Apostrophe)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Dot)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Ellipses)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(ShortEllipses)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Minus)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Plus)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Colon)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Semicolon)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DoubleColon)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(ForwardSlash)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(BackSlash)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Star)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DoubleStar)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(ExclamationPoint)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(QuestionMark)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LeftArrow)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LeftMatchArrow)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Equals)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DoubleEquals)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(NotEquals)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(GreaterThan)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(GreaterThanEquals)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LessThan)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LessThanEquals)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Pipe)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DoublePipe)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Caret)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Ampersand)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(At)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Percent)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(UnderScore)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(String)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DecimalUnsignedLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DecimalIntegerLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(BinaryLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(HexidecimalLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(OctalLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(DecimalFloatingPointLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(BooleanLiteral)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Null)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Let)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Var)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Const)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Function)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(LiteralFunction)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(OperatorOverload)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Struct)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Enum)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Trait)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Impl)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Type)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Loop)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(For)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(While)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Continue)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Break)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Match)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(As)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(If)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Else)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Elif)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(And)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Or)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Xor)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Not)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Pub)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Mod)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Where)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Use)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(In)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Static)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Mut)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Extern)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Return)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(Identifier)
+        UUL_CREATE_ENUM_CASE_FROM_STRING(EndOfFile)
+        UUL_ASSERT(false, "Shouldn't get here!");
+    }
+}
