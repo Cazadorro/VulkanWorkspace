@@ -4,6 +4,7 @@
 
 #include "vul/surface.h"
 #include "vul/device.h"
+#include "vul/temparrayproxy.h"
 #include "vul/physicaldevice.h"
 #include "vul/expectedresult.h"
 #include "vul/enums.h"
@@ -417,6 +418,60 @@ vul::ExpectedResult<vul::Device> vul::PhysicalDevice::createDevice(
                         pAllocator);
 }
 
+vul::ExpectedResult<vul::Device>
+vul::PhysicalDevice::createDevice(
+                                  const vul::Surface& surface,
+                                  TempArrayProxy<const uul::EnumFlags<vul::QueueFlagBits>> presentationQueueFlagMasks,
+                                  TempArrayProxy<const uul::EnumFlags<vul::QueueFlagBits>> commandQueueFlagMasks,
+                                  const gsl::span<const char *const> &extensions, const vul::Features &features,
+                                  const VkAllocationCallbacks *pAllocator) const {
+
+    //TODO also add priority here?
+    auto queueFamilyProperties = getQueueFamilyProperties();
+    std::vector<std::uint32_t> presentationQueueIndexList;
+    presentationQueueIndexList.reserve(presentationQueueFlagMasks.size());
+    for(auto flags : presentationQueueFlagMasks){
+        //TODO propogate to callsite?
+        presentationQueueIndexList.push_back(queueFamilyProperties.calcMinimumPresentationQueueFamilyIndex(surface,flags).value());
+    }
+    std::vector<std::uint32_t> commandQueueIndexList;
+    presentationQueueIndexList.reserve(commandQueueFlagMasks.size());
+    for(auto flags : commandQueueFlagMasks){
+        //TODO propogate to callsite?
+        commandQueueIndexList.push_back(queueFamilyProperties.calcMinimumQueueFamilyIndex(flags).value());
+    }
+    std::vector<vul::SingleQueueCreateInfo> queueCreateInfos;
+    queueCreateInfos.reserve(presentationQueueIndexList.size() + commandQueueIndexList.size());
+    for(auto index : presentationQueueIndexList){
+        queueCreateInfos.emplace_back(index);
+    }
+    for(auto index : commandQueueIndexList){
+        queueCreateInfos.emplace_back(index);
+    }
+    return createDevice(queueCreateInfos, extensions, features, pAllocator);
+}
+
+
+vul::ExpectedResult<vul::Device>
+vul::PhysicalDevice::createDevice(TempArrayProxy<const uul::EnumFlags<vul::QueueFlagBits>> commandQueueFlagMasks,
+                                  const gsl::span<const char *const> &extensions, const vul::Features &features,
+                                  const VkAllocationCallbacks *pAllocator) const {
+    //TODO also add priority here?
+    auto queueFamilyProperties = getQueueFamilyProperties();
+    std::vector<std::uint32_t> commandQueueIndexList;
+    commandQueueIndexList.reserve(commandQueueFlagMasks.size());
+    for(auto flags : commandQueueFlagMasks){
+        //TODO propogate to callsite?
+        commandQueueIndexList.push_back(queueFamilyProperties.calcMinimumQueueFamilyIndex(flags).value());
+    }
+    std::vector<vul::SingleQueueCreateInfo> queueCreateInfos;
+    queueCreateInfos.reserve(commandQueueIndexList.size());
+    for(auto index : commandQueueIndexList){
+        queueCreateInfos.emplace_back(index);
+    }
+    return createDevice(queueCreateInfos, extensions, features, pAllocator);
+}
+
 VkPhysicalDeviceLimits vul::PhysicalDevice::getLimits() const {
     return getProperties().limits;
 }
@@ -430,6 +485,8 @@ VkPhysicalDeviceProperties vul::PhysicalDevice::getProperties() const {
     vkGetPhysicalDeviceProperties(m_handle, &properties);
     return properties;
 }
+
+
 
 
 vul::SingleQueueCreateInfo::SingleQueueCreateInfo(

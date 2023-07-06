@@ -6,6 +6,11 @@
 #define VULKANWORKSPACE_GRAPHICSPIPELINE_H
 
 #include "vul/vertexinputstate.h"
+#include "vul/pipelineinputassemblystatecreateinfo.h"
+#include "vul/pipelinecolorblendattachmentstate.h"
+#include "vul/pipelinedepthstencilstatecreateinfo.h"
+#include "vul/pipelinerasterizationstatecreateinfo.h"
+#include "vul/pipelinemultisamplestatecreateinfo.h"
 #include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -24,6 +29,12 @@ namespace vul {
     class RenderPass;
 
     class PipelineCache;
+
+    struct Viewport;
+
+    struct Rect2D;
+
+    struct Extent2D;
 
     class GraphicsPipeline {
     public:
@@ -56,7 +67,9 @@ namespace vul {
     };
 
     class PipelineVertexShaderStageCreateInfo;
+
     class PipelineFragmentShaderStageCreateInfo;
+
     class GraphicsPipelineBuilder {
     public:
 
@@ -80,38 +93,36 @@ namespace vul {
                     std::vector(attributeDescriptions.begin(), attributeDescriptions.end())};
         }
 
-        void setPrimitiveStateInfo(vul::PrimitiveTopology topology,
-                                   VkBool32 primitiveRestartEnable = VK_FALSE,
-                                   const void *pNext = nullptr);
+        void setPrimitiveStateInfo(const PipelineInputAssemblyStateCreateInfo &inputAssembly =
+                vul::PipelineInputAssemblyStateCreateInfo::fromTopology(vul::PrimitiveTopology::TriangleList)
+        );
 
-        void setViewportState(const std::vector<VkViewport> &viewports,
-                              const std::vector<VkRect2D> &scissor);
+        void setViewportState(const std::vector<Viewport> &viewports, const std::vector<Rect2D> &scissor);
 
-        void setViewportStateFromExtent(const VkExtent2D &extent);
-
+        void setViewportStateFromExtent(const Extent2D &extent);
         void setRasterizationState(
-                const VkPipelineRasterizationStateCreateInfo &rasterizer);
+                const PipelineRasterizationStateCreateInfo &rasterizer =
+                vul::PipelineRasterizationStateCreateInfo::fromCullMode(vul::CullModeFlagBits::BackBit)
+        );
 
-
-        void setDefaultRasterizationState(uul::EnumFlags<vul::CullModeFlagBits>  cullMode = vul::CullModeFlagBits::BackBit);
 
         void setMultisampleState(
-                const VkPipelineMultisampleStateCreateInfo &multisampling);
-
-        void setDefaultMultisampleState();
+                const PipelineMultisampleStateCreateInfo &multisampling =
+                vul::PipelineMultisampleStateCreateInfo::fromSampleCount(vul::SampleCountFlagBits::_1Bit)
+        );
 
         void setDepthStencilState(
-                const VkPipelineDepthStencilStateCreateInfo &depthStencilState);
-
-        void setDefaultDepthStencilStateEnable();
+                const PipelineDepthStencilStateCreateInfo &depthStencilState =
+                vul::PipelineDepthStencilStateCreateInfo::fromCompareOp(vul::CompareOp::Less)
+        );
 
         void setBlendState(
-                const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachmentStates,
+                const std::vector<vul::PipelineColorBlendAttachmentState> &blendAttachmentStates,
                 const std::array<float, 4> &blendConstants = {0.0f, 0.0f, 0.0f,
                                                               0.0f});
 
         void setBlendState(vul::LogicOp logicOp,
-                           const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachmentStates,
+                           const std::vector<vul::PipelineColorBlendAttachmentState> &blendAttachmentStates,
                            const std::array<float, 4> &blendConstants = {0.0f,
                                                                          0.0f,
                                                                          0.0f,
@@ -134,9 +145,11 @@ namespace vul {
         [[nodiscard]]
         ExpectedResult<GraphicsPipeline>
         create(VkPipelineCache pipelineCache) const;
+
         [[nodiscard]]
         ExpectedResult<GraphicsPipeline>
         create(const PipelineCache &pipelineCache) const;
+
         [[nodiscard]]
         ExpectedResult<GraphicsPipeline>
         create() const;
@@ -145,20 +158,20 @@ namespace vul {
 
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;
-        VkPipelineCreateFlags m_flags = {};
-        VkPipelineInputAssemblyStateCreateInfo m_inputAssemblyInfo = {};
+        uul::EnumFlags<vul::PipelineCreateFlagBits> m_flags = {};
+        PipelineInputAssemblyStateCreateInfo m_inputAssemblyInfo = {};
         std::array<VkPipelineShaderStageCreateInfo, 2> m_shaderStages;
         struct InputBindingAttributes {
             VkVertexInputBindingDescription bindingDescription = {};
             std::vector<VkVertexInputAttributeDescription> attributeDescriptions;
         };
         std::unordered_map<std::uint32_t, InputBindingAttributes> m_bindingAttributeDescriptions;
-        std::vector<VkViewport> m_viewports;
-        std::vector<VkRect2D> m_scissors;
-        VkPipelineRasterizationStateCreateInfo m_rasterizationState = {};
-        VkPipelineDepthStencilStateCreateInfo m_depthStencilState = {};
-        VkPipelineMultisampleStateCreateInfo m_multiSampleState = {};
-        std::vector<VkPipelineColorBlendAttachmentState> m_blendAttachmentStates;
+        std::vector<Viewport> m_viewports;
+        std::vector<Rect2D> m_scissors;
+        PipelineRasterizationStateCreateInfo m_rasterizationState = {};
+        PipelineDepthStencilStateCreateInfo m_depthStencilState = {};
+        PipelineMultisampleStateCreateInfo m_multiSampleState = {};
+        std::vector<vul::PipelineColorBlendAttachmentState> m_blendAttachmentStates;
         std::array<float, 4> m_blendConstants = {0.0f, 0.0f, 0.0f, 0.0f};
         std::optional<vul::LogicOp> m_logicOp;
         std::vector<vul::DynamicState> m_dynamicStates;
@@ -168,6 +181,8 @@ namespace vul {
         VkPipeline m_basePipelineHandle = VK_NULL_HANDLE;
         std::int32_t m_basePipelineIndex = 0;
         std::uint32_t m_patchControlPoints = 0;
+
+
     };
 }
 #endif //VULKANWORKSPACE_GRAPHICSPIPELINE_H

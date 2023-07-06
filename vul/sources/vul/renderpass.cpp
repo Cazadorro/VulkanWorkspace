@@ -591,7 +591,7 @@ VkSubpassDescription vul::SubpassNode::createDescription(
 }
 
 std::vector<VkSubpassDependency>
-vul::SubpassNode::createSubpassDependencies() const {
+    vul::SubpassNode::createSubpassDependencies() const {
 
     std::unordered_map<std::uint32_t, VkSubpassDependency> dependencies;
 
@@ -744,7 +744,7 @@ vul::SubpassNode &vul::SubpassNode::setPreDependExternal(
     return *this;
 }
 
-vul::SubpassNode &vul::SubpassNode::setPostExternalDepend(
+vul::SubpassNode &vul::SubpassNode::setPostDependExternal(
         uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
         uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
         uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
@@ -770,21 +770,13 @@ vul::AttachmentReference::AttachmentReference(std::uint32_t attachment_t,
 
 
 vul::SubpassGraph::SubpassGraph(
-        const gsl::span<const AttachmentDescription> &attachmentDescriptions,
+        TempArrayProxy<const AttachmentDescription> attachmentDescriptions,
         std::uint32_t subpassCount) : m_attachmentDescriptions(
         attachmentDescriptions.begin(), attachmentDescriptions.end()) {
     //m_subpassNodes.reserve(subpassCount);
     for (std::uint32_t i = 0; i < subpassCount; ++i) {
         m_subpassNodes.emplace_back(*this, i);
     }
-}
-
-vul::SubpassGraph::SubpassGraph(
-        const std::initializer_list<AttachmentDescription> &attachmentDescriptions,
-        std::uint32_t subpassCount) : SubpassGraph(
-        gsl::make_span(std::data(attachmentDescriptions),
-                       attachmentDescriptions.size()), subpassCount) {
-
 }
 
 vul::SubpassNode &vul::SubpassGraph::subpassAt(std::uint32_t i) {

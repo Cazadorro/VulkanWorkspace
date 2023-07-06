@@ -7,9 +7,9 @@
 
 
 #include "vul/enums.h"
+#include "vul/temparrayproxy.h"
 #include <uul/enumflagsfwd.h>
 #include <vulkan/vulkan.h>
-#include <gsl/span>
 #include <optional>
 #include <vector>
 
@@ -156,10 +156,6 @@ namespace vul {
     };
 
 
-
-
-
-
     //auto swapchainAttachment = PresentAttachmentDescription::only(swapchainFormat);
     //auto positionAttachment = TemporaryColorAttachmentDescription::only(positionFormat);
     //auto normalAttachment = TemporaryColorAttachmentDescription::only(normalFormat);
@@ -279,10 +275,10 @@ namespace vul {
                                     uul::EnumFlags<vul::AccessFlagBits> dstAccessMask);
 
         //set external dependency that depends on *this subpass*
-        SubpassNode& setPostExternalDepend(uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
-                                       uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
-                                       uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
-                                       uul::EnumFlags<vul::AccessFlagBits> dstAccessMask);
+        SubpassNode& setPostDependExternal(uul::EnumFlags<vul::PipelineStageFlagBits> srcStageMask,
+                                           uul::EnumFlags<vul::PipelineStageFlagBits> dstStageMask,
+                                           uul::EnumFlags<vul::AccessFlagBits> srcAccessMask,
+                                           uul::EnumFlags<vul::AccessFlagBits> dstAccessMask);
 
         void reset();
         //TODO didn't want them to be public, looks like I have to have them be public...
@@ -319,8 +315,7 @@ namespace vul {
 
     class SubpassGraph {
     public:
-        SubpassGraph(const gsl::span<const AttachmentDescription>& attachmentDescriptions, std::uint32_t subpassCount);
-        SubpassGraph(const std::initializer_list<AttachmentDescription>& attachmentDescriptions, std::uint32_t subpassCount);
+        SubpassGraph(TempArrayProxy<const AttachmentDescription> attachmentDescriptions, std::uint32_t subpassCount);
         SubpassNode& subpassAt(std::uint32_t i);
         ExpectedResult<RenderPass> createRenderPass(const Device &device, const VkAllocationCallbacks *pAllocator = nullptr);
     private:

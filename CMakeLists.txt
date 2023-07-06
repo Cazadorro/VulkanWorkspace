@@ -49,6 +49,18 @@ add_subdirectory(external/stb)
 add_subdirectory(external/msdfgen)
 add_subdirectory(external/expected)
 
+add_library(pcg_cpp INTERFACE)
+target_sources(pcg_cpp INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/pcg_cpp/include/pcg_extras.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/pcg_cpp/include/pcg_random.hpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/pcg_cpp/include/pcg_uint128.hpp
+        )
+target_include_directories(pcg_cpp INTERFACE
+        ${CMAKE_CURRENT_SOURCE_DIR}/external/pcg_cpp/include/
+        )
+
+
+
 #add_subdirectory(external/glslang)
 
 add_subdirectory(vulgenerated)
@@ -80,3 +92,4 @@ add_subdirectory(vulvoxel)
 add_subdirectory(vulgridworld)
 add_subdirectory(vulantworld)
 add_subdirectory(hlspv_lang)
+add_subdirectory(vullifeengine)

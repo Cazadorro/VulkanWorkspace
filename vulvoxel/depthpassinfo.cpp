@@ -17,7 +17,7 @@ vul::DepthPassSystem::DepthPassSystem(Device& device, VmaAllocator& allocator,co
                     vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
                     vul::AccessFlagBits::ShaderReadBit,
                     vul::AccessFlagBits::DepthStencilAttachmentWriteBit)
-            .setPostExternalDepend(vul::PipelineStageFlagBits::LateFragmentTestsBit,
+            .setPostDependExternal(vul::PipelineStageFlagBits::LateFragmentTestsBit,
                                    vul::PipelineStageFlagBits::FragmentShaderBit,
                                    vul::AccessFlagBits::DepthStencilAttachmentWriteBit,
                                    vul::AccessFlagBits::ShaderReadBit);

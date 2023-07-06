@@ -29,7 +29,6 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
                                   const vul::Instance &instance,
                                   const vul::Device &device,
                                   const vul::Swapchain &swapchain,
-                                  std::uint32_t queueFamilyIndex,
                                   const vul::Queue &queue,
                                   vul::Format format) : m_pDevice(&device),
                                                         m_pSwapchain(&swapchain) {
@@ -52,7 +51,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
                        vul::to_string((exceptedSurfaceFormats[3]))
                ).c_str());
     auto commandPool = device.createCommandPool(
-            queueFamilyIndex,
+            queue.getQueueFamilyIndex(),
             vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
     commandPool.setObjectName("TemporaryImguiRendererCommandBuffer");
     m_pool_sizes =
@@ -87,7 +86,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
     init_info.Instance = instance.get();
     init_info.PhysicalDevice = device.getPhysicalDevice().get();
     init_info.Device = device.get();
-    init_info.QueueFamily = queueFamilyIndex;
+    init_info.QueueFamily = queue.getQueueFamilyIndex();
     init_info.Queue = queue.get();
 //    init_info.PipelineCache = g_PipelineCache;
     init_info.DescriptorPool = m_descriptorPool.get();

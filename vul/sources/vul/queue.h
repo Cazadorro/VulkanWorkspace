@@ -17,15 +17,14 @@ namespace vul {
     public:
         Queue() = default;
 
-        Queue(const Device &device, VkQueue handle);
+        Queue(const Device &device, VkQueue handle, std::uint32_t queueFamilyIndex, std::uint32_t queueIndex);
 
         [[nodiscard]]
         VkQueue get() const;
 
         Result setObjectName(const std::string &string);
 
-        Result
-        submit(const TempArrayProxy<const SubmitInfo2> &submitInfos) const;
+        Result submit(const TempArrayProxy<const SubmitInfo2> &submitInfos) const;
 
         Queue(Queue &&rhs) noexcept = default;
 
@@ -37,9 +36,17 @@ namespace vul {
 
         Result waitIdle() const;
 
+        [[nodiscard]]
+        std::uint32_t getQueueFamilyIndex() const;
+
+        [[nodiscard]]
+        std::uint32_t getQueueIndex() const;
     private:
         const Device *m_pDevice = nullptr;
         VkQueue m_handle = VK_NULL_HANDLE;
+        std::uint32_t m_queueFamilyIndex = 0;
+        std::uint32_t m_queueIndex = 0;
+
     };
 }
 

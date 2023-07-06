@@ -7,6 +7,7 @@
 
 #include "vul/enumsfwd.h"
 #include "vul/featuresfwd.h"
+#include "vul/temparrayproxyfwd.h"
 #include <uul/enumflagsfwd.h>
 #include <gsl/span>
 #include <vulkan/vulkan.h>
@@ -141,6 +142,21 @@ namespace vul {
                               const gsl::span<std::string_view> &extensions,
                               const Features &features,
                               const VkAllocationCallbacks *pAllocator = nullptr) const;
+
+        //TODO make version for string view string as well? or make sure anything compatible with char * ?
+        [[nodiscard]]
+        ExpectedResult<Device> createDevice(const vul::Surface& surface,
+                                            TempArrayProxy<const uul::EnumFlags<vul::QueueFlagBits>> presentationQueueFlagMasks,
+                                            TempArrayProxy<const uul::EnumFlags<vul::QueueFlagBits>> commandQueueFlagMasks,
+                                            const gsl::span<const char * const> &extensions,
+                                            const Features &features,
+                                            const VkAllocationCallbacks *pAllocator = nullptr) const;
+        [[nodiscard]]
+        ExpectedResult<Device> createDevice(
+                TempArrayProxy<const uul::EnumFlags<vul::QueueFlagBits>> commandQueueFlagMasks,
+                const gsl::span<const char * const> &extensions,
+                const Features &features,
+                const VkAllocationCallbacks *pAllocator = nullptr) const;
         [[nodiscard]]
         VkPhysicalDevice get() const;
     private:

@@ -29,5 +29,6 @@ namespace uul{
 
     template<typename T>
     concept Variant = uul::is_variant_v<T>;
+
 }
 #endif //VULKANWORKSPACE_CONCEPTS_H

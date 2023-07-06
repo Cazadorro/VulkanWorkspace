@@ -34,7 +34,6 @@ namespace gul {
                 const vul::Instance &instance,
                 const vul::Device &device,
                 const vul::Swapchain &swapchain,
-                std::uint32_t queueFamilyIndex,
                 const vul::Queue &queue,
                 vul::Format format);
 

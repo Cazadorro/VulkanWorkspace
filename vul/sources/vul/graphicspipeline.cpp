@@ -12,6 +12,7 @@
 #include "vul/expectedresult.h"
 #include "vul/enums.h"
 #include "vul/containerutils.h"
+#include "vul/vkstructutils.h"
 #include <uul/enumflags.h>
 
 vul::GraphicsPipeline::GraphicsPipeline(const vul::Device &device,
@@ -55,10 +56,6 @@ vul::Result vul::GraphicsPipeline::setObjectName(const std::string &string) {
 vul::GraphicsPipelineBuilder::GraphicsPipelineBuilder(const vul::Device &device,
                                                       const VkAllocationCallbacks *pAllocator)
         : m_pDevice(&device), m_pAllocator(pAllocator) {
-    m_inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    m_rasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    m_depthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-    m_multiSampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 }
 
 void vul::GraphicsPipelineBuilder::setShaderCreateInfo(
@@ -68,116 +65,54 @@ void vul::GraphicsPipelineBuilder::setShaderCreateInfo(
     m_shaderStages[1] = fragmentInfo.get();
 }
 
-void vul::GraphicsPipelineBuilder::setPrimitiveStateInfo(
-        vul::PrimitiveTopology topology, VkBool32 primitiveRestartEnable,
-        const void *pNext) {
-    m_inputAssemblyInfo.pNext = pNext;
-    m_inputAssemblyInfo.flags = {};
-    m_inputAssemblyInfo.topology = vul::get(topology);
-    m_inputAssemblyInfo.primitiveRestartEnable = primitiveRestartEnable;
+void vul::GraphicsPipelineBuilder::setPrimitiveStateInfo(const PipelineInputAssemblyStateCreateInfo& inputAssembly) {
+   m_inputAssemblyInfo = inputAssembly;
 }
 
 void vul::GraphicsPipelineBuilder::setViewportState(
-        const std::vector<VkViewport> &viewports,
-        const std::vector<VkRect2D> &scissor) {
+        const std::vector<Viewport> &viewports,
+        const std::vector<Rect2D> &scissor) {
     m_viewports = viewports;
     m_scissors = scissor;
 }
 
 void vul::GraphicsPipelineBuilder::setViewportStateFromExtent(
-        const VkExtent2D &extent) {
-    m_viewports.clear();
-    m_scissors.clear();
-    VkViewport viewport{};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (float) extent.width;
-    viewport.height = (float) extent.height;
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor{};
-    scissor.offset = {0, 0};
-    scissor.extent = extent;
-    m_viewports.push_back(viewport);
-    m_scissors.push_back(scissor);
+        const Extent2D &extent) {
+    setViewportState({Viewport(extent)}, {Rect2D(extent)});
 }
 
 void vul::GraphicsPipelineBuilder::setRasterizationState(
-        const VkPipelineRasterizationStateCreateInfo &rasterizer) {
+        const PipelineRasterizationStateCreateInfo &rasterizer) {
     m_rasterizationState = rasterizer;
 }
 
 
-void vul::GraphicsPipelineBuilder::setDefaultRasterizationState(uul::EnumFlags<vul::CullModeFlagBits>  cullMode) {
-    m_rasterizationState.depthClampEnable = VK_FALSE;
-    m_rasterizationState.rasterizerDiscardEnable = VK_FALSE;
-    m_rasterizationState.polygonMode = VK_POLYGON_MODE_FILL;
-    m_rasterizationState.cullMode = cullMode.to_underlying();
-    m_rasterizationState.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-    m_rasterizationState.depthBiasEnable = VK_FALSE;
-//    m_rasterizationState.depthBiasConstantFactor;
-//    m_rasterizationState.depthBiasClamp;
-//    m_rasterizationState.depthBiasSlopeFactor;
-    m_rasterizationState.lineWidth = 1.0f;
-}
-
 void vul::GraphicsPipelineBuilder::setMultisampleState(
-        const VkPipelineMultisampleStateCreateInfo &multisampling) {
+        const PipelineMultisampleStateCreateInfo &multisampling) {
     m_multiSampleState = multisampling;
 }
 
-void vul::GraphicsPipelineBuilder::setDefaultMultisampleState() {
-    m_multiSampleState.pNext = nullptr;
-    m_multiSampleState.flags = 0;
-    m_multiSampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    m_multiSampleState.sampleShadingEnable = VK_FALSE;
-    m_multiSampleState.minSampleShading = 0;
-    m_multiSampleState.pSampleMask = nullptr;
-    m_multiSampleState.alphaToCoverageEnable = VK_FALSE;
-    m_multiSampleState.alphaToOneEnable = VK_FALSE;
-}
-
 void vul::GraphicsPipelineBuilder::setDepthStencilState(
-        const VkPipelineDepthStencilStateCreateInfo &depthStencilState) {
+        const PipelineDepthStencilStateCreateInfo &depthStencilState) {
     m_depthStencilState = depthStencilState;
 }
 
-void vul::GraphicsPipelineBuilder::setDefaultDepthStencilStateEnable() {
-    m_depthStencilState.pNext = nullptr;
-    m_depthStencilState.flags = {};
-    m_depthStencilState.depthTestEnable = VK_TRUE;
-    m_depthStencilState.depthWriteEnable = VK_TRUE;
-    m_depthStencilState.depthCompareOp = VK_COMPARE_OP_LESS;
-    m_depthStencilState.depthBoundsTestEnable = VK_FALSE;
-    m_depthStencilState.stencilTestEnable = VK_FALSE;
-//    m_depthStencilState.front;
-//    m_depthStencilState.back;
-//    m_depthStencilState.minDepthBounds;
-//    m_depthStencilState.maxDepthBounds;
-}
-
 void vul::GraphicsPipelineBuilder::setBlendState(
-        const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachmentStates,
+        const std::vector<vul::PipelineColorBlendAttachmentState> &blendAttachmentStates,
         const std::array<float, 4> &blendConstants) {
     m_blendAttachmentStates = blendAttachmentStates;
     m_blendConstants = blendConstants;
 }
 
 void vul::GraphicsPipelineBuilder::setBlendState(vul::LogicOp logicOp,
-                                                 const std::vector<VkPipelineColorBlendAttachmentState> &blendAttachmentStates,
+                                                 const std::vector<vul::PipelineColorBlendAttachmentState> &blendAttachmentStates,
                                                  const std::array<float, 4> &blendConstants) {
     m_logicOp = logicOp;
     setBlendState(blendAttachmentStates, blendConstants);
 }
 
 void vul::GraphicsPipelineBuilder::setDefaultBlendState() {
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
-    colorBlendAttachment.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    colorBlendAttachment.blendEnable = VK_FALSE;
-    m_blendAttachmentStates.push_back(colorBlendAttachment);
+    m_blendAttachmentStates.push_back(vul::PipelineColorBlendAttachmentState::disableBlendRGBA());
 }
 
 void vul::GraphicsPipelineBuilder::setDynamicState(
@@ -212,7 +147,7 @@ vul::GraphicsPipelineBuilder::setTesselationState(uint32_t patchControlPoints) {
 
 
 void vul::GraphicsPipelineBuilder::setFlags(uul::EnumFlags<vul::PipelineCreateFlagBits> flags) {
-    m_flags = flags.to_underlying();
+    m_flags = flags;
 }
 
 vul::ExpectedResult<vul::GraphicsPipeline>
@@ -258,9 +193,9 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = static_cast<std::uint32_t>(m_viewports.size());
-    viewportState.pViewports = m_viewports.data();
+    viewportState.pViewports = reinterpret_cast<const VkViewport*>(m_viewports.data());
     viewportState.scissorCount = static_cast<std::uint32_t>(m_scissors.size());
-    viewportState.pScissors = m_scissors.data();
+    viewportState.pScissors = reinterpret_cast<const VkRect2D*>(m_scissors.data());
 
 
     VkPipelineColorBlendStateCreateInfo colorBlending{};
@@ -273,7 +208,7 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
         colorBlending.logicOp = VK_LOGIC_OP_COPY;
     }
     colorBlending.attachmentCount = static_cast<std::uint32_t>(m_blendAttachmentStates.size());
-    colorBlending.pAttachments = m_blendAttachmentStates.data();
+    colorBlending.pAttachments = reinterpret_cast<const VkPipelineColorBlendAttachmentState*>(m_blendAttachmentStates.data());
     colorBlending.blendConstants[0] = m_blendConstants[0];
     colorBlending.blendConstants[1] = m_blendConstants[1];
     colorBlending.blendConstants[2] = m_blendConstants[2];
@@ -293,15 +228,15 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
     tesselationStateInfo.patchControlPoints = m_patchControlPoints;
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.flags = m_flags;
+    pipelineInfo.flags = m_flags.to_underlying();
     pipelineInfo.stageCount = static_cast<std::uint32_t>(m_shaderStages.size());
     pipelineInfo.pStages = m_shaderStages.data();
     pipelineInfo.pVertexInputState = &vertexInputInfo;
-    pipelineInfo.pInputAssemblyState = &m_inputAssemblyInfo;
+    pipelineInfo.pInputAssemblyState = &m_inputAssemblyInfo.get();
     pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &m_rasterizationState;
-    pipelineInfo.pMultisampleState = &m_multiSampleState;
-    pipelineInfo.pDepthStencilState = &m_depthStencilState;
+    pipelineInfo.pRasterizationState = &m_rasterizationState.get();
+    pipelineInfo.pMultisampleState = &m_multiSampleState.get();
+    pipelineInfo.pDepthStencilState = &m_depthStencilState.get();
     pipelineInfo.pColorBlendState = &colorBlending;
     pipelineInfo.pDynamicState = &dynamicStateInfo;
     if (m_patchControlPoints != 0) {
@@ -322,3 +257,4 @@ vul::GraphicsPipelineBuilder::create(VkPipelineCache pipelineCache) const {
             GraphicsPipeline(*m_pDevice, graphicsPipeline, m_pAllocator)};
 
 }
+

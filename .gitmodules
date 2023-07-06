@@ -43,3 +43,9 @@
 [submodule "external/vma"]
 	path = external/vma
 	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "external/pcg_c"]
+	path = external/pcg_c
+	url = https://github.com/imneme/pcg-c.git
+[submodule "external/pcg_cpp"]
+	path = external/pcg_cpp
+	url = https://github.com/imneme/pcg-cpp

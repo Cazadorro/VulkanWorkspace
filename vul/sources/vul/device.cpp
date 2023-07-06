@@ -45,7 +45,7 @@ vul::Queue vul::Device::getQueue(std::uint32_t index) const {
                      m_queueFamilyIndexMappings[index].queueIndex,
                      &queue);
 
-    return {*this, queue};
+    return {*this, queue,  m_queueFamilyIndexMappings[index].queueFamilyIndex, m_queueFamilyIndexMappings[index].queueIndex};
 }
 
 std::optional<vul::Queue> vul::Device::getQueueAt(std::uint32_t index) {

@@ -22,11 +22,21 @@ vul::Result vul::Queue::waitIdle() const {
     return static_cast<Result>(vkQueueWaitIdle(m_handle));
 }
 
-vul::Result vul::Queue::submit(const TempArrayProxy<const SubmitInfo2>& submitInfos) const {
+vul::Result vul::Queue::submit(const TempArrayProxy<const SubmitInfo2> &submitInfos) const {
     auto vkQueueSubmit2KHR_f = (PFN_vkQueueSubmit2KHR) vkGetDeviceProcAddr(m_pDevice->get(), "vkQueueSubmit2KHR");
-    return static_cast<Result>(vkQueueSubmit2KHR_f(m_handle, static_cast<std::uint32_t>(submitInfos.size()), submitInfos.reinterpret_data<VkSubmitInfo2>(), VK_NULL_HANDLE));
+    return static_cast<Result>(vkQueueSubmit2KHR_f(m_handle, static_cast<std::uint32_t>(submitInfos.size()),
+                                                   submitInfos.reinterpret_data<VkSubmitInfo2>(), VK_NULL_HANDLE));
 }
 
-vul::Queue::Queue(const vul::Device &device, VkQueue handle) : m_pDevice(&device), m_handle(handle){
+vul::Queue::Queue(const vul::Device &device, VkQueue handle, std::uint32_t queueFamilyIndex, std::uint32_t queueIndex)
+        : m_pDevice(&device), m_handle(handle), m_queueFamilyIndex(queueFamilyIndex), m_queueIndex(queueIndex) {
 
+}
+
+std::uint32_t vul::Queue::getQueueFamilyIndex() const {
+    return m_queueFamilyIndex;
+}
+
+std::uint32_t vul::Queue::getQueueIndex() const {
+    return m_queueIndex;
 }
