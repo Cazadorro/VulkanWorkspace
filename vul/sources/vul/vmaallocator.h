@@ -28,7 +28,7 @@ namespace vul {
 
     class Queue;
 
-    struct ImageCreateInfo;
+    class ImageCreateInfo;
 
     class VmaAllocator {
     public:

@@ -50,6 +50,10 @@ vul::Result vul::ComputePipeline::setObjectName(const std::string &string) {
     return m_pDevice->setObjectName(m_handle, string);
 }
 
+const vul::Device *vul::ComputePipeline::getDevice() const {
+    return m_pDevice;
+}
+
 vul::ComputePipelineBuilder::ComputePipelineBuilder(const vul::Device &device,
                                                     const VkAllocationCallbacks *pAllocator)
         : m_pDevice(&device), m_pAllocator(pAllocator) {

@@ -201,6 +201,23 @@ std::function<void()> gul::ImguiRenderer::createResizeCallback(const vul::Queue&
     return resizeImGuiFramebuffers;
 }
 
+
+std::function<void(std::size_t swapchainImageIndex)>
+gul::ImguiRenderer::createResizeFrameCallback() {
+    auto resizeImGuiFramebuffers = [&device = *m_pDevice, &swapchain = *m_pSwapchain, &renderpass = m_renderPass, &framebuffers = m_framebuffers](std::size_t swapchainImageIndex) {
+        const auto &imageView = swapchain.getImageViews()[swapchainImageIndex];
+            std::array<const vul::ImageView *, 1> imageViews = {&imageView};
+            vul::FramebufferBuilder framebufferBuilder(device);
+            framebufferBuilder.setAttachments(imageViews);
+            framebufferBuilder.setDimensions(swapchain.getExtent());
+            framebufferBuilder.setRenderPass(renderpass);
+            framebuffers[swapchainImageIndex] = framebufferBuilder.create().assertValue();
+            framebuffers[swapchainImageIndex].setObjectName("ImguiRendererFrameBuffer" + std::to_string(swapchainImageIndex));
+    };
+    return resizeImGuiFramebuffers;
+}
+
+
 void gul::ImguiRenderer::postSubmit() const {
     ImGuiIO &io = ImGui::GetIO();
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {

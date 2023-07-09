@@ -211,6 +211,11 @@ namespace uul {
         }
 
         [[nodiscard]]
+        constexpr bool empty() const noexcept {
+            return none();
+        }
+
+        [[nodiscard]]
         constexpr bool count() const noexcept{
             return std::popcount(m_bit_mask);
         }

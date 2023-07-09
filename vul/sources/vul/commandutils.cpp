@@ -156,7 +156,7 @@ vul::Result vul::copy(const Buffer &src, Image &dst, CommandPool &commandPool, Q
     return device.wait({timelineSemaphore}, waitValue);
 }
 
-vul::Result transition(const VkImageMemoryBarrier2KHR &barrier, vul::CommandPool &commandPool, vul::Queue &queue) {
+vul::Result vul::transition(const VkImageMemoryBarrier2KHR &barrier, vul::CommandPool &commandPool, vul::Queue &queue) {
     auto commandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
     VkDependencyInfoKHR dependencyInfo = {};
     dependencyInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO_KHR;

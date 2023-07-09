@@ -34,7 +34,7 @@ namespace vul {
     class Sampler;
     class ImageView {
     public:
-        ImageView() = default;
+        ImageView();
         ImageView(const Device& device, VkImageView handle, const VkAllocationCallbacks *pAllocator = nullptr);
         ImageView(ImageView &&rhs) noexcept;
 //        was noexcept?

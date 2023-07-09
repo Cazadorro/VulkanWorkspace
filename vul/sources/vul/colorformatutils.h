@@ -5,7 +5,9 @@
 #ifndef VULKANWORKSPACE_COLORFORMATUTILS_H
 #define VULKANWORKSPACE_COLORFORMATUTILS_H
 #include "vul/enumsfwd.h"
+#include <uul/enumflags.h>
 #include <gsl/span>
+#include <optional>
 namespace vul{
     [[nodiscard]]
     bool isColorFormat(vul::Format format);
@@ -17,6 +19,9 @@ namespace vul{
     bool isDepthStencilFormat(vul::Format format);
 
     [[nodiscard]]
-    gsl::span<const vul::Format> getDepthStencilFormats();
+    std::span<const vul::Format> getDepthStencilFormats();
+
+    [[nodiscard]]
+    uul::EnumFlags<vul::ImageAspectFlagBits> getImageAspect(vul::Format format);
 }
 #endif //VULKANWORKSPACE_COLORFORMATUTILS_H

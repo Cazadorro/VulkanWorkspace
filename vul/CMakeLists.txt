@@ -4,7 +4,7 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 
-add_library(vul STATIC sources/vul/pushconstantrange.cpp sources/vul/pushconstantrange.h sources/vul/deviceaddress.cpp sources/vul/deviceaddress.h sources/vul/submitinfo.cpp sources/vul/submitinfo.h sources/vul/submitinfobuilder.cpp sources/vul/submitinfobuilder.h sources/vul/pipelinecolorblendattachmentstate.cpp sources/vul/pipelinecolorblendattachmentstate.h sources/vul/bool32.cpp sources/vul/bool32.h sources/vul/pipelineinputassemblystatecreatinfo.cpp sources/vul/pipelineinputassemblystatecreateinfo.h sources/vul/pipelinerasterizationstatecreateinfo.cpp sources/vul/pipelinerasterizationstatecreateinfo.h sources/vul/pipelinedepthstencilstatecreateinfo.cpp sources/vul/pipelinedepthstencilstatecreateinfo.h sources/vul/pipelinemultisamplestatecreateinfo.cpp sources/vul/pipelinemultisamplestatecreateinfo.h)
+add_library(vul STATIC )
 target_sources(vul PRIVATE
         sources/vul/temparrayproxyfwd.h
         sources/vul/instance.cpp
@@ -84,7 +84,39 @@ target_sources(vul PRIVATE
         sources/vul/vkstructutils.h
         sources/vul/tempvoidarrayproxy.cpp
         sources/vul/tempvoidarrayproxy.h
-        sources/vul/traitutils.h)
+        sources/vul/traitutils.h
+        sources/vul/pushconstantrange.cpp
+        sources/vul/pushconstantrange.h
+        sources/vul/deviceaddress.cpp
+        sources/vul/deviceaddress.h
+        sources/vul/submitinfo.cpp
+        sources/vul/submitinfo.h
+        sources/vul/submitinfobuilder.cpp
+        sources/vul/submitinfobuilder.h
+        sources/vul/pipelinecolorblendattachmentstate.cpp
+        sources/vul/pipelinecolorblendattachmentstate.h
+        sources/vul/bool32.cpp
+        sources/vul/bool32.h
+        sources/vul/pipelineinputassemblystatecreatinfo.cpp
+        sources/vul/pipelineinputassemblystatecreateinfo.h
+        sources/vul/pipelinerasterizationstatecreateinfo.cpp
+        sources/vul/pipelinerasterizationstatecreateinfo.h
+        sources/vul/pipelinedepthstencilstatecreateinfo.cpp
+        sources/vul/pipelinedepthstencilstatecreateinfo.h
+        sources/vul/pipelinemultisamplestatecreateinfo.cpp
+        sources/vul/pipelinemultisamplestatecreateinfo.h
+        sources/vul/rcframe.cpp
+        sources/vul/rcframe.h
+        sources/vul/imagememorybarrier.cpp
+        sources/vul/imagememorybarrier.h
+        sources/vul/memorybarrier.cpp
+        sources/vul/memorybarrier.h
+        sources/vul/buffermemorybarrier.cpp
+        sources/vul/buffermemorybarrier.h
+        sources/vul/dependencyinfo.cpp
+        sources/vul/dependencyinfo.h
+        sources/vul/imagecreateinfo.cpp
+        sources/vul/imagecreateinfo.h)
 target_sources(vul PRIVATE
 #        ./generated_sources/vul/bitmasks.cpp
         ./generated_sources/vul/enums.cpp

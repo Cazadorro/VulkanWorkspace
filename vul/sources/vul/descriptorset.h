@@ -16,7 +16,7 @@ namespace vul{
     class DescriptorSetLayoutBinding;
     class WriteDescriptorSetInfo{
     public:
-        WriteDescriptorSetInfo() = default;
+        WriteDescriptorSetInfo();
 
         [[nodiscard]]
         static WriteDescriptorSetInfo Sampler(const std::vector<VkDescriptorImageInfo>& imageInfos, const void *pNext = nullptr);
@@ -75,10 +75,12 @@ namespace vul{
         std::size_t infoCount() const;
         [[nodiscard]]
         bool empty() const;
+        WriteDescriptorSetInfo(WriteDescriptorSetInfo &&rhs) noexcept;
+        WriteDescriptorSetInfo(const WriteDescriptorSetInfo &rhs);
     private:
         friend class DescriptorSetUpdateBuilder;
-        WriteDescriptorSetInfo(WriteDescriptorSetInfo &&rhs) noexcept = default;
-        WriteDescriptorSetInfo(const WriteDescriptorSetInfo &rhs) = default;
+        friend class std::vector<WriteDescriptorSetInfo>;
+
         vul::DescriptorType m_descriptorType;
         //TODO this could be done faster with custom variant on m_descriptorType
         std::variant<std::vector<VkDescriptorImageInfo>, std::vector<VkDescriptorBufferInfo>, std::vector<VkBufferView>> m_infoVariant;
@@ -89,6 +91,7 @@ namespace vul{
 
     class DescriptorSetUpdateBuilder{
     public:
+        DescriptorSetUpdateBuilder();
         explicit DescriptorSetUpdateBuilder(const gsl::span<const DescriptorSetLayoutBinding>& bindings, const std::unordered_map<std::string, std::uint32_t>& nameBindingMap = {});
 
         [[nodiscard]]

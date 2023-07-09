@@ -13,7 +13,7 @@ add_executable(vulvoxel
         chunks.cpp
         chunks.h
         depthpassinfo.cpp
-        depthpassinfo.h)
+        depthpassinfo.h raytrace_bitfield_renderer.cpp raytrace_bitfield_renderer.h)
 target_link_libraries(vulvoxel PRIVATE uul vul gul imgui glm)
 target_compile_options(vulvoxel PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:

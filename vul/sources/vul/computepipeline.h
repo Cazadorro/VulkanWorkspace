@@ -46,6 +46,9 @@ namespace vul{
 
         Result setObjectName(const std::string &string);
 
+        [[nodiscard]]
+        const Device* getDevice() const;
+
     private:
         const Device *m_pDevice = nullptr;
         const VkAllocationCallbacks *m_pAllocator = nullptr;

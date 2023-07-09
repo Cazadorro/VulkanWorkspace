@@ -25,7 +25,7 @@ namespace vul {
     class TempConstVoidArrayProxy;
     class Buffer {
     public:
-        Buffer() = default;
+        Buffer();
 
         Buffer(vul::VmaAllocation && allocation, VkBuffer handle, VkDeviceSize size);
 

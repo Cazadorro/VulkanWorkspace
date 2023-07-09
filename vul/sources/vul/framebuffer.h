@@ -23,7 +23,7 @@ namespace vul {
 
     class Framebuffer {
     public:
-        Framebuffer() = default;
+        Framebuffer();
 
         Framebuffer(const Device &device,
                     VkFramebuffer handle,

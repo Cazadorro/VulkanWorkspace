@@ -131,3 +131,5 @@ vul::DeviceAddress vul::Buffer::getDeviceAddress(const void* pNext) const {
 void vul::Buffer::mappedCopyFrom(const vul::TempConstVoidArrayProxy &array) {
     m_allocation.mappedCopyFrom(array);
 }
+
+vul::Buffer::Buffer()  = default;

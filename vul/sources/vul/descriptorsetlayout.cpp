@@ -395,3 +395,5 @@ vul::DescriptorSetLayoutBuilder::createUpdateBuilder() const {
     return DescriptorSetUpdateBuilder(m_bindings, m_nameBindingMap);
 }
 
+vul::DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder() = default;
+

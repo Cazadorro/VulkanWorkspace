@@ -2,10 +2,15 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include <vul/dependencyinfo.h>
+#include <vul/memorybarrier.h>
+#include <vul/imagecreateinfo.h>
+#include <vul/imagememorybarrier.h>
 #include <gul/imguirenderer.h>
 #include <gul/noise/fbm.h>
 #include <uul/bit.h>
 #include <uul/math.h>
+#include <uul/functional.h>
 #include <uul/typename.h>
 #include <gul/noise/opensimplex.h>
 //#include "chunkmanagement.h"
@@ -80,6 +85,7 @@
 
 #include <string_view>
 
+#include "raytrace_bitfield_renderer.h"
 
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
@@ -115,6 +121,7 @@ struct alignas(8) JFAIterationPushConstant {
     vul::DeviceAddress u_voxel_sdf_out;
 };
 static_assert(sizeof(JFAIterationPushConstant) == 32);
+
 
 int main() {
 
@@ -230,7 +237,8 @@ int main() {
 
 
     auto swapchain = swapchainBuilder.create(surface).assertValue();
-
+    const auto &swapchainImageViews = swapchain.getImageViews();
+    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
                                                device,
                                                VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT).assertValue();
@@ -533,27 +541,29 @@ int main() {
 //    };
 
 
-    auto raytraceBitfieldDescriptorSetLayout = vul::DescriptorSetLayoutBuilder(device)
-            .setBindings({vul::UniformBufferBinding(0,vul::ShaderStageFlagBits::ComputeBit),
-                                          vul::StorageImageBinding(1,vul::ShaderStageFlagBits::ComputeBit)});
-    auto raytraceBitfieldPipelineLayout = device.createPipelineLayout(
+    vul::RaytraceBitfieldRenderer raytrace_bitfield_renderer(device, swapchainSize);
 
-            vul::PushConstantRange::create<JFAIterationPushConstant>(
-                    vul::ShaderStageFlagBits::ComputeBit)).assertValue();
-//    auto jfaIterationComputeBuilder = vul::ComputePipelineBuilder(device);
-//    vul::ComputePipeline jfaIterationPipleline;
-//    {
-//        auto computeShader = device.createShaderModule("spirv/jfa_iteration.comp.spv").assertValue();
-//        jfaIterationComputeBuilder.setShaderCreateInfo(
-//                computeShader.createComputeStageInfo());
-//        jfaIterationComputeBuilder.setPipelineLayout(jfaIterationPipelineLayout);
-//        jfaIterationPipleline = jfaIterationComputeBuilder.create().assertValue();
-//    }
-//
+    std::vector<vul::Image> raytrace_bitfield_images;
+    std::vector<vul::ImageView> raytrace_bitfield_image_views;
+
+    auto raytrace_bitifield_image_info = vul::ImageCreateInfo::sampledStorage2D(
+            swapchain.getExtent(), vul::Format::R32Sfloat);
+    auto raytrace_bitfield_image_transition_barrier = vul::ImageMemoryBarrier::unfilledLayoutTransition(
+            vul::PipelineStageFlagBits2::TopOfPipeBit,
+            vul::PipelineStageFlagBits2::AllCommandsBit,
+            vul::AccessFlagBits2::ShaderWriteBit,
+            vul::ImageLayout::Undefined,
+            vul::ImageLayout::General);
+    for (std::size_t i = 0; i < swapchainSize; ++i) {
+        raytrace_bitfield_images.push_back(allocator.createDeviceImage(raytrace_bitifield_image_info).assertValue());
+        raytrace_bitfield_image_transition_barrier.setImage(raytrace_bitfield_images.back());
+        vul::transition(raytrace_bitfield_image_transition_barrier.get(), commandPool, presentationQueue);
+        raytrace_bitfield_image_views.push_back(raytrace_bitfield_images.back().createImageView().assertValue());
+    }
+
+
 
     vul::GraphicsPipeline graphicsPipeline;
-
-
     RunLengthEncodingPushConstant rlePushConstant = {
             rle_data_buffer.getDeviceAddress(),
             device_cumulative_rle_sizes.getDeviceAddress(),
@@ -616,28 +626,40 @@ int main() {
     ).assertValue();
 
 
+    auto pipelineBuilder2 = vul::GraphicsPipelineBuilder(device);
+    pipelineBuilder2.setPrimitiveStateInfo();
+    pipelineBuilder2.setViewportStateFromExtent(swapchain.getExtent());
+    pipelineBuilder2.setDynamicState({vul::DynamicState::Viewport, vul::DynamicState::Scissor});
+    pipelineBuilder2.setRasterizationState();
+    pipelineBuilder2.setMultisampleState();
+    pipelineBuilder2.setDepthStencilState();
+    pipelineBuilder2.setBlendState({vul::PipelineColorBlendAttachmentState::disableBlendRGBA()});
+    pipelineBuilder2.setRenderPass(renderPass, 0);
+    pipelineBuilder2.setPipelineLayout(pipelineLayout2);
     vul::GraphicsPipeline graphicsPipeline2;
-    pipelineBuilder.setPipelineLayout(pipelineLayout2);
     {
         auto vertexShader = device.createShaderModule("spirv/fullscreenr32f.vert.spv").assertValue();
         auto fragmentShader = device.createShaderModule("spirv/fullscreenr32f.frag.spv").assertValue();
-        pipelineBuilder.setShaderCreateInfo(
+        pipelineBuilder2.setShaderCreateInfo(
                 vertexShader.createVertexStageInfo(),
                 fragmentShader.createFragmentStageInfo());
-        graphicsPipeline2 = pipelineBuilder.create().assertValue();
+        graphicsPipeline2 = pipelineBuilder2.create().assertValue();
     }
 
-    vul::Image depthImage = allocator.createDeviceImage(
-            vul::createDepthStencilImageInfo(swapchain.getExtent())).assertValue();
+    std::vector<vul::Image> depthImages(swapchainSize);
 
-    auto depthImageView = depthImage.createImageView().assertValue();
+    for(auto& depthImage : depthImages){
+        depthImage = allocator.createDeviceImage(vul::ImageCreateInfo::depthStencilAttachment2D(swapchain.getExtent())).assertValue();
+    }
+    std::vector<vul::ImageView> depthImageViews(swapchainSize);
+    for(auto [i,depthImageView] : depthImageViews | ranges::views::enumerate){
+        depthImageView = depthImages[i].createImageView().assertValue();
+    }
+
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
-    const auto &swapchainImageViews = swapchain.getImageViews();
-    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
-
-    for (const auto &imageView: swapchainImageViews) {
+    for (const auto &[imageView, depthImageView]: ranges::views::zip(swapchainImageViews, depthImageViews)) {
         vul::FramebufferBuilder framebufferBuilder(device);
         framebufferBuilder.setAttachments({&imageView,
                                            &depthImageView});
@@ -647,43 +669,31 @@ int main() {
                 framebufferBuilder.create().assertValue());
     }
 
-    auto resizeSwapchain = [&window, &presentationQueue, &swapchainBuilder, &swapchain,
-            &depthImage, &depthImageView,
-            &allocator, &swapchainFramebuffers, &device, &renderPass]() {
+    auto resizeSwapchain = [&window, &swapchainBuilder, &swapchain, &surface, &physicalDevice]() {
         auto size = window.getFramebufferSize();
         while (size == glm::ivec2(0)) {
             size = window.getFramebufferSize();
             glfwWaitEvents();
         }
-        //TODO will need to recreate associated assets (like framebuffers or images that match the size of the window).
-        //TODO need to add framebuffers to assets possibly managed by swapchain?
-        presentationQueue.waitIdle();
-
-
-        swapchainFramebuffers.clear();
-
-        swapchain = swapchainBuilder.resize(swapchain, window.getFramebufferExtent()).assertValue();
-//        surface.resizeSwapchain(swapchainBuilder,
-//                                window.getFramebufferExtent());
-
-//        swapchainBuilder.imageExtent(window.getFramebufferExtent());
-//        surface.createSwapchain(swapchainBuilder);
-
-        depthImage = allocator.createDeviceImage(vul::createDepthStencilImageInfo(swapchain.getExtent())).assertValue();
-
-        depthImageView = depthImage.createImageView().assertValue();
-        const auto &swapchainImageViews = swapchain.getImageViews();
-        for (const auto &imageView: swapchainImageViews) {
-            vul::FramebufferBuilder framebufferBuilder(device);
-            framebufferBuilder.setAttachments({&imageView,
-                                               &depthImageView});
-            framebufferBuilder.setDimensions(
-                    swapchain.getExtent());
-            framebufferBuilder.setRenderPass(renderPass);
-            swapchainFramebuffers.push_back(
-                    framebufferBuilder.create().assertValue());
-        }
+        // swapchain = swapchainBuilder.resize(swapchain, window.getFramebufferExtent()).assertValue();
+        // use surface capabilities used instead of framebuffer extent (should be the same) so that validation layers
+        // get properly updated cached values for vkGetPhysicalDeviceSurfaceCapabilitiesKHR, otherwise they don't know
+        // the current extent of the surface and use the old initial one.
+        swapchain = swapchainBuilder.resize(swapchain, surface.getCapabilitiesFrom(physicalDevice).currentExtent).assertValue();
     };
+
+    auto resizeSwapchainFramebuffers = [&](std::size_t swapchainImageIndex){
+        depthImages[swapchainImageIndex] = allocator.createDeviceImage(vul::ImageCreateInfo::depthStencilAttachment2D(swapchain.getExtent())).assertValue();
+        depthImageViews[swapchainImageIndex] = depthImages[swapchainImageIndex].createImageView().assertValue();
+        const auto &imageView = swapchain.getImageViews()[swapchainImageIndex];
+        vul::FramebufferBuilder framebufferBuilder(device);
+        framebufferBuilder.setAttachments({&imageView,&depthImageViews[swapchainImageIndex]});
+        framebufferBuilder.setDimensions(swapchain.getExtent());
+        framebufferBuilder.setRenderPass(renderPass);
+        swapchainFramebuffers[swapchainImageIndex] = framebufferBuilder.create().assertValue();
+    };
+
+
 
 
     gul::StbImage pixels;
@@ -710,12 +720,8 @@ int main() {
     auto arrayTextureImage = allocator.createDeviceTextureArray(commandPool,
                                                                 presentationQueue,
                                                                 vul::make_proxy(textureLayers),
-                                                                vul::createSimple2DImageInfo(
-                                                                        vul::Format::R8g8b8a8Unorm,
-                                                                        {16, 16},
-                                                                        vul::ImageUsageFlagBits::TransferDstBit |
-                                                                        vul::ImageUsageFlagBits::SampledBit,
-                                                                        1, textureLayers.size())).assertValue();
+                                                                vul::ImageCreateInfo::texture2D({16, 16}, vul::Format::R8g8b8a8Unorm, 1, textureLayers.size())
+                                                               ).assertValue();
 
 
     auto arrayTextureView = arrayTextureImage.createImageView().assertValue();
@@ -723,11 +729,8 @@ int main() {
     auto textureImage = allocator.createDeviceTexture(commandPool,
                                                       presentationQueue,
                                                       pixels,
-                                                      vul::createSimple2DImageInfo(
-                                                              vul::Format::R8g8b8a8Unorm,
-                                                              pixels.getExtent2D(),
-                                                              vul::ImageUsageFlagBits::TransferDstBit |
-                                                              vul::ImageUsageFlagBits::SampledBit)).assertValue();
+                                                      vul::ImageCreateInfo::texture2D(pixels.getExtent2D(),vul::Format::R8g8b8a8Unorm)
+                                                     ).assertValue();
 
 
     auto textureImageView = textureImage.createImageView().assertValue();
@@ -742,17 +745,22 @@ int main() {
 
 
     std::vector<vul::Buffer> uniformBuffers;
+    std::vector<vul::Buffer> raytrace_bitfield_uniform_buffers;
     for (std::size_t i = 0; i < swapchainSize; ++i) {
-        VkDeviceSize bufferSize = sizeof(UniformBufferObject);
         uniformBuffers.push_back(
-                allocator.createMappedCoherentBuffer(bufferSize,
+                allocator.createMappedCoherentBuffer(sizeof(UniformBufferObject),
+                                                     vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
+        raytrace_bitfield_uniform_buffers.push_back(
+                allocator.createMappedCoherentBuffer(sizeof(vul::RaytraceBitfieldRenderer::UniformBufferObject),
                                                      vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
     }
 
 
+
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,
-              swapchainSize}}).assertValue();
+              swapchainSize},
+             {raytrace_bitfield_renderer.get_descriptor_set_layout_builder(), swapchainSize}}).assertValue();
 
     auto descriptorSets = descriptorPool.createDescriptorSets(
             {{descriptorLayout, swapchainSize}}).assertValue();
@@ -770,6 +778,31 @@ int main() {
         device.updateDescriptorSets(updates);
     }
 
+    auto raytraceBitfieldDescriptorSets = descriptorPool.createDescriptorSets(
+            {{raytrace_bitfield_renderer.get_descriptor_set_layout(), swapchainSize}}).assertValue();
+
+    //TODO type safe storage image, uniform buffer, accept normal buffer, and have "createDescriptorInfo" happen inside?
+    for (const auto &[i, descriptorSet]: raytraceBitfieldDescriptorSets |
+                                         ranges::views::enumerate){
+        auto updateBuilder = raytrace_bitfield_renderer.create_descriptor_set_update_builder();
+        updateBuilder.getDescriptorElementAt(0).setUniformBuffer({raytrace_bitfield_uniform_buffers[i].createDescriptorInfo()});
+        updateBuilder.getDescriptorElementAt(1).setStorageImage({raytrace_bitfield_image_views[i].createStorageWriteInfo()});
+        auto updates = updateBuilder.create(descriptorSet);
+        device.updateDescriptorSets(updates);
+    }
+
+    auto resize_bitfield_assets = [&](std::size_t swapchainImageIndex){
+        raytrace_bitfield_images[swapchainImageIndex] = (allocator.createDeviceImage(
+        raytrace_bitifield_image_info).assertValue());
+        raytrace_bitfield_image_transition_barrier.setImage(raytrace_bitfield_images[swapchainImageIndex]);
+        vul::transition(raytrace_bitfield_image_transition_barrier, commandPool,presentationQueue);
+        raytrace_bitfield_image_views[swapchainImageIndex] = (raytrace_bitfield_images[swapchainImageIndex].createImageView().assertValue());
+        const auto& descriptorSet = raytraceBitfieldDescriptorSets[swapchainImageIndex];
+        auto updateBuilder = raytrace_bitfield_renderer.create_descriptor_set_update_builder();
+        updateBuilder.getDescriptorElementAt(1).setStorageImage({raytrace_bitfield_image_views[swapchainImageIndex].createStorageWriteInfo()});
+        auto updates = updateBuilder.create(descriptorSet);
+        device.updateDescriptorSets(updates);
+    };
 
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
@@ -777,11 +810,18 @@ int main() {
     gul::ImguiRenderer imguiRenderer(window, instance, device, swapchain,
                                      presentationQueue,
                                      swapchain.getFormat());
+    std::vector<std::function<void(std::size_t swapchainImageIndex)>> frameResourceResizeFunctions = {{},{},{}};
 
-    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback(
-            presentationQueue)]() {
+    auto resizeImGuiFramebuffer = imguiRenderer.createResizeFrameCallback();
+    auto frameResourceResizeFunction = [&](std::size_t swapchainImageIndex){
+        resizeImGuiFramebuffer(swapchainImageIndex);
+        resizeSwapchainFramebuffers(swapchainImageIndex);
+        resize_bitfield_assets(swapchainImageIndex);
+    };
+    auto resizeWindow = [&resizeSwapchain, & frameResourceResizeFunctions, &frameResourceResizeFunction, &raytrace_bitifield_image_info, &swapchain]() {
         resizeSwapchain();
-        resizeImGuiFramebuffers();
+        raytrace_bitifield_image_info.setExtent(swapchain.getExtent());
+        frameResourceResizeFunctions = {frameResourceResizeFunction,frameResourceResizeFunction,frameResourceResizeFunction};
     };
 
 
@@ -872,6 +912,10 @@ int main() {
         auto swapchainImageIndex = swapchainImageIndexResult.assertValue(
                 validSwapchainResults);
 
+        if(frameResourceResizeFunctions[swapchainImageIndex] != nullptr){
+            frameResourceResizeFunctions[swapchainImageIndex](swapchainImageIndex);
+            frameResourceResizeFunctions[swapchainImageIndex] = {};
+        }
         {
             static auto startTime = std::chrono::high_resolution_clock::now();
             static auto lastTime = std::chrono::high_resolution_clock::now();
@@ -979,9 +1023,8 @@ int main() {
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
                 commandBuffer.bindPipeline(jfaInitPipleline);
-                auto computeComputeBarrier = vul::createComputeBarrierRWARW();
-                auto computeComputeDepInfo = vul::createDependencyInfo(
-                        computeComputeBarrier, {}, {});
+                auto computeComputeBarrier = {vul::MemoryBarrier::computeToComputeRWARW()};
+                auto computeComputeDepInfo = vul::DependencyInfo({computeComputeBarrier} , {}, {});
                 commandBuffer.pushConstants(jfaInitPipelineLayout,
                                             vul::ShaderStageFlagBits::ComputeBit,
                                             jfa_init_push_constant);

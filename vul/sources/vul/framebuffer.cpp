@@ -49,6 +49,8 @@ vul::Result vul::Framebuffer::setObjectName(const std::string &string) {
     return m_pDevice->setObjectName(m_handle, string);
 }
 
+vul::Framebuffer::Framebuffer() = default;
+
 
 vul::FramebufferBuilder::FramebufferBuilder(const vul::Device &device,
                                             const VkAllocationCallbacks *pAllocator) : m_pDevice(&device), m_pAllocator(pAllocator){

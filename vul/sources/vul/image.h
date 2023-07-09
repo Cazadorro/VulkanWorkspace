@@ -5,6 +5,7 @@
 #ifndef VULKANWORKSPACE_IMAGE_H
 #define VULKANWORKSPACE_IMAGE_H
 
+#include "vul/imagecreateinfo.h"
 #include "vul/vmaallocation.h"
 #include "vul/enums.h"
 #include "vul/commandutils.h"
@@ -42,7 +43,12 @@ namespace vul {
         std::uint32_t layerCount = 0;
 
         [[nodiscard]]
-        const VkImageSubresourceRange &get() const;
+        operator VkImageSubresourceRange() const noexcept;
+        [[nodiscard]]
+        VkImageSubresourceRange &get() noexcept;
+        [[nodiscard]]
+        const VkImageSubresourceRange &get() const noexcept;
+
     };
 
     class ImageSubresourceLayers {
@@ -67,7 +73,7 @@ namespace vul {
 
     class Image {
     public:
-        Image() = default;
+        Image();
 
         Image(vul::VmaAllocation &&allocation, VkImage handle,
               vul::ImageType imageType,
@@ -165,6 +171,9 @@ namespace vul {
         vul::Format getImageFormat() const;
 
         [[nodiscard]]
+        uul::EnumFlags<vul::ImageAspectFlagBits> calcImageAspect() const;
+
+        [[nodiscard]]
         VkExtent3D getExtent3D() const;
 
         [[nodiscard]]
@@ -183,10 +192,19 @@ namespace vul {
         vul::ImageTiling getImageTiling() const;
 
 
-        //Note will add stencil bit to depth/stencil format images in image view, if not wanted, use another.
         [[nodiscard]]
         ExpectedResult<ImageView> createImageView(
-                uul::EnumFlags<vul::ImageAspectFlagBits> aspectBitMask = {},
+                bool isCube = false,
+                const VkComponentMapping &components = {},
+                uul::EnumFlags<vul::ImageViewCreateFlagBits> flags = {},
+                const void *pNext = nullptr,
+                const VkAllocationCallbacks *pAllocator = nullptr) const;
+
+        //Note will add stencil bit to depth/stencil format images in image view, if not wanted, use another.
+
+        [[nodiscard]]
+        ExpectedResult<ImageView> createImageView(
+                uul::EnumFlags<vul::ImageAspectFlagBits> aspectBitMask,
                 bool isCube = false,
                 const VkComponentMapping &components = {},
                 uul::EnumFlags<vul::ImageViewCreateFlagBits> flags = {},
@@ -248,53 +266,6 @@ namespace vul {
         vul::ImageTiling m_tiling;
     };
 
-    struct ImageCreateInfo {
-        vul::StructureType sType = vul::StructureType::ImageCreateInfo;
-        const void *pNext;
-        uul::EnumFlags<vul::ImageCreateFlagBits> flags;
-        vul::ImageType imageType;
-        vul::Format format;
-        vul::Extent3D extent;
-        std::uint32_t mipLevels;
-        std::uint32_t arrayLayers;
-        uul::EnumFlags<vul::SampleCountFlagBits> samples;
-        vul::ImageTiling tiling;
-        uul::EnumFlags<vul::ImageUsageFlagBits> usage;
-        vul::SharingMode sharingMode;
-        std::uint32_t queueFamilyIndexCount;
-        const std::uint32_t *pQueueFamilyIndices;
-        vul::ImageLayout initialLayout;
-
-        ImageCreateInfo() = default;
-
-
-        explicit ImageCreateInfo(
-                const void *pNext,
-                uul::EnumFlags<vul::ImageCreateFlagBits> flags,
-                vul::ImageType imageType,
-                vul::Format format,
-                vul::Extent3D extent,
-                std::uint32_t mipLevels,
-                std::uint32_t arrayLayers,
-                uul::EnumFlags<vul::SampleCountFlagBits> samples,
-                vul::ImageTiling tiling,
-                uul::EnumFlags<vul::ImageUsageFlagBits> usage,
-                vul::SharingMode sharingMode,
-                std::uint32_t queueFamilyIndexCount,
-                const std::uint32_t *pQueueFamilyIndices,
-                vul::ImageLayout initialLayout
-        );
-
-        explicit ImageCreateInfo(VkImageCreateInfo imageCreateInfo);
-
-        explicit operator VkImageCreateInfo() const;
-
-        [[nodiscard]]
-        VkImageCreateInfo &get();
-
-        [[nodiscard]]
-        const VkImageCreateInfo &get() const;
-    };
 
 
     [[nodiscard]]

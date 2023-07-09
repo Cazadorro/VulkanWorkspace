@@ -231,6 +231,7 @@ namespace vul {
 
     class DescriptorSetLayoutBuilder {
     public:
+        DescriptorSetLayoutBuilder();
         explicit DescriptorSetLayoutBuilder(const Device &device,
                                             const VkAllocationCallbacks *pAllocator = nullptr);
 

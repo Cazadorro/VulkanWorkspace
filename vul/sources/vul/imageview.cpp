@@ -120,6 +120,8 @@ VkDescriptorImageInfo vul::ImageView::createDescriptorInfo(VkSampler sampler,
     return {sampler, m_handle, vul::get(layout)};
 }
 
+vul::ImageView::ImageView() = default;
+
 vul::SubresourceRange::operator VkImageSubresourceRange() const {
     return *reinterpret_cast<const VkImageSubresourceRange*>(this);
 }

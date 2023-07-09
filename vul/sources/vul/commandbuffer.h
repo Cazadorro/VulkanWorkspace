@@ -5,8 +5,8 @@
 #ifndef VULKANWORKSPACE_COMMANDBUFFER_H
 #define VULKANWORKSPACE_COMMANDBUFFER_H
 
+#include "vul/dependencyinfo.h"
 #include "vul/enumsfwd.h"
-
 #include "vul/vkstructutils.h"
 #include "vul/temparrayproxyfwd.h"
 #include <uul/enumflags.h>
@@ -151,6 +151,8 @@ namespace vul {
                                const TempArrayProxy<const VkBufferImageCopy> &copyRegions);
 
         void pipelineBarrier(const VkDependencyInfoKHR &dependencyInfo);
+
+        void pipelineBarrier(const DependencyInfo &dependencyInfo);
 
         void blitImage(const Image &srcImage, Image &dstImage,
                        const TempArrayProxy<const VkImageBlit> &blitRegions);

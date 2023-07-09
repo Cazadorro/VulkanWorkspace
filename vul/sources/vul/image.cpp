@@ -9,6 +9,8 @@
 #include "vul/device.h"
 #include "vul/expectedresult.h"
 #include "vul/colorformatutils.h"
+#include "imagecreateinfo.h"
+
 #include <uul/assert.h>
 #include <uul/unreachable.h>
 
@@ -24,8 +26,16 @@ vul::ImageSubresourceRange::ImageSubresourceRange(
 
 }
 
-const VkImageSubresourceRange &vul::ImageSubresourceRange::get() const {
+vul::ImageSubresourceRange::operator VkImageSubresourceRange() const noexcept {
+    return get();
+}
+
+const VkImageSubresourceRange &vul::ImageSubresourceRange::get() const noexcept{
     return *reinterpret_cast<const VkImageSubresourceRange *>(this);
+}
+
+VkImageSubresourceRange &vul::ImageSubresourceRange::get() noexcept {
+    return *reinterpret_cast<VkImageSubresourceRange *>(this);
 }
 
 vul::ImageSubresourceLayers::ImageSubresourceLayers(
@@ -210,27 +220,15 @@ vul::ExpectedResult<vul::ImageView>
 vul::Image::createImageView(uul::EnumFlags<vul::ImageAspectFlagBits>  aspectBitMask, bool isCube, const VkComponentMapping &components,
                             uul::EnumFlags<vul::ImageViewCreateFlagBits> flags,
                             const void *pNext, const VkAllocationCallbacks *pAllocator) const {
-    auto tempAspectBitMask = aspectBitMask;
-    bool matched_format = false;
-    if (isColorFormat(static_cast<vul::Format>(m_format))) {
-        tempAspectBitMask |= vul::ImageAspectFlagBits::ColorBit;
-        matched_format = true;
-    }
-    if (isDepthFormat(static_cast<vul::Format>(m_format))) {
-        tempAspectBitMask |= vul::ImageAspectFlagBits::DepthBit;
-        matched_format = true;
-    }
-    if (isStencilFormat(static_cast<vul::Format>(m_format))) {
-        tempAspectBitMask |= vul::ImageAspectFlagBits::StencilBit;
-        matched_format = true;
-    }
-    if (!matched_format) {
-        UUL_ASSERT(false, fmt::format("Expected {} to match depth, stencil, or color formats",
-                                            vul::to_string(static_cast<vul::Format>(m_format))).c_str());
-    }
-    return createImageView(vul::ImageSubresourceRange(tempAspectBitMask), isCube, components, flags, pNext, pAllocator);
+    return createImageView(vul::ImageSubresourceRange(aspectBitMask), isCube, components, flags, pNext, pAllocator);
 }
 
+vul::ExpectedResult<vul::ImageView> vul::Image::createImageView(bool isCube, const VkComponentMapping &components,
+                                                                uul::EnumFlags<vul::ImageViewCreateFlagBits> flags,
+                                                                const void *pNext,
+                                                                const VkAllocationCallbacks *pAllocator) const {
+    return createImageView(calcImageAspect(), isCube, components, flags, pNext, pAllocator);
+}
 
 VkImageMemoryBarrier2KHR
 vul::Image::createMemoryBarrier(uul::EnumFlags<vul::PipelineStageFlagBits2>  srcStageMask,
@@ -348,6 +346,19 @@ vul::Image::toImageViewType(const vul::ImageSubresourceRange &subresourceRange,
     return vul::toImageViewType(static_cast<ImageType>(m_imageType), arrayLayers, isCube);
 }
 
+uul::EnumFlags<vul::ImageAspectFlagBits> vul::Image::calcImageAspect() const {
+    auto tempAspectBitMask = vul::getImageAspect(getImageFormat());
+    if (tempAspectBitMask.empty()) {
+        UUL_ASSERT(false, fmt::format("Expected {} to match depth, stencil, or color formats",
+                                      vul::to_string(static_cast<vul::Format>(m_format))).c_str());
+    }
+    return tempAspectBitMask;
+}
+
+
+
+vul::Image::Image()  = default;
+
 
 vul::ImageViewType
 vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
@@ -393,46 +404,6 @@ vul::toImageViewType(vul::ImageType type, std::uint32_t arrayLayers,
 
 }
 
-
-
-vul::ImageCreateInfo::ImageCreateInfo(const void *pNext, uul::EnumFlags<vul::ImageCreateFlagBits> flags, vul::ImageType imageType,
-                                      vul::Format format, vul::Extent3D extent, std::uint32_t mipLevels,
-                                      std::uint32_t arrayLayers, uul::EnumFlags<vul::SampleCountFlagBits> samples,
-                                      vul::ImageTiling tiling, uul::EnumFlags<vul::ImageUsageFlagBits> usage,
-                                      vul::SharingMode sharingMode, std::uint32_t queueFamilyIndexCount,
-                                      const std::uint32_t *pQueueFamilyIndices, vul::ImageLayout initialLayout) :
-                                      pNext(pNext),
-                                      flags(flags),
-                                      imageType(imageType),
-                                      format(format),
-                                      extent(extent),
-                                      mipLevels(mipLevels),
-                                      arrayLayers(arrayLayers),
-                                      samples(samples),
-                                      tiling(tiling),
-                                      usage(usage),
-                                      sharingMode(sharingMode),
-                                      queueFamilyIndexCount(queueFamilyIndexCount),
-                                      pQueueFamilyIndices(pQueueFamilyIndices),
-                                      initialLayout(initialLayout){
-
-}
-
-vul::ImageCreateInfo::ImageCreateInfo(VkImageCreateInfo imageCreateInfo) {
-    get() = imageCreateInfo;
-}
-
-vul::ImageCreateInfo::operator VkImageCreateInfo() const {
-    return get();
-}
-
-VkImageCreateInfo &vul::ImageCreateInfo::get() {
-    return *reinterpret_cast<VkImageCreateInfo *>(this);
-}
-
-const VkImageCreateInfo &vul::ImageCreateInfo::get() const {
-    return *reinterpret_cast<const VkImageCreateInfo *>(this);
-}
 
 
 vul::ImageCreateInfo

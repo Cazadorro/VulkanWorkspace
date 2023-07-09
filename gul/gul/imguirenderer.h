@@ -48,6 +48,8 @@ namespace gul {
 
         [[nodiscard]]
         std::function<void()> createResizeCallback(const vul::Queue& renderQueue);
+        [[nodiscard]]
+        std::function<void(std::size_t swapchainImageIndex)> createResizeFrameCallback();
 
     private:
         const vul::Device *m_pDevice = nullptr;

@@ -304,6 +304,10 @@ void vul::CommandBuffer::setViewport(
     setViewport(viewports.reinterpret_to<const VkViewport>(), firstViewport);
 }
 
+void vul::CommandBuffer::pipelineBarrier(const vul::DependencyInfo &dependencyInfo) {
+    pipelineBarrier(dependencyInfo.get());
+}
+
 
 vul::Result
 vul::PrimaryCommandBuffer::begin(uul::EnumFlags<vul::CommandBufferUsageFlagBits> flags,
