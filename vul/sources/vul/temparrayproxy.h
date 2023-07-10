@@ -12,15 +12,238 @@
 #include <span>
 #include <gsl/span>
 #include <fmt/core.h>
-
+#include <range/v3/view/facade.hpp>
 
 namespace vul {
 
-
+// : public ranges::view_facade<TempArrayProxy<T>>
     template<typename T>
-    class TempArrayProxy {
+    class TempArrayProxy{
     public:
+        class iterator {
+        public:
+            using value_type = T;
+            using reference = value_type &;
+            using pointer = value_type *;
+            using iterator_category = std::random_access_iterator_tag;
+            using difference_type = std::ptrdiff_t;
+            using iterator_concept = std::contiguous_iterator_tag;
+
+            explicit constexpr iterator(T *iter = nullptr) : m_ptr{iter} {}
+
+            [[nodiscard]]
+            constexpr bool operator==(const iterator &other) const noexcept {
+                return m_ptr == other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator!=(const iterator &other) const noexcept {
+                return m_ptr != other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr reference operator*() const noexcept {
+                return *m_ptr;
+            }
+
+            constexpr pointer operator->() const noexcept {
+                return m_ptr;
+            }
+
+            constexpr iterator &operator++() noexcept {
+                ++m_ptr;
+                return *this;
+            }
+
+            constexpr iterator operator++(int) noexcept {
+                iterator tmp(*this);
+                ++(*this);
+                return tmp;
+            }
+
+            constexpr iterator &operator--() noexcept {
+                --m_ptr;
+                return *this;
+            }
+
+            constexpr iterator operator--(int) noexcept {
+                iterator tmp(*this);
+                --(*this);
+                return tmp;
+            }
+
+            constexpr iterator &operator+=(const difference_type other) noexcept {
+                m_ptr += other;
+                return *this;
+            }
+
+            constexpr iterator &operator-=(const difference_type other) noexcept {
+                m_ptr -= other;
+                return *this;
+            }
+
+            [[nodiscard]]
+            constexpr iterator operator+(const difference_type other) const noexcept {
+                return iterator(m_ptr + other);
+            }
+
+            [[nodiscard]]
+            constexpr iterator operator-(const difference_type other) const noexcept {
+                return iterator(m_ptr - other);
+            }
+
+            [[nodiscard]]
+            constexpr iterator operator+(const iterator &other) const noexcept {
+                return iterator(*this + other.m_ptr);
+            }
+
+            [[nodiscard]]
+            constexpr difference_type operator-(const iterator &other) const noexcept {
+                return std::distance(m_ptr, other.m_ptr);
+            }
+
+            constexpr reference operator[](std::size_t index) const {
+                return m_ptr[index];
+            }
+
+            [[nodiscard]]
+            constexpr bool operator<(const iterator &other) const noexcept {
+                return m_ptr < other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator>(const iterator &other) const noexcept {
+                return m_ptr > other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator<=(const iterator &other) const noexcept {
+                return m_ptr <= other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator>=(const iterator &other) const noexcept {
+                return m_ptr >= other.m_ptr;
+            }
+
+        private:
+            T *m_ptr;
+        };
+
+
+        class const_iterator {
+        public:
+            using value_type = T;
+            using reference = const value_type &;
+            using pointer = const value_type *;
+            using iterator_category = std::random_access_iterator_tag;
+            using difference_type = std::ptrdiff_t;
+            using iterator_concept = std::contiguous_iterator_tag;
+
+            explicit constexpr const_iterator(const T *iter = nullptr) : m_ptr{iter} {}
+
+            [[nodiscard]]
+            constexpr bool operator==(const const_iterator &other) const noexcept {
+                return m_ptr == other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator!=(const const_iterator &other) const noexcept {
+                return m_ptr != other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr reference operator*() const noexcept {
+                return *m_ptr;
+            }
+
+            constexpr pointer operator->() const noexcept {
+                return m_ptr;
+            }
+
+            constexpr const_iterator &operator++() noexcept {
+                ++m_ptr;
+                return *this;
+            }
+
+            constexpr const_iterator operator++(int) noexcept {
+                const_iterator tmp(*this);
+                ++(*this);
+                return tmp;
+            }
+
+            constexpr const_iterator &operator--() noexcept {
+                --m_ptr;
+                return *this;
+            }
+
+            constexpr const_iterator operator--(int) noexcept {
+                const_iterator tmp(*this);
+                --(*this);
+                return tmp;
+            }
+
+            constexpr const_iterator &operator+=(const difference_type other) noexcept {
+                m_ptr += other;
+                return *this;
+            }
+
+            constexpr const_iterator &operator-=(const difference_type other) noexcept {
+                m_ptr -= other;
+                return *this;
+            }
+
+            [[nodiscard]]
+            constexpr const_iterator operator+(const difference_type other) const noexcept {
+                return const_iterator(m_ptr + other);
+            }
+
+            [[nodiscard]]
+            constexpr const_iterator operator-(const difference_type other) const noexcept {
+                return const_iterator(m_ptr - other);
+            }
+
+            [[nodiscard]]
+            constexpr const_iterator operator+(const const_iterator &other) const noexcept {
+                return const_iterator(*this + other.m_ptr);
+            }
+
+            [[nodiscard]]
+            constexpr difference_type operator-(const const_iterator &other) const noexcept {
+//                auto temp =std::distance(m_ptr, other.m_ptr);
+                return m_ptr - other.m_ptr;
+            }
+
+            constexpr reference operator[](std::size_t index) const {
+                return m_ptr[index];
+            }
+
+            [[nodiscard]]
+            constexpr bool operator<(const const_iterator &other) const noexcept {
+                return m_ptr < other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator>(const const_iterator &other) const noexcept {
+                return m_ptr > other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator<=(const const_iterator &other) const noexcept {
+                return m_ptr <= other.m_ptr;
+            }
+
+            [[nodiscard]]
+            constexpr bool operator>=(const const_iterator &other) const noexcept {
+                return m_ptr >= other.m_ptr;
+            }
+
+        private:
+            const T *m_ptr;
+        };
+
         using value_type = T;
+
         constexpr TempArrayProxy() noexcept
                 : m_count(0), m_ptr(nullptr) {
         }
@@ -49,7 +272,6 @@ namespace vul {
 #  endif
 
 
-
         // Any type with a .data() return type implicitly convertible to T*, and a .size() return type implicitly
         // convertible to size_t. The const version can capture temporaries, with lifetime ending at end of statement.
         template<typename V,
@@ -73,12 +295,12 @@ namespace vul {
 #  endif
 
 
-        const T *begin() const noexcept {
-            return m_ptr;
+        const_iterator begin() const noexcept {
+            return const_iterator{m_ptr};
         }
 
-        const T *end() const noexcept {
-            return m_ptr + m_count;
+        const_iterator end() const noexcept {
+            return const_iterator{m_ptr + m_count};
         }
 
         const T &front() const noexcept {
@@ -95,6 +317,7 @@ namespace vul {
         bool empty() const noexcept {
             return (m_count == 0);
         }
+
         [[nodiscard]]
         uint32_t size() const noexcept {
             return m_count;
@@ -184,10 +407,10 @@ namespace vul {
         const T &operator[](std::size_t i) const {
             return m_ptr[i];
         }
-
-        T &operator[](std::size_t i) {
-            return m_ptr[i];
-        }
+//TODO currently can't modify internally, so this is useless
+//        T &operator[](std::size_t i) {
+//            return m_ptr[i];
+//        }
 
         [[nodiscard]]
         std::size_t size_bytes() const noexcept {
@@ -198,27 +421,28 @@ namespace vul {
         uint32_t m_count;
         T const *m_ptr;
     };
+
     template<typename V>
     TempArrayProxy(V const &v) noexcept -> TempArrayProxy<typename V::value_type>;
 
     template<typename V, typename T = typename V::value_type,
             typename std::enable_if<
-            std::is_convertible<decltype(std::declval<V>().size()), std::size_t>::value>::type * = nullptr>
-    auto make_proxy(const V& v) {
+                    std::is_convertible<decltype(std::declval<V>().size()), std::size_t>::value>::type * = nullptr>
+    auto make_proxy(const V &v) {
         return TempArrayProxy<T>(static_cast<std::uint32_t>(v.size()), v.data());
     }
 
 
     template<typename T>
-    auto make_proxy(uint32_t count, T const *ptr) noexcept{
+    auto make_proxy(uint32_t count, T const *ptr) noexcept {
         return TempArrayProxy<T>(count, ptr);
     }
 
     template<typename T>
-    std::size_t size_bytes(const T& t){
-        if constexpr (std::is_member_function_pointer_v<decltype(&T::size_bytes)>){
+    std::size_t size_bytes(const T &t) {
+        if constexpr (std::is_member_function_pointer_v<decltype(&T::size_bytes)>) {
             return t.size_bytes();
-        }else{
+        } else {
             return t.size() * sizeof(T::value_type);
         }
     }

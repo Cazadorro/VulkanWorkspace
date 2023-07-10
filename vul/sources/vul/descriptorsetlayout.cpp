@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 8/28/2021.
 //
 
+#include "vul/writedescriptorset.h"
 #include "vul/descriptorsetlayout.h"
 #include "vul/descriptorset.h"
 #include <uul/assert.h>
@@ -393,6 +394,15 @@ vul::DescriptorSetLayoutBuilder& vul::DescriptorSetLayoutBuilder::setStageFlags(
 vul::DescriptorSetUpdateBuilder
 vul::DescriptorSetLayoutBuilder::createUpdateBuilder() const {
     return DescriptorSetUpdateBuilder(m_bindings, m_nameBindingMap);
+}
+
+std::vector<vul::DescriptorTypeCount> vul::DescriptorSetLayoutBuilder::createDescriptorTypeCounts() const {
+    std::vector<vul::DescriptorTypeCount> result;
+    result.reserve(m_bindings.size());
+    for (auto &binding: m_bindings) {
+        result.emplace_back(binding.descriptorType, binding.descriptorCount);
+    }
+    return result;
 }
 
 vul::DescriptorSetLayoutBuilder::DescriptorSetLayoutBuilder() = default;

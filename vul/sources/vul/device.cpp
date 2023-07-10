@@ -2,7 +2,9 @@
 // Created by Shae Bolt on 6/9/2021.
 //
 
+
 #include "vul/device.h"
+#include "vul/writedescriptorset.h"
 #include "vul/imageview.h"
 #include "vul/framebuffer.h"
 #include "vul/renderpass.h"
@@ -435,13 +437,18 @@ void vul::Device::updateDescriptorSets(
         const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites) const {
     return updateDescriptorSets(descriptorWrites, {});
 }
-
+void
+vul::Device::updateDescriptorSets(const vul::TempArrayProxy<const vul::WriteDescriptorSet> &descriptorWrites) const {
+    return updateDescriptorSets(descriptorWrites.reinterpret_to<const VkWriteDescriptorSet>());
+}
 void vul::Device::updateDescriptorSets(
         const vul::TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites,
         const vul::TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const {
     vkUpdateDescriptorSets(m_handle, static_cast<std::uint32_t>(descriptorWrites.size()), descriptorWrites.data(),
                            static_cast<std::uint32_t>(descriptorCopies.size()), descriptorCopies.data());
 }
+
+
 
 
 

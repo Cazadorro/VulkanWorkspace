@@ -17,6 +17,8 @@
 #include<unordered_map>
 
 namespace vul {
+    class WriteDescriptorSet;
+
     class PhysicalDevice;
 
     class Queue;
@@ -255,6 +257,7 @@ namespace vul {
              const void *pNext = nullptr) const;
 
         void updateDescriptorSets(const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites) const;
+        void updateDescriptorSets(const TempArrayProxy<const vul::WriteDescriptorSet> &descriptorWrites) const;
         void updateDescriptorSets(const TempArrayProxy<const VkWriteDescriptorSet> &descriptorWrites, const TempArrayProxy<const VkCopyDescriptorSet> &descriptorCopies) const;
     private:
         PhysicalDevice m_physicalDevice;

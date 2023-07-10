@@ -17,7 +17,7 @@
 #include <vector>
 
 namespace vul {
-
+    struct DescriptorTypeCount;
 
     class DescriptorSetLayoutBinding {
     public:
@@ -270,6 +270,9 @@ namespace vul {
 
         [[nodiscard]]
         DescriptorSetUpdateBuilder createUpdateBuilder() const;
+
+        [[nodiscard]]
+        std::vector<DescriptorTypeCount> createDescriptorTypeCounts() const;
 
         [[nodiscard]]
         std::vector<VkDescriptorPoolSize> calcPoolSizes(std::uint32_t multiplier = 0) const;

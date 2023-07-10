@@ -2,6 +2,7 @@
 // Created by Shae Bolt on 6/5/2021.
 //
 
+#include <vul/writedescriptorset.h>
 #include <vul/dependencyinfo.h>
 #include <vul/memorybarrier.h>
 #include <vul/imagecreateinfo.h>
@@ -160,8 +161,14 @@ int main() {
                     .create()
                     .assertValue();
     auto features = vul::Features::withMaxFeatureSetNVMaxwell();
+//    features.physicalDeviceVulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = VK_TRUE;
+//    features.physicalDeviceVulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-
+    features.physicalDeviceVulkan12Features.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+//    features.physicalDeviceVulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE;
+//    features.physicalDeviceVulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
@@ -760,7 +767,8 @@ int main() {
     auto descriptorPool = device.createDescriptorPool(
             {{descriptorSetLayoutBuilder,
               swapchainSize},
-             {raytrace_bitfield_renderer.get_descriptor_set_layout_builder(), swapchainSize}}).assertValue();
+             {raytrace_bitfield_renderer.get_descriptor_set_layout_builder(), swapchainSize}},
+             vul::DescriptorPoolCreateFlagBits::UpdateAfterBindBit).assertValue();
 
     auto descriptorSets = descriptorPool.createDescriptorSets(
             {{descriptorLayout, swapchainSize}}).assertValue();
@@ -784,11 +792,16 @@ int main() {
     //TODO type safe storage image, uniform buffer, accept normal buffer, and have "createDescriptorInfo" happen inside?
     for (const auto &[i, descriptorSet]: raytraceBitfieldDescriptorSets |
                                          ranges::views::enumerate){
-        auto updateBuilder = raytrace_bitfield_renderer.create_descriptor_set_update_builder();
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer({raytrace_bitfield_uniform_buffers[i].createDescriptorInfo()});
-        updateBuilder.getDescriptorElementAt(1).setStorageImage({raytrace_bitfield_image_views[i].createStorageWriteInfo()});
-        auto updates = updateBuilder.create(descriptorSet);
-        device.updateDescriptorSets(updates);
+        auto typeCounts = raytrace_bitfield_renderer.get_descriptor_set_layout_builder().createDescriptorTypeCounts();
+        vul::WriteDescriptorSetBuilder writeBuilder(descriptorSet, typeCounts);
+        writeBuilder[0] = {&raytrace_bitfield_uniform_buffers[i]};
+        writeBuilder[1] = {&raytrace_bitfield_image_views[i]};
+        device.updateDescriptorSets(writeBuilder.getWrites());
+//        auto updateBuilder = raytrace_bitfield_renderer.create_descriptor_set_update_builder();
+//        updateBuilder.getDescriptorElementAt(0).setUniformBuffer({raytrace_bitfield_uniform_buffers[i].createDescriptorInfo()});
+//        updateBuilder.getDescriptorElementAt(1).setStorageImage({raytrace_bitfield_image_views[i].createStorageWriteInfo()});
+//        auto updates = updateBuilder.create(descriptorSet);
+//        device.updateDescriptorSets(updates);
     }
 
     auto resize_bitfield_assets = [&](std::size_t swapchainImageIndex){
