@@ -1,6 +1,9 @@
 #include <iostream>
 #include <vector>
 
+
+
+
 // function to add the elements of two arrays
 __global__
 void addConstant(float * matrix, unsigned width, unsigned height, float addend) {

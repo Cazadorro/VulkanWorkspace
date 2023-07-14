@@ -1,0 +1,116 @@
+#version 460
+
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+#extension GL_KHR_shader_subgroup_shuffle_relative : enable
+#extension GL_KHR_shader_subgroup_shuffle : enable
+#extension GL_KHR_memory_scope_semantics : enable
+#pragma use_vulkan_memory_model
+
+//id = 0, the specialization constant idx.
+layout(local_size_x_id = 0, local_size_y = 1, local_size_z = 1) in;
+
+layout(push_constant, scalar) uniform PushConstantBlock{
+    uint32_array u_input_data;
+    uint32_array u_output_data;
+    uint u_size;
+    uint u_radix_index;
+};
+
+
+uint find_ith_bit(uint n, uint i){
+    //TODO figure out if we need to offset.
+//    i += 1; // off by 1 result if we don't
+    //Effectively inlined binary search through bits.
+    uint mask = 0x0000FFFFu;
+    uint cum_count = 0;
+    uint count_lsb = bitCount( n & mask) + cum_count;
+    if(count_lsb < i){
+        mask <<= 16;
+        cum_count = count_lsb;
+    }
+    mask &= 0x00FF00FFu;
+    count_lsb = bitCount(n & mask) + cum_count;
+    if(count_lsb < i){
+        mask <<= 8;
+        cum_count = count_lsb;
+    }
+    mask &= 0x0F0F0F0Fu;
+    count_lsb = bitCount(n & mask) + cum_count;
+    if(count_lsb < i){
+        mask <<= 4;
+        cum_count = count_lsb;
+    }
+    mask &= 0x33333333u;
+    count_lsb = bitCount(n & mask) + cum_count;
+    if(count_lsb < i){
+        mask <<= 2;
+        cum_count = count_lsb;
+    }
+    mask &= 0x55555555u;
+    count_lsb = bitCount(n & mask) + cum_count;
+    if(count_lsb < i){
+        mask <<= 1;
+        cum_count = count_lsb;
+    }
+    return findLSB(n & mask);
+}
+const uint FLAG_NOT_READY        = 0;
+const uint FLAG_AGGREGATE_READY  = 1;
+const uint FLAG_PREFIX_SUM_READY = 2;
+const uint DIGIT_BIT_COUNT = 8;
+const uint DIGIT_VALUE_COUNT = 1 << DIGIT_BIT_COUNT;
+//actually cum sum for now
+
+//TODO could use uint8_t if we used a smaller workgroup size, like 256. otherwise, could still use uint16_t.
+shared uint digit_histogram[DIGIT_VALUE_COUNT];
+// couild gl_WorkGroupSize.x shared mem?
+void main() {
+
+    uint global_index = gl_GlobalInvocationID.x;
+    //TODO need to bounds check the index against u_size;
+    uint value = u_input_data.data[global_index];
+    //select radix index byte
+
+
+
+    //TODO double radix sort? Radix sort within radix sort?
+
+
+    uint exclusive_digit_offset;
+    //could add number == to 32
+    //1 bit splits = 8 iterations for 8 bits?
+
+
+    //assume 32 threads in a subgroup.
+    uint subgroup_popcount_mask = 0xFFFFFFFFU << gl_SubgroupInvocationID.x;
+    for(uint bit = 0; bit < DIGIT_BIT_COUNT; ++ bit){
+        uint value_digit = (value >> u_radix_index) & 0xFFu;
+        uint value_bit = value_digit & (1u << bit);
+        uint ones = subgroupBallot(bool(value_bit));
+        uint zeros = ~ones;
+        uint ones_count = bitCount(ones);
+        uint zeros_count = bitCount(zeros);
+        //if we pull from one of the zeros.
+        uint src_bit_index;
+        //if we are in the first batch
+        if(gl_SubgroupInvocationID.x < zeros_count){
+            src_bit_index = find_ith_bit(zeros, gl_SubgroupInvocationID.x);
+        }else{ // else we are 1s, so in the second batch at the bottom., need to offset to get the proper index we need to read from.
+            src_bit_index = find_ith_bit(ones, gl_SubgroupInvocationID.x - zeros_count);
+        }
+        // make sure we are doing this as a subgroup, but hypothetically we should be regardless, shouldn't be branching
+        subgroupBarrier();
+        //grab the appropriate value from subgroup.
+        uint subgroup_value = subgroupShuffle(value, src_bit_index);
+        value = subgroup_value;
+        //TODO we could use a shared buffer with a memory barrier
+    }
+    //now locally sorted, but need to figure out how to deal with other stuff?
+
+    for(uint digit = 0; digit < DIGIT_VALUE_COUNT; ++digit){
+        bool digit_is_same = value_digit == digit;
+        uint subgroupBallotInclusiveBitCount(subgroupBallot(digit_is_same))
+    }
+}

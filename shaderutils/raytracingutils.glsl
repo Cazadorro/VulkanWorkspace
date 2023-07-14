@@ -278,67 +278,80 @@ bool intersect(const in Ray ray, float t_min, float t_max, const in Sphere obj, 
 }
 
 
-bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_max, out float t){
-    vec3 dir_recipricol = 1.0f / ray.dir;
-    // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
-    // r.org is origin of ray
-    vec3 lb = box.pos - box.dim;
-    vec3 rt = box.pos + box.dim;
-    float t1 = (lb.x - ray.pos.x)*dir_recipricol.x;
-    float t2 = (rt.x - ray.pos.x)*dir_recipricol.x;
-
-    float t3 = (lb.y - ray.pos.y)*dir_recipricol.y;
-    float t4 = (rt.y - ray.pos.y)*dir_recipricol.y;
-
-    float t5 = (lb.z - ray.pos.z)*dir_recipricol.z;
-    float t6 = (rt.z - ray.pos.z)*dir_recipricol.z;
-
-    float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
-    float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
-//    tmin = max(tmin, t_min);
-//    tmax = min(tmax, t_max);
-    //what if we are inside?
-
-    // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
-//    if (tmax < 0.0){
-    if (tmax < 0.0){
-
-
-        //set to infinity?
-//        intersection_distance.to_object = tmax;
-        return false;
-    }
-//return x;
-    // if tmin > tmax, ray doesn't intersect AABB
-    //what if infinity (doesn't hit?), shoudl still be fine, can only be perpendicular to one?
-    if (tmin > tmax){
-        //set to infinity?
-//        intersection_distance.to_object = tmax;
-        return false;
-    }
-    if(tmax < t_min){
-        return false;
-    }
-    if(tmin > t_max){
-        return false;
-    }
-    if(tmin < 0.0){
-        t = 0.0;
-        t = tmax;
-//        intersection_distance.to_object = 0.0;
-    }else{
-        t = tmin;
-//        intersection_distance.to_object = tmin;
-    }
-    //don't need  tmax - tmin?
-//    intersection_distance.to_end = tmax;
-    return true;
-}
+//bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_max, out float t){
+//    vec3 dir_recipricol = 1.0f / ray.dir;
+//    // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
+//    // r.org is origin of ray
+//    vec3 lb = box.pos - box.dim;
+//    vec3 rt = box.pos + box.dim;
+//    float t1 = (lb.x - ray.pos.x)*dir_recipricol.x;
+//    float t2 = (rt.x - ray.pos.x)*dir_recipricol.x;
+//
+//    float t3 = (lb.y - ray.pos.y)*dir_recipricol.y;
+//    float t4 = (rt.y - ray.pos.y)*dir_recipricol.y;
+//
+//    float t5 = (lb.z - ray.pos.z)*dir_recipricol.z;
+//    float t6 = (rt.z - ray.pos.z)*dir_recipricol.z;
+//
+//    float tmin = max(max(min(t1, t2), min(t3, t4)), min(t5, t6));
+//    float tmax = min(min(max(t1, t2), max(t3, t4)), max(t5, t6));
+////    tmin = max(tmin, t_min);
+////    tmax = min(tmax, t_max);
+//    //what if we are inside?
+//
+//    // if tmax < 0, ray (line) is intersecting AABB, but the whole AABB is behind us
+////    if (tmax < 0.0){
+//    if (tmax < 0.0){ // if the max extent is behind us, the whole thing is behind us.
+//
+//
+//        //set to infinity?
+////        intersection_distance.to_object = tmax;
+//        return false;
+//    }
+////return x;
+//    // if tmin > tmax, ray doesn't intersect AABB
+//    //what if infinity (doesn't hit?), shoudl still be fine, can only be perpendicular to one?
+//    if (tmin > tmax){
+//        //set to infinity?
+////        intersection_distance.to_object = tmax;
+//        return false;
+//    }
+//    if(tmax < t_min){
+//        return false;
+//    }
+//    if(tmin > t_max){
+//        return false;
+//    }
+//    if(tmin < 0.0){
+//        t = 0.0;
+////        t = tmax;
+////        intersection_distance.to_object = 0.0;
+//    }else{
+//        t = tmin;
+////        intersection_distance.to_object = tmin;
+//    }
+//    //don't need  tmax - tmin?
+////    intersection_distance.to_end = tmax;
+//    return true;
+//}
 struct HitRange{
     float to_object;
     float to_end;
 };
-bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_max, out HitRange hit_range){
+
+const uint AABB_NORMAL_NEGATIVE_X = 0;
+const uint AABB_NORMAL_POSITIVE_X = 1;
+const uint AABB_NORMAL_NEGATIVE_Y = 2;
+const uint AABB_NORMAL_POSITIVE_Y = 3;
+const uint AABB_NORMAL_NEGATIVE_Z = 4;
+const uint AABB_NORMAL_POSITIVE_Z = 5;
+const uint AABB_NORMAL_INVALID = 6;
+bool intersect(
+    const in Ray ray,
+    const in CenterAABB box,
+    float t_min, float t_max,
+    out HitRange hit_range,
+    out uint aabb_normal){
     vec3 dir_recipricol = 1.0f / ray.dir;
     // lb is the corner of AABB with minimal coordinates - left bottom, rt is maximal corner
     // r.org is origin of ray
@@ -384,17 +397,38 @@ bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_m
     }
     if(tmin < 0.0){
         hit_range.to_object = 0.0;
+        aabb_normal = AABB_NORMAL_INVALID;
         //        intersection_distance.to_object = 0.0;
     }else{
         hit_range.to_object = tmin;
         //        intersection_distance.to_object = tmin;
+        if (hit_range.to_object == t1) {
+            aabb_normal = AABB_NORMAL_NEGATIVE_X;
+        } else if (hit_range.to_object == t2) {
+            aabb_normal = AABB_NORMAL_POSITIVE_X;
+        } else if (hit_range.to_object == t3) {
+            aabb_normal = AABB_NORMAL_NEGATIVE_Y;
+        } else if (hit_range.to_object == t4) {
+            aabb_normal = AABB_NORMAL_POSITIVE_Y;
+        } else if (hit_range.to_object == t5) {
+            aabb_normal = AABB_NORMAL_NEGATIVE_Z;
+        } else { //if(distance == t6){
+            aabb_normal = AABB_NORMAL_POSITIVE_Z;
+        }
     }
+
     //don't need  tmax - tmin?
     hit_range.to_end = tmax;
     return true;
 }
-bool intersect(const in Ray ray, const in CornerAABB box, float t_min, float t_max, out float t){
-    return intersect(ray, toCenterAABB(box), t_min, t_max, t);
+bool intersect(const in Ray ray, const in CenterAABB box, float t_min, float t_max, out float t, out uint aabb_normal){
+    HitRange hit_range;
+    bool intersected = intersect(ray, box, t_min, t_max, hit_range, aabb_normal);
+    t = hit_range.to_object;
+    return intersected;
+}
+bool intersect(const in Ray ray, const in CornerAABB box, float t_min, float t_max, out float t, out uint aabb_normal){
+    return intersect(ray, toCenterAABB(box), t_min, t_max, t, aabb_normal);
 }
 
 vec3 endpoint(const in Ray ray, const in HitRange hit_range){

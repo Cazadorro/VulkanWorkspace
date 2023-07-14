@@ -19,6 +19,9 @@ namespace vul{
     bool isDepthStencilFormat(vul::Format format);
 
     [[nodiscard]]
+    bool isDepthOrStencilFormat(vul::Format format);
+
+    [[nodiscard]]
     std::span<const vul::Format> getDepthStencilFormats();
 
     [[nodiscard]]

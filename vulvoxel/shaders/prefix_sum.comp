@@ -1,0 +1,270 @@
+//https://github.com/linebender/vello/blob/custom-hal-archive-with-shaders/tests/shader/prefix.comp
+//https://research.nvidia.com/publication/2016-03_single-pass-parallel-prefix-scan-decoupled-look-back
+#version 460
+
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+#extension GL_KHR_memory_scope_semantics : enable
+#pragma use_vulkan_memory_model
+//id = 0, the specialization constant idx.
+layout(local_size_x_id = 0, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0) buffer PartitionFlagBlock {
+    uint[] buff_status_flags;
+};
+layout(set = 0, binding = 1) buffer PartitionAggregateBlock {
+    uint[] buff_work_group_aggregates;
+};
+layout(set = 0, binding = 2) buffer PartitionInclusivePrefixBlock {
+    uint[] buff_work_group_inclusive_prefix_sums;
+};
+layout(set = 0, binding = 3) buffer VirtualProcessorIDBlock {
+    uint buff_next_virtual_processor_id;
+};
+layout(set = 0, binding = 4) buffer readonly InputBlock {
+    uint[] buff_input_array;
+};
+layout(set = 0, binding = 5) buffer writeonly OutputBlock {
+    uint[] buff_output_array;
+};
+layout(set = 0, binding = 6) buffer writeonly OutputMaxBlock {
+    uint buff_output_prefix_max;
+};
+layout(set = 1, binding = 0) uniform DataLayoutDescriptionBlock{
+    uint u_size;
+};
+
+
+layout (constant_id = 1) const int c_ilp_iterations = 4;
+layout (constant_id = 2) const int c_ilp_iterations = 4;
+
+const uint elements_per_thread = 4;
+const uint shared_aggregate_size = gl_WorkGroupSize.x/gl_SubgroupSize;
+//Many programming models such as
+//CUDA employ an abstraction of virtual processors that are
+//dynamically scheduled on the hardware’s physical processors
+//.
+//Each processor is given a numeric rank by which it can index its
+//corresponding input partition. However, the runtime that
+//schedules virtual processors may run them arbitrary order and
+//without preemption. As a result, our original method is
+//susceptible to deadlock in Step 4: the machine may be occupied
+//with a set of virtual processors that will wait indefinitely for the
+//results of predecessors that cannot be scheduled until the active
+//set retires. This can be remedied by providing each virtual
+//processor with an identifier that guarantees every preceding
+//partition has been actively scheduled. For example, each virtual
+//processor can obtain such an identifier upon activation by
+//atomically-incrementing a global counter.
+shared uint virtual_processor_id;
+
+//only need aggregate per warp group element.
+shared uint shared_aggregates[shared_aggregate_size];
+
+//used to broadcast found prefix sum accross entire local workgroup.
+shared uint shared_work_group_prefix_sum;
+
+uint validate_input(uint value){
+    return value;
+    //    if(value % 5 == 0 || value % 7 == 0 || value % 23 == 0){
+    //        return 1;
+    //    }else{
+    //        return 0;
+    //    }
+}
+
+
+layout(push_constant, scalar) uniform PushConstantBlock{
+    uint32_array u_input_data;
+    uint32_array u_output_data;
+    uint u_size;
+    uint u_padding;
+};
+
+const uint FlagNotReady = 0;
+const uint FlagAggregateReady = 1;
+const uint FlagPrefixSumReady = 2;
+void main() {
+    //id of the invocation which will execute last
+    const uint last_invocation_id = gl_SubgroupSize - 1;
+    //ILP thread aggregates
+    uint thread_aggregates[elements_per_thread];
+
+    //deterimine workgroup "ID"
+    if(gl_LocalInvocationID.x == 0){
+        virtual_processor_id = atomicAdd(buff_next_virtual_processor_id, 1);
+    }
+    //workgroup barrier, now the "virtual processor ID" is visible to the entire workgroup.
+    barrier();
+
+    //how many elements are proccessed in-total for the given workgroup
+    uint process_per_workgroup = elements_per_thread * gl_WorkGroupSize.x;
+    //start of elements to process for entire workgroup
+    uint virtual_id_offset = virtual_processor_id * process_per_workgroup;
+    //start of elements to process for the current subgroup.
+    uint subgroup_offset = (gl_SubgroupInvocationID.x * elements_per_thread * gl_SubgroupSize);
+
+    //total aggregate based upon the contiguous segment the subgroup is working on.
+    uint subgroup_aggregate = 0;
+    for(uint i = 0; i < elements_per_thread; ++i){
+        //each subgroup processes adjacent elements, but each set of
+        //processed adjacent elements is ILP_ITERATIONS * gl_SubgroupSize away from one another
+        //ie given ILP_ITERATIONS = 4                 i = 0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3
+        //  subgroup which processes adjacent elements   |0|0|0|0|1|1|1|1|2|2|2|2|3|3|3|3|
+        uint input_idx = virtual_id_offset + subgroup_offset + (i * gl_SubgroupSize.x);
+        uint input_data = (input_idx < u_size) ? u_input_data[input_idx] : 0;
+        //inclusive because we are looking for the *aggregate* value which must include the last sum.
+        uint is_validated = validate_input(input_idx);
+        thread_aggregates[i] = subgroupInclusiveAdd(is_validated);
+        // the final thread in the subgroup will actually have the total sum here
+        // the final value will first have the first inclusive add total, then we continually add to it
+        subgroup_aggregate += thread_aggregates[i];
+    }
+
+    //we want to use the last thread in the subgroup, it's subgroup aggregate will actually
+    //be the total sum for the block of data the subgroup has operated on.
+    if(gl_SubgroupInvocationID == last_invocation_id){
+        // set shared aggregate to the current subgroup aggregate to use later.
+        shared_aggregates[gl_SubgroupID] = subgroup_aggregate;
+    }
+    //wait for finish so we can perform a final prefix sum on the aggregates.
+    barrier();
+    uint work_group_aggregate = 0;
+    if(gl_SubgroupID == 0){
+        //if we have a local work group size less than 1024, the size of shared aggregates will
+        //be smaller than the number of threads in a subgroup (ie if the subgroup size is 32).
+        bool thread_in_bounds = (gl_SubgroupInvocationID < shared_aggregate_size);
+        uint shared_aggregate = thread_in_bounds ? shared_aggregates[gl_SubgroupInvocationID] : 0;
+        local_work_group_aggregate = subgroupInclusiveAdd(shared_aggregate);
+        if(thread_in_bounds){
+            shared_aggregates[gl_SubgroupInvocationID] = work_group_aggregate;
+        }
+    }
+
+    //exclusive because currently excludes our prefix.
+    uint exclusive_prefix_sum = 0;
+    //using last thread in subgroup because it contains the correct work_group_aggregate total for the inclusive prefix sum.
+    if(gl_SubgroupID == 0 && gl_SubgroupInvocationID == last_invocation_id){
+        //relaxed comes from C++ memory semantics: we don't care about when this happens, only atomicity of operation
+        atomicStore(
+        //store in global memory aggregate count
+        buff_work_group_aggregates[virtual_processor_id],
+        //storing aggregate for entire local workgroup.
+        work_group_aggregate,
+        //storage visibility to current device, as apposed to workgroup, subgroup, "invocation" and queue family
+        gl_ScopeDevice,
+        //what type of storage (shared, image, buffer, output, none) to synchronize
+        gl_StorageSemanticsBuffer,
+        //ordering semantics, this one says we aren't saying anything about what happens before or after this point
+        //just provide atomicity.
+        gl_SemanticsRelaxed
+        );
+        uint flag = FlagAggregateReady;
+        //we are the first virtual process, so we have access to all aggregate data
+        if(virtual_processor_id == 0){
+            atomicStore(
+            buff_work_group_inclusive_prefix_sums[virtual_processor_id],
+            work_group_aggregate,
+            gl_ScopeDevice,
+            gl_StorageSemanticsBuffer,
+            gl_SemanticsRelaxed
+            );
+            flag = FlagPrefixSumReady;
+        }
+
+        //we store a flag to tell the other work groups we have aggregate/prefix sum.
+        atomicStore(
+        buff_status_flags[virtual_processor_id],
+        flag,
+        gl_ScopeDevice,
+        gl_StorageSemanticsBuffer,
+        //note here we actually care about the order.  Here we say
+        //"memory that happened before, must be ordered before this atomic store".
+        gl_SemanticsRelease);
+
+        //we are not the first virual process, so we aren't totally done with finding aggregate/prefixsum
+        if(virtual_processor_id != 0){
+            uint prev_virtual_processor_id = virtual_processor_id - 1;
+            while(true){
+                uint prev_flag = atomicLoad(
+                buff_status_flags[prev_virtual_processor_id],
+                gl_ScopeDevice,
+                gl_StorageSemanticsBuffer,
+                //again, we care about the memory order, but this time we
+                //want to make sure this happens before the rest of the operations.
+                gl_SemanticsAcquire
+                );
+                if(prev_flag == FlagPrefixSumReady){
+                    uint pref_prefix = atomicLoad(
+                    buff_work_group_inclusive_prefix_sums[prev_virtual_processor_id],
+                    gl_ScopeDevice,
+                    gl_StorageSemanticsBuffer,
+                    gl_SemanticsRelaxed);
+                    exclusive_prefix_sum += pref_prefix;
+                    //we're done, because the prefix was found, which accounts
+                    //for for *all previous processes*.
+                    break;
+                }
+                if(prev_flag == FlagAggregateReady){
+                    uint prev_aggregate = atomicLoad(
+                    buff_work_group_aggregates[prev_virtual_processor_id],
+                    gl_ScopeDevice,
+                    gl_StorageSemanticsBuffer,
+                    gl_SemanticsRelaxed);
+
+                    exclusive_prefix_sum += prev_aggregate;
+                    //we can't exit because we only have one part of the prefix
+                    //sum if we found the aggregate only, we'll try to create the
+                    //prefix sum ourselves.  We decriment the ID to look even
+                    //futher backwards
+                    //this won't ever go below 0 because the first process/workgroup
+                    //sets its own prefix sum and is ready immediately.
+                    prev_virtual_processor_id -= 1;
+                }
+
+            }
+            //include our entire
+            uint inclusive_prefix_sum = exclusive_prefix_sum + work_group_aggregate;
+            shared_work_group_prefix_sum = exclusive_prefix_sum;
+            // now we can store our prefix sum and provide it to the next processes in the chain.
+            atomicStore(
+            buff_work_group_inclusive_prefix_sums[virtual_processor_id],
+            inclusive_prefix_sum,
+            gl_ScopeDevice,
+            gl_StorageSemanticsBuffer,
+            gl_SemanticsRelaxed);
+
+            //order memory instructions before this store and set the status flag to prefix sum ready.
+            atomicStore(
+            buff_status_flags[virtual_processor_id],
+            FlagPrefixSumReady,
+            gl_ScopeDevice,
+            gl_StorageSemanticsBuffer,
+            gl_SemanticsRelease
+            );
+        }
+    }
+    uint prefix_sum = 0;
+    barrier();
+    //if we aren't the first process, we need to get our prefix sum from the shared variable
+    if (virtual_processor_id != 0) {
+        prefix_sum = shared_work_group_prefix_sum;
+    }
+    //if the subgroup executing isn't the first one.
+    if (gl_SubgroupID > 0) {
+        prefix_sum += chunks[gl_SubgroupID - 1];
+    }
+    for (uint i = 0; i < elements_per_thread; i++) {
+        uint input_idx = virtual_id_offset + subgroup_offset + (i * gl_SubgroupSize.x);
+        //should result in correct data output?
+        input_idx = input_idx < u_size ? input_idx : u_size - 1;
+        buff_output_array[input_idx] = prefix + thread_aggregates[i];
+        prefix_sum += subgroupBroadcast(agg, last_invocation_id);
+    }
+
+    //last thread should have total prefix sum.
+    if(virtual_processor_id == (gl_NumWorkGroups.x - 1) && gl_LocalInvocationID.x == (gl_WorkGroupSize.x - 1)){
+        buff_output_prefix_max = prefix_sum;
+    }
+}

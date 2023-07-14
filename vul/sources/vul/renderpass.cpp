@@ -8,10 +8,12 @@
 #include "vul/enums.h"
 #include "vul/expectedresult.h"
 #include "vul/containerutils.h"
+#include <uul/container.h>
 #include <uul/enumflags.h>
 #include <uul/assert.h>
 #include <fmt/core.h>
 #include <range/v3/view/enumerate.hpp>
+#include <range/v3/view/transform.hpp>
 #include <array>
 #include <unordered_map>
 
@@ -422,6 +424,16 @@ bool vul::AttachmentDescription::isStencil() const {
 }
 
 
+vul::Format vul::AttachmentDescription::getFormat() const {
+    return static_cast<vul::Format>(m_attachmentDescription.format);
+}
+
+bool vul::AttachmentDescription::isDepthOrStencil() const {
+    return vul::isDepthOrStencilFormat(
+            static_cast<vul::Format>(m_attachmentDescription.format));
+}
+
+
 vul::SubpassNode &vul::SubpassNode::setWrites(
         const gsl::span<const std::uint32_t> &attachmentIndices) {
     m_colorAttachmentWriteReferences.clear();
@@ -591,7 +603,7 @@ VkSubpassDescription vul::SubpassNode::createDescription(
 }
 
 std::vector<VkSubpassDependency>
-    vul::SubpassNode::createSubpassDependencies() const {
+vul::SubpassNode::createSubpassDependencies() const {
 
     std::unordered_map<std::uint32_t, VkSubpassDependency> dependencies;
 
@@ -867,4 +879,497 @@ vul::Result vul::RenderPass::setObjectName(const std::string &string) {
 
 std::uint32_t vul::RenderPass::getSubpassCount() const {
     return m_subpassCount;
+}
+
+
+vul::AttachmentDescriptionReference::AttachmentDescriptionReference(const RenderPassBuilder *parent,
+                                                                    std::uint32_t attachmentDescriptionIndex)
+        : m_parent(parent), m_attachmentDescriptionIndex(attachmentDescriptionIndex) {
+
+}
+
+vul::AttachmentReference
+vul::AttachmentDescriptionReference::createAttachmentReference(vul::ImageLayout layout) const noexcept {
+    return {m_attachmentDescriptionIndex, layout};
+}
+
+std::uint32_t vul::AttachmentDescriptionReference::getDescriptionIndex() const noexcept {
+    return m_attachmentDescriptionIndex;
+}
+
+const vul::AttachmentDescription &vul::AttachmentDescriptionReference::getAttachmentDescription() const {
+    return m_parent->m_attachmentDescriptions[m_attachmentDescriptionIndex];
+}
+
+vul::AttachmentReference vul::AttachmentDescriptionReference::createColorAttachmentReference() const noexcept {
+    UUL_ASSERT(getAttachmentDescription().isColor(),
+               fmt::format("Attachment format is not valid to be deduced as depth/stencil attachment, {}",
+                           vul::to_string(getAttachmentDescription().getFormat())).c_str());
+    return createAttachmentReference(vul::ImageLayout::ColorAttachmentOptimal);
+
+}
+
+vul::AttachmentReference vul::AttachmentDescriptionReference::createDepthStencilAttachmentReference() const noexcept {
+    if (getAttachmentDescription().isDepthStencil()) {
+        return createAttachmentReference(vul::ImageLayout::DepthStencilAttachmentOptimal);
+    }
+    if (getAttachmentDescription().isDepth()) {
+        return createAttachmentReference(vul::ImageLayout::DepthAttachmentOptimal);
+    }
+    if (getAttachmentDescription().isStencil()) {
+        return createAttachmentReference(vul::ImageLayout::StencilAttachmentOptimal);
+    }
+    UUL_ASSERT(false, fmt::format("Attachment format is not valid to be deduced as depth/stencil attachment, {}",
+                                  vul::to_string(getAttachmentDescription().getFormat())).c_str());
+}
+
+vul::AttachmentReference vul::AttachmentDescriptionReference::createInputAttachmentReference() const noexcept {
+    if (getAttachmentDescription().isDepthStencil()) {
+        return createAttachmentReference(vul::ImageLayout::DepthStencilReadOnlyOptimal);
+    }
+    if (getAttachmentDescription().isDepth()) {
+        return createAttachmentReference(vul::ImageLayout::DepthReadOnlyOptimal);
+    }
+    if (getAttachmentDescription().isStencil()) {
+        return createAttachmentReference(vul::ImageLayout::StencilReadOnlyOptimal);
+    }
+    if (getAttachmentDescription().isColor()) {
+        return createAttachmentReference(vul::ImageLayout::ReadOnlyOptimal);
+    }
+    UUL_ASSERT(false, fmt::format("Attachment format is not valid to be deduced as input attachment, {}",
+                                  vul::to_string(getAttachmentDescription().getFormat())).c_str());
+}
+
+vul::AccessFlagBits vul::AttachmentDescriptionReference::getWriteAccess() const {
+    if (getAttachmentDescription().isDepthOrStencil()) {
+        return vul::AccessFlagBits::DepthStencilAttachmentWriteBit;
+    }
+    if (getAttachmentDescription().isColor()) {
+        return vul::AccessFlagBits::ColorAttachmentWriteBit;
+    }
+    UUL_ASSERT(false, fmt::format("Attachment format is not valid to have write access deduced, {}",
+                                  vul::to_string(getAttachmentDescription().getFormat())).c_str());
+}
+
+vul::AccessFlagBits vul::AttachmentDescriptionReference::getReadAccess() const {
+    if (getAttachmentDescription().isDepthOrStencil()) {
+        return vul::AccessFlagBits::DepthStencilAttachmentReadBit;
+    }
+    if (getAttachmentDescription().isColor()) {
+        return vul::AccessFlagBits::ColorAttachmentReadBit;
+    }
+    UUL_ASSERT(false, fmt::format("Attachment format is not valid to have read access deduced, {}",
+                                  vul::to_string(getAttachmentDescription().getFormat())).c_str());
+}
+
+vul::AccessFlagBits vul::AttachmentDescriptionReference::getInputAccess() const {
+    return vul::AccessFlagBits::InputAttachmentReadBit;
+}
+
+
+vul::SubpassDependency::operator VkSubpassDependency() const noexcept {
+    return get();
+}
+
+VkSubpassDependency &vul::SubpassDependency::get() noexcept {
+    return *reinterpret_cast<VkSubpassDependency *>(this);
+}
+
+const VkSubpassDependency &vul::SubpassDependency::get() const noexcept {
+    return *reinterpret_cast<const VkSubpassDependency *>(this);
+}
+
+vul::SubpassDependency::SubpassDependency(std::uint32_t srcSubpass, std::uint32_t dstSubpass,
+                                          uul::EnumFlags<PipelineStageFlagBits> srcStageMask,
+                                          uul::EnumFlags<PipelineStageFlagBits> dstStageMask,
+                                          uul::EnumFlags<AccessFlagBits> srcAccessMask,
+                                          uul::EnumFlags<AccessFlagBits> dstAccessMask,
+                                          uul::EnumFlags<DependencyFlagBits> dependencyFlags) :
+        srcSubpass(srcSubpass),
+        dstSubpass(dstSubpass),
+        srcStageMask(srcStageMask),
+        dstStageMask(dstStageMask),
+        srcAccessMask(srcAccessMask),
+        dstAccessMask(dstAccessMask),
+        dependencyFlags(dependencyFlags) {
+
+}
+
+vul::SubpassDependency::SubpassDependency(std::uint32_t dstSubpass,
+                                          const vul::ExternalPreSubpassDependency &externalDependency) :
+        SubpassDependency(VK_SUBPASS_EXTERNAL, dstSubpass, externalDependency.srcStageMask,
+                          externalDependency.dstStageMask, externalDependency.srcAccessMask,
+                          externalDependency.dstAccessMask,
+                          {}) {
+
+}
+
+vul::SubpassDependency::SubpassDependency(std::uint32_t srcSubpass,
+                                          const vul::ExternalPostSubpassDependency &externalDependency) :
+        SubpassDependency(srcSubpass, VK_SUBPASS_EXTERNAL, externalDependency.srcStageMask,
+                          externalDependency.dstStageMask, externalDependency.srcAccessMask,
+                          externalDependency.dstAccessMask,
+                          {}) {
+
+}
+
+vul::SubpassDependency::~SubpassDependency() = default;
+
+vul::SubpassDescription
+vul::SubpassDescription::fromColor(vul::TempArrayProxy<const AttachmentReference> colorAttachments,
+                                   const AttachmentReference &depthStencilAttachment,
+                                   vul::TempArrayProxy<const AttachmentReference> inputAttachments,
+                                   vul::TempArrayProxy<const uint32_t> preserveAttachments,
+                                   uul::EnumFlags<SubpassDescriptionFlagBits> flags) {
+    SubpassDescription result;
+    result.flags = flags;
+    result.inputAttachmentCount = inputAttachments.size();
+    result.pInputAttachments = inputAttachments.data();
+    result.colorAttachmentCount = colorAttachments.size();
+    result.pColorAttachments = colorAttachments.data();
+    result.pResolveAttachments = nullptr;
+    result.pDepthStencilAttachment = &depthStencilAttachment;
+    result.preserveAttachmentCount = preserveAttachments.size();
+    result.pPreserveAttachments = preserveAttachments.data();
+
+    return result;
+}
+
+vul::SubpassDescription
+vul::SubpassDescription::fromColor(vul::TempArrayProxy<const AttachmentReference> colorAttachments,
+                                   vul::TempArrayProxy<const AttachmentReference> inputAttachments,
+                                   vul::TempArrayProxy<const uint32_t> preserveAttachments,
+                                   uul::EnumFlags<SubpassDescriptionFlagBits> flags) {
+    SubpassDescription result;
+    result.flags = flags;
+    result.inputAttachmentCount = inputAttachments.size();
+    result.pInputAttachments = inputAttachments.data();
+    result.colorAttachmentCount = colorAttachments.size();
+    result.pColorAttachments = colorAttachments.data();
+    result.pResolveAttachments = nullptr;
+    result.pDepthStencilAttachment = nullptr;
+    result.preserveAttachmentCount = preserveAttachments.size();
+    result.pPreserveAttachments = preserveAttachments.data();
+
+    return result;
+}
+
+vul::SubpassDescription
+vul::SubpassDescription::fromResolve(vul::TempArrayProxy<const AttachmentReference> resolveAttachments,
+                                     const AttachmentReference &depthStencilAttachment,
+                                     vul::TempArrayProxy<const AttachmentReference> inputAttachments,
+                                     vul::TempArrayProxy<const uint32_t> preserveAttachments,
+                                     uul::EnumFlags<SubpassDescriptionFlagBits> flags) {
+    SubpassDescription result;
+    result.flags = flags;
+    result.inputAttachmentCount = inputAttachments.size();
+    result.pInputAttachments = inputAttachments.data();
+    result.colorAttachmentCount = resolveAttachments.size();
+    result.pColorAttachments = nullptr;
+    result.pResolveAttachments = resolveAttachments.data();
+    result.pDepthStencilAttachment = &depthStencilAttachment;
+    result.preserveAttachmentCount = preserveAttachments.size();
+    result.pPreserveAttachments = preserveAttachments.data();
+
+    return result;
+}
+
+vul::SubpassDescription
+vul::SubpassDescription::fromResolve(vul::TempArrayProxy<const AttachmentReference> resolveAttachments,
+                                     vul::TempArrayProxy<const AttachmentReference> inputAttachments,
+                                     vul::TempArrayProxy<const uint32_t> preserveAttachments,
+                                     uul::EnumFlags<SubpassDescriptionFlagBits> flags) {
+    SubpassDescription result;
+    result.flags = flags;
+    result.inputAttachmentCount = inputAttachments.size();
+    result.pInputAttachments = inputAttachments.data();
+    result.colorAttachmentCount = resolveAttachments.size();
+    result.pColorAttachments = nullptr;
+    result.pResolveAttachments = resolveAttachments.data();
+    result.pDepthStencilAttachment = nullptr;
+    result.preserveAttachmentCount = preserveAttachments.size();
+    result.pPreserveAttachments = preserveAttachments.data();
+
+    return result;
+}
+
+vul::SubpassDescription::~SubpassDescription() = default;
+
+vul::SubpassDescription::operator VkSubpassDescription() const noexcept {
+    return get();
+}
+
+VkSubpassDescription &vul::SubpassDescription::get() noexcept {
+    return *reinterpret_cast<VkSubpassDescription *>(this);
+}
+
+const VkSubpassDescription &vul::SubpassDescription::get() const noexcept {
+    return *reinterpret_cast<const VkSubpassDescription *>(this);
+}
+
+vul::SubpassDescription::SubpassDescription() :
+        flags(0),
+        pipelineBindPoint(PipelineBindPoint::Graphics),
+        inputAttachmentCount(0),
+        pInputAttachments(nullptr),
+        colorAttachmentCount(0),
+        pColorAttachments(nullptr),
+        pResolveAttachments(nullptr),
+        pDepthStencilAttachment(nullptr),
+        preserveAttachmentCount(0),
+        pPreserveAttachments(nullptr) {
+
+}
+
+
+vul::SubpassBuilder::SubpassBuilder(std::uint32_t subpassReferenceIndex) : m_subpassReferenceIndex(
+        subpassReferenceIndex) {
+
+}
+
+vul::SubpassBuilder &
+vul::SubpassBuilder::addColor(vul::TempArrayProxy<const vul::AttachmentDescriptionReference> references) {
+    UUL_ASSERT(m_resolveAttachmentReferences.empty(), fmt::format(
+            "Resolve attachment list not empty {}, Can have either resolve or color attachments in a subpass, not both!",
+            m_resolveAttachmentReferences.size()).c_str());
+    uul::append(m_colorAttachmentWriteReferences, references | ranges::view::transform([](const auto &value) {
+        return value.createColorAttachmentReference();
+    }));
+    return *this;
+}
+
+vul::SubpassBuilder &
+vul::SubpassBuilder::addResolve(vul::TempArrayProxy<const vul::AttachmentDescriptionReference> references) {
+    UUL_ASSERT(m_colorAttachmentWriteReferences.empty(), fmt::format(
+            "Color attachment list not empty {}, Can have either resolve or color attachments in a subpass, not both!",
+            m_colorAttachmentWriteReferences.size()).c_str());
+    uul::append(m_resolveAttachmentReferences, references | ranges::view::transform([](const auto &value) {
+        return value.createColorAttachmentReference();
+    }));
+    return *this;
+}
+
+vul::SubpassBuilder &
+vul::SubpassBuilder::addPreserve(vul::TempArrayProxy<const vul::AttachmentDescriptionReference> references) {
+    uul::append(m_preserveAttachmentReferences, references | ranges::view::transform([](const auto &value) {
+        return value.getDescriptionIndex();
+    }));
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::setDepthStencil(const vul::AttachmentDescriptionReference &reference) {
+    m_depthAttachmentWriteReference = reference.createDepthStencilAttachmentReference();
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::addInput(TempArrayProxy<const AttachmentDescriptionReference> references) {
+    uul::append(m_inputAttachmentReferences, references | ranges::view::transform([](const auto &value) {
+        return value.createInputAttachmentReference();
+    }));
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::addInputAfterWrite(const vul::SubpassBuilder &subpassBuilder,
+                                                             vul::TempArrayProxy<const vul::AttachmentDescriptionReference> references) {
+    SubpassDependency subpassDependency;
+    subpassDependency.srcSubpass = subpassBuilder.m_subpassReferenceIndex;
+    subpassDependency.dstSubpass = m_subpassReferenceIndex;
+    subpassDependency.srcStageMask =
+            vul::PipelineStageFlagBits::EarlyFragmentTestsBit | vul::PipelineStageFlagBits::LateFragmentTestsBit;
+    subpassDependency.dstStageMask = vul::PipelineStageFlagBits::FragmentShaderBit;
+    for (const auto &reference: references) {
+        subpassDependency.srcAccessMask |= reference.getWriteAccess();
+        subpassDependency.dstAccessMask |= reference.getInputAccess();
+    }
+    subpassDependency.dependencyFlags |= vul::DependencyFlagBits::ByRegionBit;
+    m_subpassDependencies.push_back(subpassDependency);
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::addWriteAfterWrite(const vul::SubpassBuilder &subpassBuilder,
+                                                             vul::TempArrayProxy<const vul::AttachmentDescriptionReference> references) {
+    SubpassDependency subpassDependency;
+    subpassDependency.srcSubpass = subpassBuilder.m_subpassReferenceIndex;
+    subpassDependency.dstSubpass = m_subpassReferenceIndex;
+    subpassDependency.srcStageMask = vul::PipelineStageFlagBits::LateFragmentTestsBit;
+    subpassDependency.dstStageMask = vul::PipelineStageFlagBits::EarlyFragmentTestsBit;
+    for (const auto &reference: references) {
+        //we write to attachment after already written to, but we need to make sure it's done on previous
+        subpassDependency.srcAccessMask |= reference.getWriteAccess();
+        subpassDependency.dstAccessMask |= reference.getWriteAccess();
+    }
+    subpassDependency.dependencyFlags |= vul::DependencyFlagBits::ByRegionBit;
+    m_subpassDependencies.push_back(subpassDependency);
+    return *this;
+}
+
+
+vul::SubpassBuilder &vul::SubpassBuilder::addReuseDependency(const vul::SubpassBuilder &subpassBuilder,
+                                                             TempArrayProxy<const AttachmentDescriptionReference> references) {
+    SubpassDependency subpassDependency;
+    subpassDependency.srcSubpass = subpassBuilder.m_subpassReferenceIndex;
+    subpassDependency.dstSubpass = m_subpassReferenceIndex;
+    subpassDependency.srcStageMask = vul::PipelineStageFlagBits::LateFragmentTestsBit;
+    subpassDependency.dstStageMask = vul::PipelineStageFlagBits::EarlyFragmentTestsBit;
+    for (const auto &reference: references) {
+        subpassDependency.srcAccessMask |= reference.getWriteAccess();
+        subpassDependency.dstAccessMask |= reference.getWriteAccess() | reference.getReadAccess();
+    }
+    subpassDependency.dependencyFlags |= vul::DependencyFlagBits::ByRegionBit;
+    m_subpassDependencies.push_back(subpassDependency);
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::addWriteAfterInput(const vul::SubpassBuilder &subpassBuilder,
+                                                             vul::TempArrayProxy<const vul::AttachmentDescriptionReference> references) {
+    SubpassDependency subpassDependency;
+    subpassDependency.srcSubpass = subpassBuilder.m_subpassReferenceIndex;
+    subpassDependency.dstSubpass = m_subpassReferenceIndex;
+    subpassDependency.srcStageMask = vul::PipelineStageFlagBits::LateFragmentTestsBit;
+    subpassDependency.dstStageMask = vul::PipelineStageFlagBits::EarlyFragmentTestsBit;
+    for (const auto &reference: references) {
+        //we write to attachment after already written to, but we need to make sure it's done on previous
+        subpassDependency.srcAccessMask |= reference.getInputAccess();
+        subpassDependency.dstAccessMask |= reference.getWriteAccess();
+    }
+    subpassDependency.dependencyFlags |= vul::DependencyFlagBits::ByRegionBit;
+    m_subpassDependencies.push_back(subpassDependency);
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::addReuseAfterInput(const vul::SubpassBuilder &subpassBuilder,
+                                                             TempArrayProxy<const AttachmentDescriptionReference> references) {
+    SubpassDependency subpassDependency;
+    subpassDependency.srcSubpass = subpassBuilder.m_subpassReferenceIndex;
+    subpassDependency.dstSubpass = m_subpassReferenceIndex;
+    subpassDependency.srcStageMask = vul::PipelineStageFlagBits::LateFragmentTestsBit;
+    subpassDependency.dstStageMask = vul::PipelineStageFlagBits::EarlyFragmentTestsBit;
+    for (const auto &reference: references) {
+        //we write to attachment after already written to, but we need to make sure it's done on previous
+        subpassDependency.srcAccessMask |= reference.getInputAccess();
+        subpassDependency.dstAccessMask |= reference.getWriteAccess() | reference.getInputAccess();
+    }
+    subpassDependency.dependencyFlags |= vul::DependencyFlagBits::ByRegionBit;
+    m_subpassDependencies.push_back(subpassDependency);
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::add(const vul::ExternalPreSubpassDependency &externalDependency) {
+    if (m_preExternalDependency.has_value()) {
+        auto &value = m_preExternalDependency.value();
+        value.srcStageMask |= externalDependency.srcStageMask;
+        value.dstStageMask |= externalDependency.dstStageMask;
+        value.srcAccessMask |= externalDependency.srcAccessMask;
+        value.dstAccessMask |= externalDependency.dstAccessMask;
+    } else {
+        m_preExternalDependency = SubpassDependency(m_subpassReferenceIndex, externalDependency);
+    }
+    return *this;
+}
+
+vul::SubpassBuilder &vul::SubpassBuilder::add(const vul::ExternalPostSubpassDependency &externalDependency) {
+    if (m_preExternalDependency.has_value()) {
+        auto &value = m_preExternalDependency.value();
+        value.srcStageMask |= externalDependency.srcStageMask;
+        value.dstStageMask |= externalDependency.dstStageMask;
+        value.srcAccessMask |= externalDependency.srcAccessMask;
+        value.dstAccessMask |= externalDependency.dstAccessMask;
+    } else {
+        m_preExternalDependency = SubpassDependency(m_subpassReferenceIndex, externalDependency);
+    }
+    return *this;
+}
+
+std::uint32_t vul::SubpassBuilder::getReferenceIndex() const {
+    return m_subpassReferenceIndex;
+}
+
+vul::SubpassDescription vul::SubpassBuilder::createDescription(uul::EnumFlags<SubpassDescriptionFlagBits> flags) const {
+    if (m_resolveAttachmentReferences.empty()) {
+        if (m_depthAttachmentWriteReference.has_value()) {
+            return vul::SubpassDescription::fromColor(m_colorAttachmentWriteReferences,
+                                                      m_depthAttachmentWriteReference.value(),
+                                                      m_inputAttachmentReferences,
+                                                      m_preserveAttachmentReferences,
+                                                      flags);
+
+        } else {
+            return vul::SubpassDescription::fromColor(m_colorAttachmentWriteReferences,
+                                                      m_inputAttachmentReferences,
+                                                      m_preserveAttachmentReferences,
+                                                      flags);
+        }
+    } else {
+        if (m_depthAttachmentWriteReference.has_value()) {
+            return vul::SubpassDescription::fromResolve(m_resolveAttachmentReferences,
+                                                        m_depthAttachmentWriteReference.value(),
+                                                        m_inputAttachmentReferences,
+                                                        m_preserveAttachmentReferences,
+                                                        flags);
+        } else {
+            return vul::SubpassDescription::fromResolve(m_resolveAttachmentReferences,
+                                                        m_inputAttachmentReferences,
+                                                        m_preserveAttachmentReferences,
+                                                        flags);
+        }
+    }
+}
+
+std::vector<vul::SubpassDependency> vul::SubpassBuilder::createDependencies() const {
+    std::vector<vul::SubpassDependency> subpassDependencies;
+    subpassDependencies.reserve(m_subpassDependencies.size() + (m_preExternalDependency.has_value() ? 1 : 0) +
+                                (m_postExternalDependency.has_value() ? 1 : 0));
+    subpassDependencies = m_subpassDependencies;
+    if (m_preExternalDependency.has_value()) {
+        subpassDependencies.push_back(m_preExternalDependency.value());
+    }
+    if (m_postExternalDependency.has_value()) {
+        subpassDependencies.push_back(m_postExternalDependency.value());
+    }
+    return subpassDependencies;
+}
+
+
+vul::AttachmentDescriptionReference
+vul::RenderPassBuilder::addAttachment(const vul::AttachmentDescription &attachmentDescription) {
+    auto index = m_attachmentDescriptions.size();
+    m_attachmentDescriptions.push_back(attachmentDescription);
+    return vul::AttachmentDescriptionReference(this, index);
+}
+
+vul::SubpassBuilder &vul::RenderPassBuilder::createSubpass() {
+    m_subpassBuilders.emplace_back(static_cast<std::uint32_t>(m_subpassBuilders.size()));
+    return m_subpassBuilders.back();
+}
+
+vul::ExpectedResult<vul::RenderPass>
+vul::RenderPassBuilder::createRenderPass(const vul::Device &device, const VkAllocationCallbacks *pAllocator) {
+    std::vector<SubpassDescription> subpassDescriptions;
+    subpassDescriptions.reserve(m_subpassBuilders.size());
+    std::vector<SubpassDependency> subpassDependencies;
+    subpassDependencies.reserve(m_subpassBuilders.size());
+    for (const auto &subpassBuilder: m_subpassBuilders) {
+        subpassDescriptions.push_back(subpassBuilder.createDescription());
+        uul::append(subpassDependencies, subpassBuilder.createDependencies());
+    }
+
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.pNext = nullptr;
+    renderPassInfo.flags = 0;
+    renderPassInfo.attachmentCount = m_attachmentDescriptions.size();
+    renderPassInfo.pAttachments = reinterpret_cast<const VkAttachmentDescription *>(m_attachmentDescriptions.data());
+    renderPassInfo.subpassCount = subpassDescriptions.size();
+    renderPassInfo.pSubpasses = reinterpret_cast<const VkSubpassDescription *>(subpassDescriptions.data());
+    renderPassInfo.dependencyCount = subpassDependencies.size();
+    renderPassInfo.pDependencies = reinterpret_cast<const VkSubpassDependency *>(subpassDependencies.data());
+    VkRenderPass renderPass;
+    auto result = static_cast<Result>(
+            vkCreateRenderPass(device.get(),
+                               &renderPassInfo,
+                               pAllocator,
+                               &renderPass));
+    return {result, RenderPass(device, renderPass,
+                               static_cast<std::uint32_t>(subpassDescriptions.size()),
+                               pAllocator)};
 }

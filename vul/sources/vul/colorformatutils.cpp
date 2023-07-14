@@ -52,6 +52,10 @@ bool vul::isDepthStencilFormat(vul::Format format) {
     return std::find(depthStencilFormats.begin(), depthStencilFormats.end(), format) != depthStencilFormats.end();;
 }
 
+bool vul::isDepthOrStencilFormat(vul::Format format) {
+    return isDepthStencilFormat(format) || isDepthFormat(format) || isStencilFormat(format);
+}
+
 std::span<const vul::Format> vul::getDepthStencilFormats() {
     return depthStencilFormats;
 }
@@ -70,3 +74,5 @@ uul::EnumFlags<vul::ImageAspectFlagBits> vul::getImageAspect(vul::Format format)
     }
     return tempAspectBitMask;
 }
+
+

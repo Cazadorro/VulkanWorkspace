@@ -197,17 +197,11 @@ int main() {
                                  vul::QueueFlagBits::TransferBit;
     auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
                                  vul::QueueFlagBits::TransferBit;
-    auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
 
-    std::uint32_t presentQueueIndex = queueFamilyProperties.calcMinimumPresentationQueueFamilyIndex(surface,
-                                                                                                    graphicsComputeFamily).value();
-    std::uint32_t graphicsQueueIndex = queueFamilyProperties.calcMinimumQueueFamilyIndex(graphicsComputeFamily).value();
-    std::uint32_t computeQueueIndex = queueFamilyProperties.calcMinimumQueueFamilyIndex(computeTransferFamily).value();
-    std::vector<vul::SingleQueueCreateInfo> queueCreateInfos = {
-            vul::SingleQueueCreateInfo{presentQueueIndex},
-            vul::SingleQueueCreateInfo{computeQueueIndex}
-    };
-    auto device = physicalDevice.createDevice(queueCreateInfos, deviceExtensions,
+    auto device = physicalDevice.createDevice(surface,
+                                              {graphicsComputeFamily},
+                                              {computeTransferFamily},
+                                              deviceExtensions,
                                               features).assertValue();
     //TODO what to do when queue is same for all but we try to parrallelize? only return references to queues? Have internal mutexes etc??
     //Make queues exclusive? that way you have to manually pass ownership? will get a queue per thing anyway, not a big deal.
@@ -268,24 +262,31 @@ int main() {
                                         vul::Result::ErrorOutOfDateKhr};
     std::uint64_t frame_counter = 0;
 
-    auto subpassBuilder = vul::SubpassGraph(
-            {vul::AttachmentDescription::PresentTemp(
-                    swapchain.getFormat()),
-             vul::AttachmentDescription::DepthTemp(
-                     vul::Format::D24UnormS8Uint)}, 1);
-    subpassBuilder.subpassAt(0).setWrites({0, 1})
-            .setPreDependExternal(
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
-                    vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
-                    vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
-                    {},
-                    vul::AccessFlagBits::ColorAttachmentWriteBit |
-                    vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
-    auto renderPass = subpassBuilder.createRenderPass(device).assertValue();
+    //TODO make single subpass renderpass vulkan automatically?
+    //TODO could just do binary search through texels
+    //TODO need to merge texel coordinates with subsequent frames.
+    //TODO LRU cache design for texels?
+
+    auto renderPassBuilder = vul::RenderPassBuilder();
+    auto presentAttachment = renderPassBuilder.addAttachment(vul::AttachmentDescription::PresentTemp(swapchain.getFormat()));
+    auto depthAttachment = renderPassBuilder.addAttachment(vul::AttachmentDescription::DepthTemp(vul::Format::D24UnormS8Uint));
+    auto& subpassBuilder = renderPassBuilder.createSubpass();
+    subpassBuilder.addColor(presentAttachment)
+                  .setDepthStencil(depthAttachment);
+// this was for depth being re-used later. We now have seperate depth attachments for each frame in flight.
+//    subpassBuilder.add(vul::ExternalPreSubpassDependency{
+//            vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
+//            vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
+//            vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
+//            vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
+//            {},
+//            vul::AccessFlagBits::ColorAttachmentWriteBit |
+//            vul::AccessFlagBits::DepthStencilAttachmentWriteBit
+//    });
+    auto renderPass = renderPassBuilder.createRenderPass(device).assertValue();
     renderPass.setObjectName("MyActualRenderPass");
     auto commandPool = device.createCommandPool(
-            presentQueueIndex,
+            presentationQueue.getQueueFamilyIndex(),
             vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
@@ -548,8 +549,8 @@ int main() {
 //    };
 
 
-    vul::RaytraceBitfieldRenderer raytrace_bitfield_renderer(device, swapchainSize);
-
+    vul::RaytraceBitfieldRenderer raytraceBitfieldRenderer(device, swapchainSize);
+    vul::RaytraceBitfieldDisplayRenderer bitfieldDisplayRenderer(device, swapchain, renderPass);
     std::vector<vul::Image> raytrace_bitfield_images;
     std::vector<vul::ImageView> raytrace_bitfield_image_views;
 
@@ -606,52 +607,8 @@ int main() {
                 fragmentShader.createFragmentStageInfo());
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
-    struct FullscreenPushConstant {
-        std::uint32_t u_frame_idx;
-    };
-
-    auto descriptorSetLayoutBuilder2 = vul::DescriptorSetLayoutBuilder(device);
-    descriptorSetLayoutBuilder2.setFlags(
-            vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
-    descriptorSetLayoutBuilder2.setBindings(
-            {vul::CombinedSamplerBinding(0,
-                                         vul::ShaderStageFlagBits::FragmentBit,
-                                         3)
-            },
-            {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
-
-    auto descriptorLayout2 = vul::DescriptorSetLayoutBuilder(device)
-            .setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit)
-            .setBindings({vul::CombinedSamplerBinding(0, vul::ShaderStageFlagBits::FragmentBit, 3)},
-                         {vul::DescriptorBindingFlagBits::UpdateAfterBindBit})
-            .create()
-            .assertValue();
-    auto pipelineLayout2 = device.createPipelineLayout(
-            descriptorLayout2,
-            vul::PushConstantRange::create<FullscreenPushConstant>((vul::ShaderStageFlagBits::VertexBit |
-                                                                    vul::ShaderStageFlagBits::FragmentBit))
-    ).assertValue();
 
 
-    auto pipelineBuilder2 = vul::GraphicsPipelineBuilder(device);
-    pipelineBuilder2.setPrimitiveStateInfo();
-    pipelineBuilder2.setViewportStateFromExtent(swapchain.getExtent());
-    pipelineBuilder2.setDynamicState({vul::DynamicState::Viewport, vul::DynamicState::Scissor});
-    pipelineBuilder2.setRasterizationState();
-    pipelineBuilder2.setMultisampleState();
-    pipelineBuilder2.setDepthStencilState();
-    pipelineBuilder2.setBlendState({vul::PipelineColorBlendAttachmentState::disableBlendRGBA()});
-    pipelineBuilder2.setRenderPass(renderPass, 0);
-    pipelineBuilder2.setPipelineLayout(pipelineLayout2);
-    vul::GraphicsPipeline graphicsPipeline2;
-    {
-        auto vertexShader = device.createShaderModule("spirv/fullscreenr32f.vert.spv").assertValue();
-        auto fragmentShader = device.createShaderModule("spirv/fullscreenr32f.frag.spv").assertValue();
-        pipelineBuilder2.setShaderCreateInfo(
-                vertexShader.createVertexStageInfo(),
-                fragmentShader.createFragmentStageInfo());
-        graphicsPipeline2 = pipelineBuilder2.create().assertValue();
-    }
 
     std::vector<vul::Image> depthImages(swapchainSize);
 
@@ -731,6 +688,9 @@ int main() {
                                                                ).assertValue();
 
 
+
+
+
     auto arrayTextureView = arrayTextureImage.createImageView().assertValue();
 
     auto textureImage = allocator.createDeviceTexture(commandPool,
@@ -752,12 +712,12 @@ int main() {
 
 
     std::vector<vul::Buffer> uniformBuffers;
-    std::vector<vul::Buffer> raytrace_bitfield_uniform_buffers;
+    std::vector<vul::Buffer> raytraceBitfieldUniformBuffers;
     for (std::size_t i = 0; i < swapchainSize; ++i) {
         uniformBuffers.push_back(
                 allocator.createMappedCoherentBuffer(sizeof(UniformBufferObject),
                                                      vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
-        raytrace_bitfield_uniform_buffers.push_back(
+        raytraceBitfieldUniformBuffers.push_back(
                 allocator.createMappedCoherentBuffer(sizeof(vul::RaytraceBitfieldRenderer::UniformBufferObject),
                                                      vul::BufferUsageFlagBits::UniformBufferBit).assertValue());
     }
@@ -765,9 +725,10 @@ int main() {
 
 
     auto descriptorPool = device.createDescriptorPool(
-            {{descriptorSetLayoutBuilder,
-              swapchainSize},
-             {raytrace_bitfield_renderer.get_descriptor_set_layout_builder(), swapchainSize}},
+            {{descriptorSetLayoutBuilder, swapchainSize},
+             {raytraceBitfieldRenderer.getDescriptorSetLayoutBuilder(), swapchainSize},
+             {bitfieldDisplayRenderer.getDescriptorSetLayoutBuilder(), swapchainSize}
+             },
              vul::DescriptorPoolCreateFlagBits::UpdateAfterBindBit).assertValue();
 
     auto descriptorSets = descriptorPool.createDescriptorSets(
@@ -775,46 +736,63 @@ int main() {
 
     for (const auto &[i, descriptorSet]: descriptorSets |
                                          ranges::views::enumerate) {
-        auto updateBuilder = descriptorSetLayoutBuilder.createUpdateBuilder();
-        updateBuilder.getDescriptorElementAt(0).setUniformBuffer(
-                {uniformBuffers[i].createDescriptorInfo()});
-        //TODO potentially could keep as layout general?
-        updateBuilder.getDescriptorElementAt(1).setCombinedImageSampler(
-                {arrayTextureView.createDescriptorInfo(sampler,
-                                                       vul::ImageLayout::ShaderReadOnlyOptimal)});
-        auto updates = updateBuilder.create(descriptorSet);
-        device.updateDescriptorSets(updates);
+        vul::WriteDescriptorSetBuilder writeBuilder(descriptorSet, descriptorSetLayoutBuilder.createDescriptorTypeCounts());
+        writeBuilder[0] = {&uniformBuffers[i]};
+        writeBuilder[1].set({&arrayTextureView}, sampler);
+        device.updateDescriptorSets(writeBuilder.getWrites());
     }
 
     auto raytraceBitfieldDescriptorSets = descriptorPool.createDescriptorSets(
-            {{raytrace_bitfield_renderer.get_descriptor_set_layout(), swapchainSize}}).assertValue();
+            {{raytraceBitfieldRenderer.getDescriptorSetLayout(), swapchainSize}}).assertValue();
+
+    auto raytraceBitfieldDisplayRendererDescriptorSets = descriptorPool.createDescriptorSets(
+            {{bitfieldDisplayRenderer.getDescriptorSetLayout(), swapchainSize}}).assertValue();
 
     //TODO type safe storage image, uniform buffer, accept normal buffer, and have "createDescriptorInfo" happen inside?
-    for (const auto &[i, descriptorSet]: raytraceBitfieldDescriptorSets |
+    for (const auto &[i, zippedDescriptorSet]: ranges::views::zip(raytraceBitfieldDescriptorSets, raytraceBitfieldDisplayRendererDescriptorSets) |
                                          ranges::views::enumerate){
-        auto typeCounts = raytrace_bitfield_renderer.get_descriptor_set_layout_builder().createDescriptorTypeCounts();
-        vul::WriteDescriptorSetBuilder writeBuilder(descriptorSet, typeCounts);
-        writeBuilder[0] = {&raytrace_bitfield_uniform_buffers[i]};
-        writeBuilder[1] = {&raytrace_bitfield_image_views[i]};
-        device.updateDescriptorSets(writeBuilder.getWrites());
-//        auto updateBuilder = raytrace_bitfield_renderer.create_descriptor_set_update_builder();
-//        updateBuilder.getDescriptorElementAt(0).setUniformBuffer({raytrace_bitfield_uniform_buffers[i].createDescriptorInfo()});
-//        updateBuilder.getDescriptorElementAt(1).setStorageImage({raytrace_bitfield_image_views[i].createStorageWriteInfo()});
-//        auto updates = updateBuilder.create(descriptorSet);
-//        device.updateDescriptorSets(updates);
+        auto extent = glm::uvec2(swapchain.getExtent().width, swapchain.getExtent().height);
+        vul::RaytraceBitfieldRenderer::UniformBufferObject ubo(extent, glm::radians(90.0), 1.0);
+        raytraceBitfieldUniformBuffers[i].mappedCopyFrom(ubo);
+        {
+            vul::WriteDescriptorSetBuilder writeBuilder(zippedDescriptorSet.first,
+                                                        raytraceBitfieldRenderer.getDescriptorTypeCounts());
+            writeBuilder[0] = {&raytraceBitfieldUniformBuffers[i]};
+            writeBuilder[1] = {&raytrace_bitfield_image_views[i]};
+            device.updateDescriptorSets(writeBuilder.getWrites());
+        }
+        {
+            vul::WriteDescriptorSetBuilder writeBuilder(zippedDescriptorSet.second,
+                                                        bitfieldDisplayRenderer.getDescriptorTypeCounts());
+            writeBuilder[0].set(&raytrace_bitfield_image_views[i], sampler);
+            device.updateDescriptorSets(writeBuilder.getWrites());
+        }
     }
 
+
     auto resize_bitfield_assets = [&](std::size_t swapchainImageIndex){
+        auto extent = glm::uvec2(swapchain.getExtent().width, swapchain.getExtent().height);
+        vul::RaytraceBitfieldRenderer::UniformBufferObject ubo(extent, glm::radians(90.0), 1.0);
+        raytraceBitfieldUniformBuffers[swapchainImageIndex].mappedCopyFrom(ubo);
         raytrace_bitfield_images[swapchainImageIndex] = (allocator.createDeviceImage(
         raytrace_bitifield_image_info).assertValue());
         raytrace_bitfield_image_transition_barrier.setImage(raytrace_bitfield_images[swapchainImageIndex]);
         vul::transition(raytrace_bitfield_image_transition_barrier, commandPool,presentationQueue);
         raytrace_bitfield_image_views[swapchainImageIndex] = (raytrace_bitfield_images[swapchainImageIndex].createImageView().assertValue());
-        const auto& descriptorSet = raytraceBitfieldDescriptorSets[swapchainImageIndex];
-        auto updateBuilder = raytrace_bitfield_renderer.create_descriptor_set_update_builder();
-        updateBuilder.getDescriptorElementAt(1).setStorageImage({raytrace_bitfield_image_views[swapchainImageIndex].createStorageWriteInfo()});
-        auto updates = updateBuilder.create(descriptorSet);
-        device.updateDescriptorSets(updates);
+        {
+            const auto &descriptorSet = raytraceBitfieldDescriptorSets[swapchainImageIndex];
+            vul::WriteDescriptorSetBuilder writeBuilder(descriptorSet,
+                                                        raytraceBitfieldRenderer.getDescriptorTypeCounts());
+            writeBuilder[1] = {&raytrace_bitfield_image_views[swapchainImageIndex]};
+            device.updateDescriptorSets(writeBuilder.getWrites());
+        }
+        {
+            const auto &descriptorSet = raytraceBitfieldDisplayRendererDescriptorSets[swapchainImageIndex];
+            vul::WriteDescriptorSetBuilder writeBuilder(descriptorSet,
+                                                        bitfieldDisplayRenderer.getDescriptorTypeCounts());
+            writeBuilder[0].set(&raytrace_bitfield_image_views[swapchainImageIndex], sampler);
+            device.updateDescriptorSets(writeBuilder.getWrites());
+        }
     };
 
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
@@ -1034,69 +1012,130 @@ int main() {
         {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
-            {
-                commandBuffer.bindPipeline(jfaInitPipleline);
-                auto computeComputeBarrier = {vul::MemoryBarrier::computeToComputeRWARW()};
-                auto computeComputeDepInfo = vul::DependencyInfo({computeComputeBarrier} , {}, {});
-                commandBuffer.pushConstants(jfaInitPipelineLayout,
-                                            vul::ShaderStageFlagBits::ComputeBit,
-                                            jfa_init_push_constant);
-                auto workgroup_dim = uul::integer_ceil(vul::chunk_consts::chunk_width, 8);
-                commandBuffer.pipelineBarrier(computeComputeDepInfo);
-                commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
-                commandBuffer.bindPipeline(jfaIterationPipleline);
-                jfa_iteration_push_constant.u_voxel_jfa_in = voxel_jfa_buffers[0].getDeviceAddress();
-                jfa_iteration_push_constant.u_voxel_jfa_out = voxel_jfa_buffers[1].getDeviceAddress();
-                for (std::uint32_t i = 0; i < 3; ++i) {
-                    for (std::int32_t j = std::bit_width(31u) - 1; j >= 0; --j) {
-                        jfa_iteration_push_constant.u_jump_step_size = 1u << static_cast<std::uint32_t>(j);
-                        jfa_iteration_push_constant.u_jump_step_type = i;
-                        commandBuffer.pipelineBarrier(computeComputeDepInfo);
-                        commandBuffer.pushConstants(jfaIterationPipelineLayout,
-                                                    vul::ShaderStageFlagBits::ComputeBit,
-                                                    jfa_iteration_push_constant);
-                        commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
-                        std::swap(jfa_iteration_push_constant.u_voxel_jfa_in,
-                                  jfa_iteration_push_constant.u_voxel_jfa_out);
+            if(false) {
+                {
+                    commandBuffer.bindPipeline(jfaInitPipleline);
+                    auto computeComputeBarrier = {vul::MemoryBarrier::computeToComputeRWARW()};
+                    auto computeComputeDepInfo = vul::DependencyInfo({computeComputeBarrier}, {}, {});
+                    commandBuffer.pushConstants(jfaInitPipelineLayout,
+                                                vul::ShaderStageFlagBits::ComputeBit,
+                                                jfa_init_push_constant);
+                    auto workgroup_dim = uul::integer_ceil(vul::chunk_consts::chunk_width, 8);
+                    commandBuffer.pipelineBarrier(computeComputeDepInfo);
+                    commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
+                    commandBuffer.bindPipeline(jfaIterationPipleline);
+                    jfa_iteration_push_constant.u_voxel_jfa_in = voxel_jfa_buffers[0].getDeviceAddress();
+                    jfa_iteration_push_constant.u_voxel_jfa_out = voxel_jfa_buffers[1].getDeviceAddress();
+                    for (std::uint32_t i = 0; i < 3; ++i) {
+                        for (std::int32_t j = std::bit_width(31u) - 1; j >= 0; --j) {
+                            jfa_iteration_push_constant.u_jump_step_size = 1u << static_cast<std::uint32_t>(j);
+                            jfa_iteration_push_constant.u_jump_step_type = i;
+                            commandBuffer.pipelineBarrier(computeComputeDepInfo);
+                            commandBuffer.pushConstants(jfaIterationPipelineLayout,
+                                                        vul::ShaderStageFlagBits::ComputeBit,
+                                                        jfa_iteration_push_constant);
+                            commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
+                            std::swap(jfa_iteration_push_constant.u_voxel_jfa_in,
+                                      jfa_iteration_push_constant.u_voxel_jfa_out);
+                        }
+                        //break;
                     }
-                    //break;
+                    auto computeGraphicsBarrier = vul::createComputeFragmentBarrierRAW();
+                    auto computeGraphicsDepInfo = vul::createDependencyInfo(
+                            computeGraphicsBarrier, {}, {});
+                    commandBuffer.pipelineBarrier(computeGraphicsDepInfo);
                 }
-                auto computeGraphicsBarrier = vul::createComputeFragmentBarrierRAW();
-                auto computeGraphicsDepInfo = vul::createDependencyInfo(
-                        computeGraphicsBarrier, {}, {});
-                commandBuffer.pipelineBarrier(computeGraphicsDepInfo);
+                {
+                    auto extent = swapchain.getExtent();
+                    commandBuffer.setViewport(vul::Viewport(extent).get());
+                    commandBuffer.setScissor(vul::Rect2D(extent).get());
+
+                    std::array<VkClearValue, 2> clearValues{};
+                    clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
+                    clearValues[0].color = {
+                            {clear_color.x, clear_color.y, clear_color.z,
+                             clear_color.w}};
+                    clearValues[1].depthStencil = {1.0f, 0};
+                    auto renderPassBlock = commandBuffer.beginRenderPass(
+                            renderPass,
+                            swapchainFramebuffers[swapchainImageIndex],
+                            VkRect2D{{0, 0}, extent},
+                            clearValues);
+                    commandBuffer.bindPipeline(graphicsPipeline);
+                    commandBuffer.bindDescriptorSets(
+                            vul::PipelineBindPoint::Graphics, pipelineLayout,
+                            descriptorSets[swapchainImageIndex]);
+                    std::uint32_t box_vertex_count = 36;
+                    std::uint32_t vertex_split_pass_count = 5;
+                    commandBuffer.pushConstants(pipelineLayout,
+                                                vul::ShaderStageFlagBits::VertexBit |
+                                                vul::ShaderStageFlagBits::FragmentBit,
+                                                rlePushConstant);
+                    auto vertex_count =
+                            cumulative_rle_sizes.back() * box_vertex_count *
+                            vertex_split_pass_count;
+                    renderPassBlock.draw(vertex_count);
+                }
             }
             {
-                auto extent = swapchain.getExtent();
-                commandBuffer.setViewport(vul::Viewport(extent).get());
-                commandBuffer.setScissor(vul::Rect2D(extent).get());
+                {
+                    auto storageToSampleImageBarrier = {
+                            vul::ImageMemoryBarrier::WriteAfterRead(raytrace_bitfield_images[swapchainImageIndex],
+                                                                    vul::PipelineStageFlagBits2::FragmentShaderBit,
+                                                                    vul::PipelineStageFlagBits2::ComputeShaderBit,
+                                                                    vul::ImageLayout::Undefined,
+                                                                    vul::ImageLayout::General)};
+                    auto dependencyInfo = vul::DependencyInfo({} , {}, {storageToSampleImageBarrier});
+                    commandBuffer.pipelineBarrier(dependencyInfo);
+                    auto pushConstant = vul::RaytraceBitfieldRenderer::PushConstant{
+                            camera.getPosition(),
+                            0, // no longer needed, still want for padding though?
+                            camera.getRotation(),
+                            0, //time not needed right now.
+                            rle_bitmask_buffer.getDeviceAddress(),
+                            0,
+                    };
 
-                std::array<VkClearValue, 2> clearValues{};
-                clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
-                clearValues[0].color = {
-                        {clear_color.x, clear_color.y, clear_color.z,
-                         clear_color.w}};
-                clearValues[1].depthStencil = {1.0f, 0};
-                auto renderPassBlock = commandBuffer.beginRenderPass(
-                        renderPass,
-                        swapchainFramebuffers[swapchainImageIndex],
-                        VkRect2D{{0, 0}, extent},
-                        clearValues);
-                commandBuffer.bindPipeline(graphicsPipeline);
-                commandBuffer.bindDescriptorSets(
-                        vul::PipelineBindPoint::Graphics, pipelineLayout,
-                        descriptorSets[swapchainImageIndex]);
-                std::uint32_t box_vertex_count = 36;
-                std::uint32_t vertex_split_pass_count = 5;
-                commandBuffer.pushConstants(pipelineLayout,
-                                            vul::ShaderStageFlagBits::VertexBit |
-                                            vul::ShaderStageFlagBits::FragmentBit,
-                                            rlePushConstant);
-                auto vertex_count =
-                        cumulative_rle_sizes.back() * box_vertex_count *
-                        vertex_split_pass_count;
-                renderPassBlock.draw(vertex_count);
+                    commandBuffer.bindPipeline(raytraceBitfieldRenderer.getPipeline());
+                    commandBuffer.bindDescriptorSets(
+                            vul::PipelineBindPoint::Compute, raytraceBitfieldRenderer.getPipelineLayout(),
+                            raytraceBitfieldDescriptorSets[swapchainImageIndex]);
+                    commandBuffer.pushConstants(raytraceBitfieldRenderer.getPipelineLayout(),
+                                                vul::ShaderStageFlagBits::ComputeBit,
+                                                pushConstant);
+                    auto workgroup_dim_x = uul::integer_ceil(swapchain.getExtent().width, 32);
+                    auto workgroup_dim_y = uul::integer_ceil(swapchain.getExtent().height, 32);
+                    commandBuffer.dispatch(workgroup_dim_x, workgroup_dim_y, 1);
+                }
+
+                {
+                    auto storageToSampleImageBarrier = {
+                            vul::ImageMemoryBarrier::computeToFragmentRAW(raytrace_bitfield_images[swapchainImageIndex])};
+                    auto dependencyInfo = vul::DependencyInfo({} , {}, {storageToSampleImageBarrier});
+                    commandBuffer.pipelineBarrier(dependencyInfo);
+                    auto extent = swapchain.getExtent();
+                    commandBuffer.setViewport(vul::Viewport(extent).get());
+                    commandBuffer.setScissor(vul::Rect2D(extent).get());
+
+                    std::array<VkClearValue, 2> clearValues{};
+                    clearValues[0].color = {{1.0f, 0.5f, 1.0f, 1.0f}};
+                    clearValues[0].color = {
+                            {clear_color.x, clear_color.y, clear_color.z,
+                             clear_color.w}};
+                    clearValues[1].depthStencil = {1.0f, 0};
+                    auto renderPassBlock = commandBuffer.beginRenderPass(
+                            renderPass,
+                            swapchainFramebuffers[swapchainImageIndex],
+                            VkRect2D{{0, 0}, extent},
+                            clearValues);
+                    commandBuffer.bindPipeline(bitfieldDisplayRenderer.getPipeline());
+                    commandBuffer.bindDescriptorSets(
+                            vul::PipelineBindPoint::Graphics, bitfieldDisplayRenderer.getPipelineLayout(),
+                            raytraceBitfieldDisplayRendererDescriptorSets[swapchainImageIndex]);
+                    renderPassBlock.draw(3);
+                }
             }
+
             imguiRenderer.recordCommands(commandBuffer, swapchainImageIndex);
             commandBuffer.end();
         }

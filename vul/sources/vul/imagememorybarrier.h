@@ -83,6 +83,8 @@ namespace vul {
                 vul::ImageLayout oldLayout,
                 vul::ImageLayout newLayout);
 
+
+
         [[nodiscard]]
         static ImageMemoryBarrier unfilledLayoutTransition(
                 uul::EnumFlags<vul::PipelineStageFlagBits2> srcStageMask,

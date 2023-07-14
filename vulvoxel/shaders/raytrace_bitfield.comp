@@ -38,14 +38,13 @@
 
 #define WORKGROUP_SIZE 1024
 layout (local_size_x = 32, local_size_y = 32, local_size_z = 1) in;
-layout (constant_id = 0) const int IMAGE_COUNT = 3;
 layout(set = 0, binding = 0) uniform UniformBufferObject {
     uvec2 u_resolution;
     float u_fov;
     float u_focus_distance;
 };
 
-layout(set = 0, binding = 1, r32f) uniform writeonly image2D u_output_image[];
+layout(set = 0, binding = 1, r32f) uniform writeonly image2D u_output_image;
 
 layout(push_constant, scalar) uniform PushConstantBlock{
     vec3 u_camera_origin;
@@ -205,13 +204,12 @@ bool get_bitmask_rh(uint32_array bitmask, in ivec3 cell_xyz_right_handed){
 }
 
 
-
 //https://www.shadertoy.com/view/4dX3zl
 //https://lodev.org/cgtutor/raycasting.html
 bool bitmask_intersect_dda(
-    uint32_array bitmask,
-    in Ray ray,
-    out DdaOutput result){
+uint32_array bitmask,
+in Ray ray,
+out DdaOutput result){
     result.debug_color.is_set = false;
     ivec3 cell_pos = ivec3(floor(ray.pos + 0.0));
     //delta_dist is the distance the ray has to travel
@@ -224,16 +222,16 @@ bool bitmask_intersect_dda(
     //to the first side to the left, if the ray direciton has a positive x-component the first side to the right is used instead.
     vec3 side_dist = (sign(ray.dir) * (vec3(cell_pos) - ray.pos) + (sign(ray.dir) * 0.5) + 0.5) * delta_dist;
     //use to record which dim used?
-//    bvec3 mask = bvec3(false, false, false);
-    vec3 fraction = fract(ray.pos);
+    //    bvec3 mask = bvec3(false, false, false);
+    vec3 fraction = 0.5 - abs(fract(ray.pos) - 0.5);
     float min_fract = min_v(fraction);
     //if comming from outside, should work, but inside?
     bvec3 mask = equal(fraction, vec3(min_fract));
-    while(true){
+    while (true){
         if (!inside_chunk(cell_pos)){
             return false;
         }
-        if(get_bitmask_rh(bitmask, cell_pos)){
+        if (get_bitmask_rh(bitmask, cell_pos)){
             float t = length(vec3(mask) * (side_dist - delta_dist)) / length(ray.dir);
             uint voxel_index = to_voxel_idx_rh(cell_pos);
             vec3 hit_normal;
@@ -250,7 +248,7 @@ bool bitmask_intersect_dda(
                 hit_normal =  dot(vec3(0.0, 0.0, 1.0), ray.dir) < 0.0 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 0.0, -1.0);
                 texcoord = endpoint(ray, t).xy;
             }
-            else{
+            else {
                 break;
             }
             result.t_distance = t;
@@ -258,7 +256,7 @@ bool bitmask_intersect_dda(
             result.hit_normal = hit_normal;
             result.tex_coord = texcoord;
             return true;
-        }else{
+        } else {
             if (side_dist.x < side_dist.y) {
                 if (side_dist.x < side_dist.z) {
                     side_dist.x += delta_dist.x;
@@ -293,7 +291,7 @@ bool bitmask_intersect_dda(
 void main(){
     uvec2 pixel_idx = gl_GlobalInvocationID.xy;
 
-    if(pixel_idx.x >= u_resolution.x || pixel_idx.y >= u_resolution.y){
+    if (pixel_idx.x >= u_resolution.x || pixel_idx.y >= u_resolution.y){
         return;
     }
 
@@ -309,26 +307,78 @@ void main(){
     vec3 total_color = vec3(0.0);
     vec3 camera_rotation = u_camera_rotation;
     camera_rotation.x *= -1.0;
-    vec3 camera_up = rotate_dir(vec3(0.0,1.0,0.0), camera_rotation);
-    vec3 camera_side =  rotate_dir(vec3(1.0,0.0,0.0), camera_rotation);
-    vec3 camera_forward = rotate_dir(vec3(0.0,0.0,1.0), camera_rotation);
+    vec3 camera_up = rotate_dir(vec3(0.0, 1.0, 0.0), camera_rotation);
+    vec3 camera_side =  rotate_dir(vec3(1.0, 0.0, 0.0), camera_rotation);
+    vec3 camera_forward = rotate_dir(vec3(0.0, 0.0, 1.0), camera_rotation);
 
-    Ray ray = create_Ray((vec2(frag_coord)/ (resolution)), resolution, u_camera_origin , camera_rotation, fov);\
+    Ray ray = create_Ray((vec2(frag_coord)/ (resolution)), resolution, u_camera_origin, camera_rotation, fov);
     DdaOutput dda_output;
     dda_output.debug_color.is_set = false;
     float intersect_t = inf;
-    CornerAABB box = CornerAABB(vec3(0.0),vec3(32.0));
-    float t_min = 0;
+    CornerAABB box = CornerAABB(vec3(0.0), vec3(32.0));
+    float t_min = -inf;
     float t_max = inf;
     float t = inf;
-    if(intersect(ray, box, t_min, t_max, t)){
-        Ray new_ray = to_endpoint(ray, t + 0.001);
-        if(bitmask_intersect_dda(u_bitmask, new_ray, dda_output)){
-            intersect_t = dda_output.t_distance;
+    bool intersected = false;
+    uint aabb_normal;
+    if (intersect(ray, box, t_min, t_max, t, aabb_normal)){
+        intersected = true;
+        Ray new_ray = to_endpoint(ray, t);
+        //we need exact intersection with object.
+
+        //        if(
+        //        aabb_normal == AABB_NORMAL_NEGATIVE_X ||
+        //        aabb_normal == AABB_NORMAL_POSITIVE_X ||
+        //        aabb_normal == AABB_NORMAL_NEGATIVE_Y ||
+        //        aabb_normal == AABB_NORMAL_POSITIVE_Y ||
+        //        aabb_normal == AABB_NORMAL_NEGATIVE_Z ||
+        //        aabb_normal == AABB_NORMAL_POSITIVE_Z){
+        //            imageStore(u_output_image, ivec2(frag_coord), vec4(1.0,1.0,1.0,1.0));
+        //            return;
+        //        }
+        switch (aabb_normal){
+            case (AABB_NORMAL_NEGATIVE_X): {
+                new_ray.pos.x = round(new_ray.pos.x);
+                break;
+            }
+            //TODO figure out how to do this properly? with out offset?
+            case (AABB_NORMAL_POSITIVE_X):{
+                new_ray.pos.x= round(new_ray.pos.x) - 0.000001;
+                break;
+            }
+            case (AABB_NORMAL_NEGATIVE_Y):{
+                new_ray.pos.y = round(new_ray.pos.y);
+                break;
+            }
+            case (AABB_NORMAL_POSITIVE_Y):{
+                new_ray.pos.y = round(new_ray.pos.y)- 0.000001;
+                break;
+            }
+            case (AABB_NORMAL_NEGATIVE_Z):{
+                new_ray.pos.z = round(new_ray.pos.z);
+                break;
+            }
+            case (AABB_NORMAL_POSITIVE_Z):{
+                new_ray.pos.z = round(new_ray.pos.z)- 0.000001;
+                break;
+            }
         }
+        //        if(t < 0.0){
+        //            imageStore(u_output_image, ivec2(frag_coord), vec4(0.5,1.0,1.0,1.0));
+        //            return;
+        //        }
+        if (bitmask_intersect_dda(u_bitmask, new_ray, dda_output)){
+            intersect_t = dda_output.t_distance;
+            imageStore(u_output_image, ivec2(frag_coord), vec4((t + intersect_t)/100.0, 1.0, 1.0, 1.0));
+            return;
+        } else {
+            //            imageStore(u_output_image, ivec2(frag_coord), vec4(1.0,1.0,1.0,1.0));
+            //            return;
+        }
+
     }
-    imageStore(u_output_image[u_frame_idx % IMAGE_COUNT], ivec2(frag_coord), vec4(intersect_t,1.0,1.0,1.0));
 
 
+    imageStore(u_output_image, ivec2(frag_coord), vec4(0.0, 1.0, 1.0, 1.0));
 }
 
