@@ -5,6 +5,7 @@
 #ifndef VULKANWORKSPACE_RADIXSORT_CUH
 #define VULKANWORKSPACE_RADIXSORT_CUH
 
+#include <cub/agent/single_pass_scan_operators.cuh>
 #include <cuda/atomic>
 #include <cuda/barrier>
 #include <type_traits>
@@ -338,7 +339,7 @@ namespace cuvk {
         if(warp_index == 0){
             if(warp_thread_id < shared_warp_digit_prefix_sums_size) {
                 std::uint32_t thread_block_warp_sums = shared_warp_digit_prefix_sums[warp_index];
-                std::uint32_t thread_block_cum_sum = hills_steele_warp_prefix_sum<std::uint32_t, 3, 0x000000FF>(
+                auto thread_block_cum_sum = hills_steele_warp_prefix_sum<std::uint32_t, 3>(
                         thread_block_warp_sums);
                 shared_warp_digit_prefix_sums[warp_thread_id] = thread_block_cum_sum;
             }
@@ -351,6 +352,16 @@ namespace cuvk {
         global_histogram_output[global_item_idx] = digit_place_prefix_sum;
     }
 
+    enum class OffsetFlag : std::uint32_t{
+            FlagNotReady = 0,
+            FlagAggregateReady = 1 << 29,
+            FlagPrefixSumReady = 2 << 29,
+    };
+    union FlagOffset{
+        OffsetFlag flag;
+        std::uint32_t value;
+    };
+
 
     template<typename T, std::uint32_t elements_per_thread, typename size_type_t = std::uint32_t>
     __global__ void radix_sort_chain_scan(
@@ -358,6 +369,7 @@ namespace cuvk {
             gpu_span<const T, size_type_t> input,
             gpu_span<T, size_type_t> output,
             std::uint32_t* atomic_next_virtual_processor_id_ptr,
+            gpu_span<FlagOffset, size_type_t> global_prefix_offsets,
             std::uint32_t digit_iteration) {
         static constexpr std::uint32_t digit_place_count = sizeof(T) / digit_bit_count;
         static constexpr std::uint32_t histogram_place_size = digit_value_count;
@@ -460,6 +472,32 @@ namespace cuvk {
             auto block_index = offset + prefix_sum;
             coalesced_output[block_index] = value;
             local_item_idx += 1;
+        }
+        __syncthreads();
+        std::uint32_t workgroup_aggregate = 0;
+        //first virtual processor puts zero offset, since it's the first.  b
+        if(virtual_processor_id == 0){
+            if(thread_id < digit_value_count) {
+                cuda::atomic_ref<FlagOffset, cuda::thread_scope_device> atomic_prefix_offset(
+                        &global_prefix_offsets[virtual_processor_id * digit_value_count + thread_id]
+                );
+                atomic_prefix_offset.store(FlagOffset{.value=workgroup_aggregate}, cuda::memory_order_relaxed);
+            }
+        }
+        else if(thread_id < digit_value_count){ //should align to the warp boundary
+            //if global item has been totally set? just grab, if not, keep going backwards and grabbing more.
+            while(true){
+                cuda::atomic_ref<FlagOffset, cuda::thread_scope_device> atomic_prefix_offset(
+                        &global_prefix_offsets[virtual_processor_id * digit_value_count + thread_id]
+                        );
+
+                auto prefix_offset = atomic_prefix_offset.load(cuda::memory_order_relaxed);
+                if(prefix_offset.flag == OffsetFlag::FlagNotReady){
+                    continue;
+                }else if(prefix_offset.flag == OffsetFlag::FlagNotReady){
+
+                }
+            }
         }
 
         //TODO Now we need to communicate with other blocks

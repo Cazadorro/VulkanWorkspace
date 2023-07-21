@@ -19,4 +19,4 @@ target_compile_options(cudaaddexample PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g>)
 
-set_target_properties(cudaaddexample PROPERTIES CUDA_ARCHITECTURES "52;72")
+set_target_properties(cudaaddexample PROPERTIES CUDA_ARCHITECTURES "89")
