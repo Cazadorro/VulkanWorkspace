@@ -236,6 +236,13 @@ namespace cuvk {
         }
         return value;
     }
+
+    //can use width,
+    template<typename T, std::uint32_t iterations = log_warp_size>
+    //exclusive prefix sum.
+    __device__ T hills_steele_warp_inclusive_prefix_sum(T value, std::uint32_t initial_mask = 0xFFFFFFFF, std::uint32_t width = warp_size){
+        return hills_steele_warp_prefix_sum<T, iterations>(value, initial_mask, width) + value;
+    }
 //TODO could make API use actual memory instead, give pointers and ranges, let function figure out how to split up?
 
 //    //could do 8 scan then 4 scan for non power of 2? or just run 2x, make it easier?
@@ -353,31 +360,41 @@ namespace cuvk {
     }
 
     enum class OffsetFlag : std::uint32_t{
-            FlagNotReady = 0,
-            FlagAggregateReady = 1 << 29,
-            FlagPrefixSumReady = 2 << 29,
+            FlagNotReady       = 0,
+            FlagAggregateReady = 0b01000000'00000000'00000000'00000000u,
+            FlagPrefixSumReady = 0b10000000'00000000'00000000'00000000u,
     };
-    union FlagOffset{
-        OffsetFlag flag;
-        std::uint32_t value;
+    struct FlagOffset{
+        std::uint32_t value = 0;
+        FlagOffset* set_flag(OffsetFlag flag){
+            value &= (static_cast<std::uint32_t>(flag) | ~0b11000000'00000000'00000000'00000000u);
+        }
+        [[nodiscard]]
+        OffsetFlag get_flag() const{
+            return static_cast<OffsetFlag>(value & 0b11000000'00000000'00000000'00000000u);
+        }
+        [[nodiscard]]
+        std::uint32_t get_value() const{
+            return value & ~0b11000000'00000000'00000000'00000000u;
+        }
     };
 
 
     template<typename T, std::uint32_t elements_per_thread, typename size_type_t = std::uint32_t>
     __global__ void radix_sort_chain_scan(
-            gpu_array_span<const size_type_t, digit_value_count * sizeof(T)> global_digit_place_prefix_sum,
+            gpu_array_span<const size_type_t, digit_value_count * (sizeof(T)*8) / digit_bit_count> global_digit_place_prefix_sum,
             gpu_span<const T, size_type_t> input,
             gpu_span<T, size_type_t> output,
             std::uint32_t* atomic_next_virtual_processor_id_ptr,
             gpu_span<FlagOffset, size_type_t> global_prefix_offsets,
             std::uint32_t digit_iteration) {
-        static constexpr std::uint32_t digit_place_count = sizeof(T) / digit_bit_count;
+        static constexpr std::uint32_t digit_place_count = (sizeof(T)*8) / digit_bit_count;
         static constexpr std::uint32_t histogram_place_size = digit_value_count;
 
         constexpr std::uint32_t shared_warp_digit_prefix_sums_size = histogram_place_size / warp_size;
 
         __shared__ std::uint32_t virtual_processor_id;
-        //for 32bit should be 8 * 256.
+        //for 32bit should be 8 * 256. 8 being warp count?
         __shared__ std::uint16_t digit_prefix_sum_offsets[shared_warp_digit_prefix_sums_size * digit_value_count];
         //TODO offset start by 1 in order to avoid bank conflicts?
 
@@ -396,8 +413,6 @@ namespace cuvk {
             virtual_processor_id = atomicAdd(atomic_next_virtual_processor_id_ptr, 1);
         }
         size_type_t block_offset = block_id * elements_per_thread * blockDim.x;
-        std::uint32_t local_item_idx = 0;
-        size_type_t global_item_idx = block_offset + local_item_idx * blockDim.x;
 
         //we have to figure out local offset from shared,
         //then write out our values into shared? then read them out?
@@ -407,7 +422,11 @@ namespace cuvk {
         std::uint16_t local_offsets[elements_per_thread];
         T local_values[elements_per_thread];
 
-        while(global_item_idx < input.size()){
+        for(std::uint32_t local_item_idx = 0; local_item_idx < elements_per_thread; ++local_item_idx){
+            std::uint32_t global_item_idx = block_offset + local_item_idx * blockDim.x;
+            if(global_item_idx < input.size()){
+                break;
+            }
             //it's possible for a thread to be outside the extent of the data here,
             // so we stop it from causing undefined behavior here.
             std::uint32_t mask = __activemask();
@@ -445,9 +464,8 @@ namespace cuvk {
             //now get the correct offset count relative to current warp.
             local_offsets[local_item_idx] = previous_count + lesser_thread_count;
             local_values[local_item_idx] = value;
-            local_item_idx += 1;
-            global_item_idx = block_offset + local_item_idx * blockDim.x;
         }
+
 
         __syncthreads();
         auto digit_prefix_sum_offsets_linear_view = digit_prefix_sum_offsets_view.linear_view();
@@ -455,51 +473,101 @@ namespace cuvk {
         //TODO handle non pow2 or even just not 8
         auto block_digit_prefix_sum_idx = thread_id;
         //this performs prefix sums for each value.
+        //do we actually want to exclusive prefix, given that we need that last value to figure out the final output?
+        //should be on warp boundary?
         while(block_digit_prefix_sum_idx > digit_prefix_sum_offsets_linear_view.size()){
             auto value = digit_prefix_sum_offsets_linear_view[block_digit_prefix_sum_idx];
-            auto prefix_sum_result = hills_steele_warp_prefix_sum(value, 0b11111110'11111110'11111110'11111110, 8);
+            //TODO handle non pow2 or even just not 8
+            auto prefix_sum_result = hills_steele_warp_inclusive_prefix_sum(value, 0b11111110'11111110'11111110'11111110, 8);
             digit_prefix_sum_offsets_linear_view[block_digit_prefix_sum_idx] = prefix_sum_result;
             block_digit_prefix_sum_idx += blockDim.x;
+            //if we are at the end of the value list!
+            //TODO handle non pow2 or even just not 8 should I just bite the bullet and inprefix sum?
         }
         __syncthreads();
-        local_item_idx = 0;
+
         //writing the values back out to the coalesced location
-        while((block_offset + local_item_idx * blockDim.x) < input.size()){
-            auto offset = local_offsets[local_values];
+        for(std::uint32_t local_item_idx = 0; local_item_idx < elements_per_thread; ++local_item_idx) {
+            std::uint32_t global_item_idx = block_offset + local_item_idx * blockDim.x;
+            if (global_item_idx < input.size()) {
+                break;
+            }
+            auto offset = local_offsets[local_item_idx];
             auto value = local_values[local_item_idx];
             std::uint32_t value_selected_digit = (value >> (digit_bit_count * digit_iteration)) & digit_bit_mask;
-            auto prefix_sum = digit_prefix_sum_offsets_view[value_selected_digit][warp_index];
-            auto block_index = offset + prefix_sum;
-            coalesced_output[block_index] = value;
-            local_item_idx += 1;
+            if(warp_index > 0){ //inclusive prefix sum given , but exclusive offset needed, if first warp index, then always 0 for exclusive prefix sum
+                auto prefix_sum = digit_prefix_sum_offsets_view[value_selected_digit][warp_index - 1];
+                auto block_index = offset + prefix_sum;
+                coalesced_output[block_index] = value;
+            }else{
+                auto block_index = offset + 0;
+                coalesced_output[block_index] = value;
+            }
+
         }
         __syncthreads();
         std::uint32_t workgroup_aggregate = 0;
         //first virtual processor puts zero offset, since it's the first.  b
-        if(virtual_processor_id == 0){
-            if(thread_id < digit_value_count) {
-                cuda::atomic_ref<FlagOffset, cuda::thread_scope_device> atomic_prefix_offset(
-                        &global_prefix_offsets[virtual_processor_id * digit_value_count + thread_id]
-                );
-                atomic_prefix_offset.store(FlagOffset{.value=workgroup_aggregate}, cuda::memory_order_relaxed);
-            }
-        }
-        else if(thread_id < digit_value_count){ //should align to the warp boundary
-            //if global item has been totally set? just grab, if not, keep going backwards and grabbing more.
-            while(true){
-                cuda::atomic_ref<FlagOffset, cuda::thread_scope_device> atomic_prefix_offset(
-                        &global_prefix_offsets[virtual_processor_id * digit_value_count + thread_id]
-                        );
+        if(thread_id < digit_value_count) {
+            cuda::atomic_ref<FlagOffset, cuda::thread_scope_device> atomic_prefix_offset(
+                    &global_prefix_offsets[virtual_processor_id * digit_value_count + thread_id]
+            );
+            FlagOffset flag_offset;
+            //get the actual total value here.
+            //TODO handle non pow2 or even just not 8
+            flag_offset.value = digit_prefix_sum_offsets_view[thread_id][7];
+            if(virtual_processor_id == 0) {
+                flag_offset.set_flag(
+                        OffsetFlag::FlagPrefixSumReady);
+                // since there's nothing behind, we can say the prefix sum is ready.
+                atomic_prefix_offset.store(flag_offset, cuda::memory_order_relaxed);
+            }else{
+                flag_offset.set_flag(OffsetFlag::FlagAggregateReady); // otherwise we can only say that this specific sum is ready.
 
-                auto prefix_offset = atomic_prefix_offset.load(cuda::memory_order_relaxed);
-                if(prefix_offset.flag == OffsetFlag::FlagNotReady){
-                    continue;
-                }else if(prefix_offset.flag == OffsetFlag::FlagNotReady){
+                atomic_prefix_offset.store(flag_offset, cuda::memory_order_relaxed);
 
+                auto next_virtual_processor_id = virtual_processor_id - 1;
+                //if global item has been totally set? just grab, if not, keep going backwards and grabbing more.
+                while (true) {
+                    cuda::atomic_ref<FlagOffset, cuda::thread_scope_device> next_atomic_prefix_offset(
+                            &global_prefix_offsets[next_virtual_processor_id * digit_value_count + thread_id]
+                    );
+
+                    auto prefix_offset = next_atomic_prefix_offset.load(cuda::memory_order_relaxed);
+                    if (prefix_offset.get_flag() == OffsetFlag::FlagNotReady) {
+                        __threadfence_block();
+                        continue;
+                    } else if (prefix_offset.get_flag() == OffsetFlag::FlagAggregateReady) {
+                        workgroup_aggregate += prefix_offset.get_value();
+                        if(next_virtual_processor_id == 0){
+                            FlagOffset final_flag_offset{workgroup_aggregate};
+                            flag_offset.set_flag(OffsetFlag::FlagPrefixSumReady);
+                            atomic_prefix_offset.store(final_flag_offset, cuda::memory_order_relaxed);
+                            break;
+                        }
+                    } else {// if(prefix_offset.get_flag() == OffsetFlag::FlagPrefixSumReady){
+                        workgroup_aggregate += prefix_offset.get_value();
+                        FlagOffset final_flag_offset{workgroup_aggregate};
+                        flag_offset.set_flag(OffsetFlag::FlagPrefixSumReady);
+                        atomic_prefix_offset.store(final_flag_offset, cuda::memory_order_relaxed);
+                        break;
+                    }
                 }
             }
         }
-
+        __syncthreads();
+        for(std::uint32_t local_item_idx = 0; local_item_idx < elements_per_thread; ++local_item_idx) {
+            std::uint32_t global_item_idx = block_offset + local_item_idx * blockDim.x;
+            if (global_item_idx < input.size()) {
+                break;
+            }
+            auto shared_coalesced_index = elements_per_thread * thread_id + local_item_idx;
+            auto value = coalesced_output[shared_coalesced_index];
+            std::uint32_t value_selected_digit = (value >> (digit_bit_count * digit_iteration)) & digit_bit_mask;
+            auto global_digit_place_prefix_sum_value = global_digit_place_prefix_sum[digit_value_count * digit_iteration + value_selected_digit];
+            output[global_digit_place_prefix_sum_value + shared_coalesced_index] = value;
+        }
+        //Now we should be done sorting?
         //TODO Now we need to communicate with other blocks
 
         //8 warps hypothetically, so that means we should probably split up 8 prefix sums at *once*.
