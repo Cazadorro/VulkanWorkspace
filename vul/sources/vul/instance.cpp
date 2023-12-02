@@ -74,7 +74,7 @@ vul::Instance::~Instance() {
     vkDestroyInstance(m_handle, m_pAllocator);
 }
 
-vul::Instance::Instance(vul::Instance &&rhs) noexcept {
+vul::Instance::Instance(vul::Instance &&rhs) noexcept : Instance(){
     using std::swap;
     swap(m_handle, rhs.m_handle);
     swap(m_pAllocator, rhs.m_pAllocator);

@@ -68,7 +68,7 @@ vul::Device::~Device() {
     }
 }
 
-vul::Device::Device(vul::Device &&rhs) noexcept {
+vul::Device::Device(vul::Device &&rhs) noexcept : Device(){
     using std::swap;
     swap(m_physicalDevice, rhs.m_physicalDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

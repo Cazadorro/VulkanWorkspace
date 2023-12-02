@@ -33,7 +33,7 @@ vul::GraphicsPipeline::~GraphicsPipeline() {
     }
 }
 
-vul::GraphicsPipeline::GraphicsPipeline(vul::GraphicsPipeline &&rhs) noexcept {
+vul::GraphicsPipeline::GraphicsPipeline(vul::GraphicsPipeline &&rhs) noexcept : GraphicsPipeline(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

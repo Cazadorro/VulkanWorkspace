@@ -858,7 +858,7 @@ vul::RenderPass::~RenderPass() {
     }
 }
 
-vul::RenderPass::RenderPass(vul::RenderPass &&rhs) noexcept {
+vul::RenderPass::RenderPass(vul::RenderPass &&rhs) noexcept : RenderPass(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

@@ -9,6 +9,7 @@
 #include <glm/vec2.hpp>
 #include <fmt/core.h>
 #include <cstdint>
+#include <utility>
 
 gul::GlfwWindow::GlfwWindow(int width, int height, const std::string &title,
                             GLFWmonitor *monitor, GLFWwindow *share) {
@@ -154,15 +155,16 @@ GLFWwindow *gul::GlfwWindow::getWindowPtr() {
     return m_window;
 }
 
-const GLFWwindow *gul::GlfwWindow::getWindowPtr() const{
+const GLFWwindow *gul::GlfwWindow::getWindowPtr() const {
     return m_window;
 }
 
 vul::Surface
 gul::GlfwWindow::createSurface(const vul::Instance &instance,
-                            const VkAllocationCallbacks *pAllocator) {
+                               const VkAllocationCallbacks *pAllocator) {
     VkSurfaceKHR surface;
-    if(auto result = vul::Result(glfwCreateWindowSurface(instance.get(), m_window, pAllocator, &surface)); result != vul::Result::Success) {
+    if (auto result = vul::Result(glfwCreateWindowSurface(instance.get(), m_window, pAllocator, &surface)); result !=
+                                                                                                            vul::Result::Success) {
         fmt::print(stderr, "Error: {}\n", vul::to_string(result));
         std::terminate();
     }
@@ -179,5 +181,27 @@ bool gul::GlfwWindow::mouseReleased(int button) const {
 
 bool gul::GlfwWindow::mouseRepeat(int button) const {
     return glfwGetMouseButton(m_window, button) == GLFW_REPEAT;
+}
+
+gul::GlfwWindow::GlfwWindow(gul::GlfwWindow &&rhs) noexcept:
+        m_window(std::exchange(rhs.m_window, nullptr)),
+        m_framebuffer_size_callback(std::exchange(rhs.m_framebuffer_size_callback, nullptr)),
+        m_mouse_button_callback(std::exchange(rhs.m_mouse_button_callback, nullptr)),
+        m_scroll_callback(std::exchange(rhs.m_scroll_callback, nullptr)),
+        m_cursor_pos_callback(std::exchange(rhs.m_cursor_pos_callback, nullptr)),
+        m_key_callback(std::exchange(rhs.m_key_callback, nullptr)) {
+
+}
+
+gul::GlfwWindow &gul::GlfwWindow::operator=(gul::GlfwWindow &&rhs) noexcept {
+    using std::swap;
+    std::swap(m_window, rhs.m_window);
+    std::swap(m_framebuffer_size_callback, rhs.m_framebuffer_size_callback);
+    std::swap(m_mouse_button_callback, rhs.m_mouse_button_callback);
+    std::swap(m_scroll_callback, rhs.m_scroll_callback);
+    std::swap(m_cursor_pos_callback, rhs.m_cursor_pos_callback);
+    std::swap(m_key_callback, rhs.m_key_callback);
+
+    return *this;
 }
 

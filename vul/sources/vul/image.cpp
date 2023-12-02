@@ -104,7 +104,7 @@ vul::Image::genFullCopyRegion(vul::ImageAspectFlagBits imageAspectSrc,
 }
 
 
-vul::Image::Image(vul::Image &&rhs) noexcept {
+vul::Image::Image(vul::Image &&rhs) noexcept : Image(){
     using std::swap;
     swap(m_allocation, rhs.m_allocation);
     swap(m_handle, rhs.m_handle);

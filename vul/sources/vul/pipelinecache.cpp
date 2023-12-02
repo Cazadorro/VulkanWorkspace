@@ -24,7 +24,7 @@ vul::PipelineCache::~PipelineCache() {
     }
 }
 
-vul::PipelineCache::PipelineCache(vul::PipelineCache &&rhs) noexcept {
+vul::PipelineCache::PipelineCache(vul::PipelineCache &&rhs) noexcept : PipelineCache(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

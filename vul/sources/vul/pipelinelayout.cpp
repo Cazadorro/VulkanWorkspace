@@ -22,7 +22,7 @@ vul::PipelineLayout::~PipelineLayout() {
     }
 }
 
-vul::PipelineLayout::PipelineLayout(vul::PipelineLayout &&rhs) noexcept {
+vul::PipelineLayout::PipelineLayout(vul::PipelineLayout &&rhs) noexcept : PipelineLayout(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

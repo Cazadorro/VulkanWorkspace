@@ -23,7 +23,7 @@ vul::Sampler::~Sampler() {
     }
 }
 
-vul::Sampler::Sampler(Sampler &&rhs) noexcept {
+vul::Sampler::Sampler(Sampler &&rhs) noexcept : Sampler(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

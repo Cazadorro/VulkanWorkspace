@@ -18,6 +18,7 @@ include(VkShaderBuildFunctions)
 #find_package(freetype CONFIG REQUIRED)
 
 find_package(Vulkan REQUIRED)
+find_package(OpenAL CONFIG REQUIRED)
 add_subdirectory(external/glm)
 target_compile_definitions(glm INTERFACE
         -DGLM_FORCE_RADIANS
@@ -93,3 +94,4 @@ add_subdirectory(vulgridworld)
 add_subdirectory(vulantworld)
 add_subdirectory(hlspv_lang)
 add_subdirectory(vullifeengine)
+add_subdirectory(openaltest)

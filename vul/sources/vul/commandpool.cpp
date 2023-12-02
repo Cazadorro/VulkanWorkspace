@@ -28,7 +28,7 @@ vul::CommandPool::~CommandPool() {
     }
 }
 
-vul::CommandPool::CommandPool(vul::CommandPool &&rhs) noexcept {
+vul::CommandPool::CommandPool(vul::CommandPool &&rhs) noexcept : CommandPool(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

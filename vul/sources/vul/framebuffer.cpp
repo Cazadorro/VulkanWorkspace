@@ -30,7 +30,7 @@ vul::Framebuffer::~Framebuffer() {
     }
 }
 
-vul::Framebuffer::Framebuffer(vul::Framebuffer &&rhs) noexcept {
+vul::Framebuffer::Framebuffer(vul::Framebuffer &&rhs) noexcept : Framebuffer(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

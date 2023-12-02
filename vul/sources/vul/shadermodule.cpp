@@ -23,7 +23,7 @@ vul::ShaderModule::~ShaderModule() {
     }
 }
 
-vul::ShaderModule::ShaderModule(vul::ShaderModule &&rhs) noexcept {
+vul::ShaderModule::ShaderModule(vul::ShaderModule &&rhs) noexcept : ShaderModule(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

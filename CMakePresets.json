@@ -1,0 +1,95 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 23,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Config",
+      "description": "Default build using Ninja generator",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/default",
+      "hidden": true
+    },
+    {
+      "name": "DebugTemplate",
+      "displayName": "Debug Template",
+      "inherits": "default",
+      "description": "CMake Debug Build Type",
+      "binaryDir": "${sourceDir}/cmake-build-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE" : "Debug"
+      },
+      "hidden": true
+    },
+    {
+      "name": "ReleaseTemplate",
+      "displayName": "Release Template",
+      "inherits": "default",
+      "description": "CMake Release Build Type",
+      "binaryDir": "${sourceDir}/cmake-build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE" : "Release"
+      },
+      "hidden": true
+    },
+    {
+      "name": "RelWithDebInfoTemplate",
+      "displayName": "Release With Debug Info Template",
+      "inherits": "default",
+      "description": "CMake RelWithDebInfo Build Type",
+      "binaryDir": "${sourceDir}/cmake-build-relwithdebinfo",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE" : "RelWithDebInfo"
+      },
+      "hidden": true
+    },
+    {
+      "name": "Windows",
+      "displayName": "Windows Template",
+      "description": "This build is only available on Windows",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-windows-static"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "hidden": true
+    },
+    {
+      "name": "VCPKG",
+      "displayName": "VCPKG Template",
+      "description": "This build works for vcpkg",
+      "cacheVariables": {
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/vcpkg_overlay_triplets",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/external/vcpkg/scripts/buildsystems/vcpkg.cmake",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "hidden": true
+    },
+    {
+      "name" : "WindowsDebug",
+      "displayName": "Windows Debug Template",
+      "description": "Template for Debug Builds on Windows",
+      "inherits": ["DebugTemplate", "Windows", "VCPKG"]
+    },
+    {
+      "name" : "WindowsRelease",
+      "displayName": "Windows Release Template",
+      "description": "Template for Release Builds on Windows",
+      "inherits": ["ReleaseTemplate", "Windows", "VCPKG"]
+    },
+    {
+      "name" : "WindowsRelWithDebInfo",
+      "displayName": "Windows RelWithDebInfo Template",
+      "description": "Template for RelWithDebInfo Builds on Windows",
+      "inherits": ["RelWithDebInfoTemplate", "Windows", "VCPKG"]
+    }
+  ]
+}

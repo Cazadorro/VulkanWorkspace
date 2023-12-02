@@ -192,7 +192,7 @@ vul::Swapchain::~Swapchain() {
     }
 }
 
-vul::Swapchain::Swapchain(vul::Swapchain &&rhs) noexcept {
+vul::Swapchain::Swapchain(vul::Swapchain &&rhs) noexcept : Swapchain(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pSurface, rhs.m_pSurface);

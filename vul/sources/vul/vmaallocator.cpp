@@ -57,7 +57,7 @@ VkInstance vul::VmaAllocator::getVkInstance() const {
     return m_handle;
 }
 
-vul::VmaAllocator::VmaAllocator(vul::VmaAllocator &&rhs) noexcept {
+vul::VmaAllocator::VmaAllocator(vul::VmaAllocator &&rhs) noexcept : VmaAllocator(){
     using std::swap;
     swap(m_handle, rhs.m_handle);
     swap(m_pDevice, rhs.m_pDevice);

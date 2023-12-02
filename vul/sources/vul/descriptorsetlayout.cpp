@@ -157,7 +157,7 @@ vul::DescriptorSetLayout::~DescriptorSetLayout() {
 }
 
 vul::DescriptorSetLayout::DescriptorSetLayout(
-        vul::DescriptorSetLayout &&rhs) noexcept {
+        vul::DescriptorSetLayout &&rhs) noexcept : DescriptorSetLayout(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

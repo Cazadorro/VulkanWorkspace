@@ -78,7 +78,7 @@ vul::Surface::~Surface() {
     }
 }
 
-vul::Surface::Surface(vul::Surface &&rhs) noexcept {
+vul::Surface::Surface(vul::Surface &&rhs) noexcept : Surface(){
     using std::swap;
     swap(m_pInstance, rhs.m_pInstance);
     swap(m_pAllocator, rhs.m_pAllocator);

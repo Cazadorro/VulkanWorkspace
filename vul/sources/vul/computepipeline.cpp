@@ -30,7 +30,7 @@ vul::ComputePipeline::~ComputePipeline() {
     }
 }
 
-vul::ComputePipeline::ComputePipeline(vul::ComputePipeline &&rhs) noexcept {
+vul::ComputePipeline::ComputePipeline(vul::ComputePipeline &&rhs) noexcept : ComputePipeline(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

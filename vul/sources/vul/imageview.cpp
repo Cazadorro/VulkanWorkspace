@@ -76,7 +76,7 @@ vul::ImageView::ImageView(const vul::Device &device, VkImageView handle,
 
 }
 
-vul::ImageView::ImageView(vul::ImageView &&rhs) noexcept {
+vul::ImageView::ImageView(vul::ImageView &&rhs) noexcept : ImageView(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

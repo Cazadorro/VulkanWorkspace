@@ -16,7 +16,7 @@ vul::BinarySemaphore::BinarySemaphore(const vul::Device &device,
         : m_pDevice(&device), m_handle(handle), m_pAllocator(pAllocator) {
 }
 
-vul::BinarySemaphore::BinarySemaphore(vul::BinarySemaphore &&rhs) noexcept {
+vul::BinarySemaphore::BinarySemaphore(vul::BinarySemaphore &&rhs) noexcept : BinarySemaphore(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);
@@ -67,7 +67,7 @@ vul::TimelineSemaphore::TimelineSemaphore(const vul::Device &device,
         : m_pDevice(&device), m_handle(handle), m_pAllocator(pAllocator) {
 }
 
-vul::TimelineSemaphore::TimelineSemaphore(vul::TimelineSemaphore &&rhs) noexcept {
+vul::TimelineSemaphore::TimelineSemaphore(vul::TimelineSemaphore &&rhs) noexcept : TimelineSemaphore(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

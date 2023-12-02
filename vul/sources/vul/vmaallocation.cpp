@@ -60,7 +60,7 @@ void vul::VmaAllocation::invalidate(VkDeviceSize offset, VkDeviceSize size) {
     vmaInvalidateAllocation(m_pAllocator->get(), m_handle, offset, size);
 }
 
-vul::VmaAllocation::VmaAllocation(vul::VmaAllocation &&rhs) noexcept {
+vul::VmaAllocation::VmaAllocation(vul::VmaAllocation &&rhs) noexcept : VmaAllocation(){
     using std::swap;
     swap(m_pAllocator, rhs.m_pAllocator);
     swap(m_handle, rhs.m_handle);

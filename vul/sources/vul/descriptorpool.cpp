@@ -26,7 +26,7 @@ vul::DescriptorPool::~DescriptorPool() {
     }
 }
 
-vul::DescriptorPool::DescriptorPool(vul::DescriptorPool &&rhs) noexcept {
+vul::DescriptorPool::DescriptorPool(vul::DescriptorPool &&rhs) noexcept : DescriptorPool(){
     using std::swap;
     swap(m_pDevice, rhs.m_pDevice);
     swap(m_pAllocator, rhs.m_pAllocator);

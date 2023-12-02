@@ -1,5 +1,11 @@
 {
   "name": "test",
   "version-string": "0.1.0-dev",
-  "dependencies": [ "freetype"]
+  "dependencies": [
+    "freetype",
+    {
+      "name": "openal-soft"
+    },
+    "tl-expected"
+  ]
 }
