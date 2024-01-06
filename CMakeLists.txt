@@ -19,36 +19,36 @@ include(VkShaderBuildFunctions)
 
 find_package(Vulkan REQUIRED)
 find_package(OpenAL CONFIG REQUIRED)
-add_subdirectory(external/glm)
-target_compile_definitions(glm INTERFACE
+find_package(glm CONFIG REQUIRED)
+
+target_compile_definitions(glm::glm INTERFACE
         -DGLM_FORCE_RADIANS
         -DGLM_FORCE_DEPTH_ZERO_TO_ONE
         -DGLM_FORCE_LEFT_HANDED
         -DGLM_FORCE_SWIZZLE
         -DGLM_FORCE_SILENT_WARNINGS
         )
-option(GLFW_BUILD_EXAMPLES "" OFF)
-option(GLFW_BUILD_TESTS "" OFF)
-option(GLFW_BUILD_DOCS "" OFF)
-option(GLFW_INSTALL "" OFF)
-add_subdirectory(external/glfw)
+find_package(glfw3 CONFIG REQUIRED)
 target_compile_definitions(glfw INTERFACE
         -DGLFW_INCLUDE_VULKAN
         )
+find_package(czdr-vkutil CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(Microsoft.GSL CONFIG REQUIRED)
+find_package(range-v3 CONFIG REQUIRED)
+find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 option(TINYGLTF_BUILD_LOADER_EXAMPLE "" OFF)
 option(TINYGLTF_HEADER_ONLY "" OFF)
 add_subdirectory(external/tinygltf)
 add_subdirectory(external/cxxopts)
-add_subdirectory(external/fmt)
-add_subdirectory(external/gsl)
+
 add_subdirectory(external/imgui)
 add_subdirectory(external/json)
-add_subdirectory(external/pugixml)
-add_subdirectory(external/range)
-add_subdirectory(external/vma)
+
+#add_subdirectory(external/vma)
 add_subdirectory(external/stb)
 add_subdirectory(external/msdfgen)
-add_subdirectory(external/expected)
+
 
 add_library(pcg_cpp INTERFACE)
 target_sources(pcg_cpp INTERFACE
@@ -66,7 +66,7 @@ target_include_directories(pcg_cpp INTERFACE
 
 add_subdirectory(vulgenerated)
 add_subdirectory(uul)
-add_subdirectory(vul)
+#add_subdirectory(vul)
 add_subdirectory(gul)
 
 #add_subdirectory(vultest)

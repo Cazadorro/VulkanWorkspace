@@ -28,9 +28,9 @@ target_link_libraries(gul
         PUBLIC
         fmt::fmt
         Vulkan::Vulkan
-        glm
+        glm::glm
         glfw
-        vul
+        czdr::vkutil
         stb::stb
         imgui)
 

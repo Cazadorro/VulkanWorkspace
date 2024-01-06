@@ -12,7 +12,7 @@
 #include <glm/fwd.hpp>
 #include <string>
 #include <functional>
-#include <vector>]
+#include <vector>
 
 namespace glfw {
     enum class Key : int {

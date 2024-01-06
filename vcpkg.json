@@ -2,10 +2,17 @@
   "name": "test",
   "version-string": "0.1.0-dev",
   "dependencies": [
+    "ms-gsl",
+    "fmt",
+    "glm",
+    "glfw3",
     "freetype",
+    "tl-expected",
     {
       "name": "openal-soft"
     },
-    "tl-expected"
-  ]
+    "vulkan-memory-allocator",
+    "czdr-vkutil"
+  ],
+  "builtin-baseline": "f1c6efee2245009540dde947e0e3d008f3aa7dbb"
 }
