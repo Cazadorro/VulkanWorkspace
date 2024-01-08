@@ -3,8 +3,10 @@
 //
 
 #include "chunks.h"
-#include <uul/assert.h>
-#include <uul/unreachable.h>
+#include <czdr/bitutil/bit.h>
+#include <czdr/stdutil/array.h>
+#include <czdr/utility/assert.h> 
+#include <czdr/utility/unreachable.h>
 #include <fmt/core.h>
 #include <range/v3/view/enumerate.hpp>
 #include <range/v3/view/slice.hpp>
@@ -21,20 +23,20 @@ vul::ChunkSpan::ChunkSpan(
 
 std::uint32_t &
 vul::ChunkSpan::operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) {
-    UUL_DEBUG_ASSERT(x < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(x < chunk_consts::chunk_width,
                      fmt::format("x {}, >= {}", x,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(y < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(y < chunk_consts::chunk_width,
                      fmt::format("y {}, >= {}", y,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(z < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(z < chunk_consts::chunk_width,
                      fmt::format("z {}, >= {}", z,
                                  chunk_consts::chunk_width).c_str());
     return m_ref_span[chunk_consts::to_linear_idx(x, y, z)];
 }
 
 std::uint32_t &vul::ChunkSpan::operator[](std::uint16_t idx) {
-    UUL_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
+    CZDR_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
                      fmt::format("idx {}, >= {}", idx,
                                  chunk_consts::chunk_size).c_str());
     return m_ref_span[idx];
@@ -58,7 +60,7 @@ std::uint32_t &vul::ChunkSpan::at(std::uint8_t x, std::uint8_t y,
 }
 
 std::uint32_t &vul::ChunkSpan::at(std::uint16_t idx) noexcept(false) {
-    UUL_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
+    CZDR_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
                      fmt::format("idx {}, >= {}", idx,
                                  chunk_consts::chunk_size).c_str());
     return m_ref_span[idx];
@@ -67,20 +69,20 @@ std::uint32_t &vul::ChunkSpan::at(std::uint16_t idx) noexcept(false) {
 
 std::uint32_t vul::ChunkSpan::operator()(std::uint8_t x, std::uint8_t y,
                                          std::uint8_t z) const {
-    UUL_DEBUG_ASSERT(x < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(x < chunk_consts::chunk_width,
                      fmt::format("x {}, >= {}", x,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(y < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(y < chunk_consts::chunk_width,
                      fmt::format("y {}, >= {}", y,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(z < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(z < chunk_consts::chunk_width,
                      fmt::format("z {}, >= {}", z,
                                  chunk_consts::chunk_width).c_str());
     return m_ref_span[chunk_consts::to_linear_idx(x, y, z)];
 }
 
 std::uint32_t vul::ChunkSpan::operator[](std::uint16_t idx) const {
-    UUL_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
+    CZDR_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
                      fmt::format("idx {}, >= {}", idx,
                                  chunk_consts::chunk_size).c_str());
     return m_ref_span[idx];
@@ -198,9 +200,9 @@ vul::ChunkRLE::from_linear(
         }
         running_offset += 1;
     }
-    UUL_DEBUG_ASSERT(materials.back() != running_material,
+    CZDR_DEBUG_ASSERT(materials.back() != running_material,
                      "Last value shouldn't have actually been set...");
-    UUL_DEBUG_ASSERT(running_offset == chunk.size());
+    CZDR_DEBUG_ASSERT(running_offset == chunk.size());
     offsets.push_back(running_offset);
     materials.push_back(running_material);
     return {materials, offsets};
@@ -223,9 +225,9 @@ vul::ChunkRLE vul::ChunkRLE::from_removing_hidden(
         }
         running_offset += 1;
     }
-    UUL_DEBUG_ASSERT(materials.back() != running_material,
+    CZDR_DEBUG_ASSERT(materials.back() != running_material,
                      "Last value shouldn't have actually been set...");
-    UUL_DEBUG_ASSERT(running_offset == chunk.size());
+    CZDR_DEBUG_ASSERT(running_offset == chunk.size());
     offsets.push_back(running_offset);
     materials.push_back(running_material);
     return {materials, offsets};
@@ -254,20 +256,20 @@ vul::ChunkRLE vul::ChunkRLE::from_removing_id(const vul::ChunkRLE &rle, std::uin
 std::uint32_t
 vul::ChunkRLE::operator()(std::uint8_t x, std::uint8_t y,
                           std::uint8_t z) const {
-    UUL_DEBUG_ASSERT(x < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(x < chunk_consts::chunk_width,
                      fmt::format("x {}, >= {}", x,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(y < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(y < chunk_consts::chunk_width,
                      fmt::format("y {}, >= {}", y,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(z < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(z < chunk_consts::chunk_width,
                      fmt::format("z {}, >= {}", z,
                                  chunk_consts::chunk_width).c_str());
     return binary_search_rle_segment(chunk_consts::to_linear_idx(x, y, z));
 }
 
 std::uint32_t vul::ChunkRLE::operator[](std::uint16_t idx) const {
-    UUL_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
+    CZDR_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
                      fmt::format("idx {}, >= {}", idx,
                                  chunk_consts::chunk_size).c_str());
     return binary_search_rle_segment(idx);
@@ -320,7 +322,7 @@ std::span<const std::uint16_t> vul::ChunkRLE::get_offsets() const noexcept {
 std::uint16_t vul::ChunkRLE::binary_search_rle_segment(std::uint16_t linear_idx,
                                                        std::uint16_t low_idx,
                                                        std::uint16_t high_idx) const {
-    UUL_DEBUG_ASSERT(!is_empty(), "Can't search an is_empty array");
+    CZDR_DEBUG_ASSERT(!is_empty(), "Can't search an is_empty array");
     std::uint16_t low = low_idx;
     std::uint16_t high = high_idx;
     while (low <= high) {
@@ -341,7 +343,7 @@ std::uint16_t vul::ChunkRLE::binary_search_rle_segment(std::uint16_t linear_idx,
             return mid;
         }
     }
-    uul::unreachable();
+    czdr::unreachable();
 }
 
 
@@ -373,13 +375,13 @@ vul::ChunkRLEAssisted vul::ChunkRLEAssisted::from_removing_hidden(
 
 std::uint32_t vul::ChunkRLEAssisted::operator()(std::uint8_t x, std::uint8_t y,
                                                 std::uint8_t z) const {
-    UUL_DEBUG_ASSERT(x < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(x < chunk_consts::chunk_width,
                      fmt::format("x {}, >= {}", x,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(y < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(y < chunk_consts::chunk_width,
                      fmt::format("y {}, >= {}", y,
                                  chunk_consts::chunk_width).c_str());
-    UUL_DEBUG_ASSERT(z < chunk_consts::chunk_width,
+    CZDR_DEBUG_ASSERT(z < chunk_consts::chunk_width,
                      fmt::format("z {}, >= {}", z,
                                  chunk_consts::chunk_width).c_str());
     return binary_search_rle_segment_assisted(
@@ -387,7 +389,7 @@ std::uint32_t vul::ChunkRLEAssisted::operator()(std::uint8_t x, std::uint8_t y,
 }
 
 std::uint32_t vul::ChunkRLEAssisted::operator[](std::uint16_t idx) const {
-    UUL_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
+    CZDR_DEBUG_ASSERT(idx < chunk_consts::chunk_size,
                      fmt::format("idx {}, >= {}", idx,
                                  chunk_consts::chunk_size).c_str());
     return binary_search_rle_segment_assisted(idx);
@@ -442,7 +444,7 @@ vul::ChunkRLEAssisted::construct_index_assist(
         if ((offset - (y_idx * chunk_consts::chunk_layer_size)) /
             chunk_consts::chunk_layer_size > y_idx) {
             y_assist[y_idx] = offset_idx;
-            UUL_DEBUG_ASSERT(y_idx < chunk_consts::chunk_width,
+            CZDR_DEBUG_ASSERT(y_idx < chunk_consts::chunk_width,
                              fmt::format("y_idx {} is bigger than {}", y_idx,
                                          chunk_consts::chunk_width).c_str());
             y_idx += 1;
@@ -459,7 +461,7 @@ vul::make_chunk_span(const std::span<std::uint32_t> &span) {
 
 
 vul::ChunkBitmask::ChunkBitmask(bool value) : m_bits(
-        uul::make_array<std::uint32_t, word_count>(
+        czdr::make_array<std::uint32_t, word_count>(
                 value ? 0xFFFFFFFF : 0)) {
 
 }
@@ -486,31 +488,31 @@ vul::ChunkBitmask::operator[](std::uint16_t idx) {
 bool vul::ChunkBitmask::get(std::uint16_t idx) const {
     auto u32_index = idx / bits_per_word;
     auto bit_index = idx % bits_per_word;
-    return uul::bit_get(m_bits[u32_index], bit_index);
+    return czdr::bit_get(m_bits[u32_index], bit_index);
 }
 
 void vul::ChunkBitmask::set(std::uint16_t idx) {
     auto u32_index = idx / bits_per_word;
     auto bit_index = idx % bits_per_word;
-    m_bits[u32_index] = uul::bit_set(m_bits[u32_index], bit_index);
+    m_bits[u32_index] = czdr::bit_set(m_bits[u32_index], bit_index);
 }
 
 void vul::ChunkBitmask::clear(std::uint16_t idx) {
     auto u32_index = idx / bits_per_word;
     auto bit_index = idx % bits_per_word;
-    m_bits[u32_index] = uul::bit_clear(m_bits[u32_index], bit_index);
+    m_bits[u32_index] = czdr::bit_clear(m_bits[u32_index], bit_index);
 }
 
 void vul::ChunkBitmask::toggle(std::uint16_t idx) {
     auto u32_index = idx / bits_per_word;
     auto bit_index = idx % bits_per_word;
-    m_bits[u32_index] = uul::bit_toggle(m_bits[u32_index], bit_index);
+    m_bits[u32_index] = czdr::bit_toggle(m_bits[u32_index], bit_index);
 }
 
 void vul::ChunkBitmask::assign(std::uint16_t idx, bool value) {
     auto u32_index = idx / bits_per_word;
     auto bit_index = idx % bits_per_word;
-    m_bits[u32_index] = uul::bit_assign(m_bits[u32_index], bit_index, value);
+    m_bits[u32_index] = czdr::bit_assign(m_bits[u32_index], bit_index, value);
 }
 
 vul::ChunkBitmask
@@ -819,7 +821,7 @@ vul::ChunkBitmaskByteRLE::from_filled(const vul::ChunkSpan &chunk_span,
             } else {
                 new_pairs.push_back(previous_multi_pair);
                 //fill in skipped pairs that were potential merges.
-                UUL_DEBUG_ASSERT((idx + 1) < previous_multi_index);
+                CZDR_DEBUG_ASSERT((idx + 1) < previous_multi_index);
                 for (auto look_back_pair: pairs | views::slice(idx + 1, previous_multi_index) | views::reverse) {
                     new_pairs.push_back(look_back_pair);
                 }
@@ -988,14 +990,14 @@ vul::ChunkBitmaskGridLayer2::from_filled(const vul::ChunkSpan &chunk_span, std::
                     }
                 }
                 if(filled_count == 0){
-                    top_bit_layer = uul::bit_set(top_bit_layer, 0);
-                    top_bit_layer_empty_flag = uul::bit_set(top_bit_layer_empty_flag, 0);
+                    top_bit_layer = czdr::bit_set(top_bit_layer, 0);
+                    top_bit_layer_empty_flag = czdr::bit_set(top_bit_layer_empty_flag, 0);
                 }else if(filled_count == leaf_layer_dim * leaf_layer_dim * leaf_layer_dim){
-                    top_bit_layer = uul::bit_set(top_bit_layer, 0);
-                    top_bit_layer_empty_flag = uul::bit_set(top_bit_layer_empty_flag, 1);
+                    top_bit_layer = czdr::bit_set(top_bit_layer, 0);
+                    top_bit_layer_empty_flag = czdr::bit_set(top_bit_layer_empty_flag, 1);
                 }else{
-                    top_bit_layer = uul::bit_set(top_bit_layer, 1);
-                    top_bit_layer_empty_flag = uul::bit_set(top_bit_layer_empty_flag, 1);
+                    top_bit_layer = czdr::bit_set(top_bit_layer, 1);
+                    top_bit_layer_empty_flag = czdr::bit_set(top_bit_layer_empty_flag, 1);
                 }
             }
         }
@@ -1005,7 +1007,7 @@ vul::ChunkBitmaskGridLayer2::from_filled(const vul::ChunkSpan &chunk_span, std::
 }
 
 bool vul::ChunkBitmaskGridLayer2::get_top_layer(std::uint8_t x, std::uint8_t y, std::uint8_t z) const {
-    return uul::bit_get(m_top_bit_layer, calc_top_layer_index(x, y, z));
+    return czdr::bit_get(m_top_bit_layer, calc_top_layer_index(x, y, z));
 }
 bool vul::ChunkBitmaskGridLayer2::operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const {
     if(get_top_layer(x,y,z)){
@@ -1040,38 +1042,38 @@ std::span<const vul::ChunkBitmaskGridLayer2::GridLeaf> vul::ChunkBitmaskGridLaye
 }
 
 std::uint8_t vul::ChunkBitmaskGridLayer2::calc_top_layer_index(std::uint8_t x, std::uint8_t y, std::uint8_t z) const noexcept {
-    std::uint8_t top_bit_index = uul::get_n_bits_l(z, 2u) * (top_layer_dim * top_layer_dim) +
-            uul::get_n_bits_l(y, 2u) * top_layer_dim + uul::get_n_bits_l(x, 2u);
+    std::uint8_t top_bit_index = czdr::get_n_bits_l(z, 2u) * (top_layer_dim * top_layer_dim) +
+            czdr::get_n_bits_l(y, 2u) * top_layer_dim + czdr::get_n_bits_l(x, 2u);
     return top_bit_index;
 }
 
 std::uint8_t vul::ChunkBitmaskGridLayer2::calc_leaf_node_offset(std::uint8_t bit_index) const noexcept {
-    return uul::popcount_r(m_top_bit_layer, bit_index + 1u);
+    return czdr::popcount_mask_r(m_top_bit_layer, bit_index + 1u);
 }
 
 
 
 bool vul::ChunkBitmaskGridLayer2::GridLeaf::operator[](std::uint16_t idx) const {
-    return uul::bit_get(m_data[idx/64], idx % 64);
+    return czdr::bit_get(m_data[idx/64], idx % 64);
 }
 
 bool vul::ChunkBitmaskGridLayer2::GridLeaf::operator()(std::uint8_t x, std::uint8_t y, std::uint8_t z) const {
     std::uint16_t top_bit_index =
-            static_cast<uint16_t>(uul::get_n_bits_r(z, 3u)) * (leaf_layer_dim * leaf_layer_dim)
-            + static_cast<uint16_t>(uul::get_n_bits_r(y, 3u)) * leaf_layer_dim
-            + static_cast<uint16_t>(uul::get_n_bits_r(x, 3u));
+            static_cast<uint16_t>(czdr::get_n_bits_r(z, 3u)) * (leaf_layer_dim * leaf_layer_dim)
+            + static_cast<uint16_t>(czdr::get_n_bits_r(y, 3u)) * leaf_layer_dim
+            + static_cast<uint16_t>(czdr::get_n_bits_r(x, 3u));
     return this->operator[](top_bit_index);
 }
 
 void vul::ChunkBitmaskGridLayer2::GridLeaf::set(std::uint8_t x, std::uint8_t y, std::uint8_t z) {
     std::uint16_t top_bit_index =
-            static_cast<uint16_t>(uul::get_n_bits_r(z, 3u)) * (leaf_layer_dim * leaf_layer_dim)
-            + static_cast<uint16_t>(uul::get_n_bits_r(y, 3u)) * leaf_layer_dim
-            + static_cast<uint16_t>(uul::get_n_bits_r(x, 3u));
+            static_cast<uint16_t>(czdr::get_n_bits_r(z, 3u)) * (leaf_layer_dim * leaf_layer_dim)
+            + static_cast<uint16_t>(czdr::get_n_bits_r(y, 3u)) * leaf_layer_dim
+            + static_cast<uint16_t>(czdr::get_n_bits_r(x, 3u));
 
     set(top_bit_index);
 }
 
 void vul::ChunkBitmaskGridLayer2::GridLeaf::set(std::uint16_t idx) {
-    m_data[idx/64] = uul::bit_set(m_data[idx/64], idx % 64);
+    m_data[idx/64] = czdr::bit_set(m_data[idx/64], idx % 64);
 }

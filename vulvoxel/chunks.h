@@ -11,8 +11,6 @@
 #include <cstdint>
 
 #include <bit>
-#include <uul/array.h>
-#include <uul/bit.h>
 
 namespace vul {
     namespace chunk_consts {

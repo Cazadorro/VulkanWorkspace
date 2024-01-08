@@ -14,7 +14,16 @@ add_executable(vulvoxel
         chunks.h
         depthpassinfo.cpp
         depthpassinfo.h raytrace_bitfield_renderer.cpp raytrace_bitfield_renderer.h)
-target_link_libraries(vulvoxel PRIVATE uul czdr::vkutil gul imgui glm::glm GPUOpen::VulkanMemoryAllocator)
+target_link_libraries(vulvoxel PRIVATE
+        czdr::vkutil
+        gul
+        imgui
+        glm::glm
+        GPUOpen::VulkanMemoryAllocator
+        czdr::stdutil
+        czdr::bitutil
+        czdr::glfw-wrapper
+        )
 target_compile_options(vulvoxel PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g -ggdb -fuse-ld=lld>)

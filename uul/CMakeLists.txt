@@ -4,28 +4,12 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_C_STANDARD 11)
 #Universal Utility Library
-add_library(uul STATIC uul/sortingnetworks.h uul/functional.h uul/container.h)
+add_library(uul STATIC )
 target_sources(uul
         PRIVATE
-        ./uul/assert.h
-        ./uul/unreachable.h
-        ./uul/assert.cpp
-        uul/array.h
-        uul/bit.h
-        uul/math.h
-        uul/aliasmethod.h
-        uul/tempproxy.h
-        uul/concepts.h
-        uul/typename.h
-        uul/enumflags.h
-        uul/enumflagsfwd.h
-        uul/string.cpp
-        uul/string.h
-        uul/enumtraits.h
+        uul/sortingnetworks.h
         uul/variant.h
-        uul/char.h
         uul/constexprmap.h
-        uul/indexing.h
         )
 target_include_directories(uul
         PUBLIC

@@ -3,7 +3,6 @@
 //
 
 #include "imguirenderer.h"
-#include "glfwwindow.h"
 #include <vul/commandbuffer.h>
 #include <vul/imageview.h>
 #include <vul/swapchain.h>
@@ -15,9 +14,10 @@
 #include <vul/expectedresult.h>
 #include <vul/enums.h>
 #include <vul/temparrayproxy.h>
-#include <uul/assert.h>
 #include <vul/containerutils.h>
 
+#include <czdr/glfw/window_wrapper.h>
+#include <czdr/utility/assert.h>
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_vulkan.h>
@@ -25,7 +25,7 @@
 #include <fmt/core.h>
 
 
-gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
+gul::ImguiRenderer::ImguiRenderer(glfw::Window &window,
                                   const vul::Instance &instance,
                                   const vul::Device &device,
                                   const vul::Swapchain &swapchain,
@@ -41,7 +41,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
             static_cast<vul::Format>(VK_FORMAT_R8G8B8A8_UNORM),
             static_cast<vul::Format>(VK_FORMAT_B8G8R8_UNORM),
             static_cast<vul::Format>(VK_FORMAT_R8G8B8_UNORM)};
-    UUL_ASSERT(vul::contains(exceptedSurfaceFormats, format),
+    CZDR_ASSERT(vul::contains(exceptedSurfaceFormats, format),
                fmt::format(
                        "Format found {} doesn't match valid imgui image formats {}, {}, {} and {}",
                        vul::to_string(format),
@@ -81,7 +81,7 @@ gul::ImguiRenderer::ImguiRenderer(gul::GlfwWindow &window,
 
     ImGui::StyleColorsDark();
 
-    ImGui_ImplGlfw_InitForVulkan(window.getWindowPtr(), true);
+    ImGui_ImplGlfw_InitForVulkan(window.get_window_ptr(), true);
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = instance.get();
     init_info.PhysicalDevice = device.getPhysicalDevice().get();

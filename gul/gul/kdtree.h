@@ -6,7 +6,6 @@
 #define VULKANWORKSPACE_KDTREE_H
 
 #include "gul/geometry.h"
-#include <uul/assert.h>
 #include <glm/vec3.hpp>
 #include <range/v3/action/sort.hpp>
 #include <range/v3/view/concat.hpp>

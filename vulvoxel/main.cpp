@@ -9,10 +9,9 @@
 #include <vul/imagememorybarrier.h>
 #include <gul/imguirenderer.h>
 #include <gul/noise/fbm.h>
-#include <uul/bit.h>
-#include <uul/math.h>
-#include <uul/functional.h>
-#include <uul/typename.h>
+#include <czdr/bitutil/bit.h>
+#include <czdr/stdutil/math.h>
+#include <czdr/stdutil/math_literals.h>
 #include <gul/noise/opensimplex.h>
 //#include "chunkmanagement.h"
 #include "cpu_bitmask_intersect.h"
@@ -21,7 +20,7 @@
 #include <gul/bitmask.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
-#include <gul/glfwwindow.h>
+
 #include <vul/commandutils.h>
 #include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
@@ -123,10 +122,12 @@ struct alignas(8) JFAIterationPushConstant {
 };
 static_assert(sizeof(JFAIterationPushConstant) == 32);
 
-
+#include <czdr/glfw/core.h>
 int main() {
 
-    gul::GlfwWindow window(800, 600, "ExampleWindow");
+    glfw::Library glfw_lib;
+    glfw_lib.window_hint_client_api(glfw::OpenglClientApiType::NoApi);
+    auto window = glfw_lib.create_window(800, 600, "Example Window").value();
     gul::FirstPersonCamera camera;
     camera.setPosition(glm::vec3(0.0, 0.0, -48.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
@@ -134,13 +135,13 @@ int main() {
 
     bool framebufferResized = false;
     auto framebuffer_callback = [&framebufferResized](
-            gul::GlfwWindow &/*window*/,
-            int /*width*/, int /*height*/) {
+            glfw::Window */*window*/,
+            glfw::PixelSize<int> /**/) {
         framebufferResized = true;
     };
-    window.setFramebufferSizeCallback(framebuffer_callback);
+    window.set_framebuffer_size_callback(framebuffer_callback);
 
-    auto glfwExtensions = gul::GlfwWindow::getRequiredInstanceExtensions();
+    auto glfwExtensions = glfw_lib.get_required_instance_extensions();
     auto instanceExtensions = ranges::views::concat(glfwExtensions,
                                                     vul::Instance::debugUtilsExtensions) |
                               ranges::to<std::vector>();
@@ -175,7 +176,7 @@ int main() {
             VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
     };
     //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
-    vul::Surface surface = window.createSurface(instance);
+    vul::Surface surface = window.create_surface(instance).assertValue();
     //TODO will need to capitalize letters?
     //srgb vul::Format::B8g8r8a8Srgb,
     const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Unorm,
@@ -219,7 +220,7 @@ int main() {
             .minImageCount(surfaceCapabilities.calcSwapchainImageCount())
             .surfaceFormat(defaultSurfaceFormat)
             .imageExtent(surfaceCapabilities.calcSwapchainExtent(
-                    window.getFramebufferExtent()))
+                    window.get_framebuffer_extent()))
             .imageUsage(vul::ImageUsageFlagBits::ColorAttachmentBit)
             .preTransform(surfaceCapabilities.currentTransform)
             .presentMode(defaultPresentMode)
@@ -341,9 +342,9 @@ int main() {
                 }
 
                 chunk_span(x, y, z) = chunk_material;
-                auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-                auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-                auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
+                auto zx = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
+                auto zy = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
+                auto zz = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
 //                fmt::print(stdout,"{},{},{} : {},{},{}\n", std::bitset<16>(x).to_string(), std::bitset<16>(y).to_string(), std::bitset<16>(z).to_string(),
 //                           std::bitset<16>(zx).to_string(), std::bitset<16>(zy).to_string(), std::bitset<16>(zz).to_string());
                 std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
@@ -366,9 +367,9 @@ int main() {
         auto x = 0;
         auto y = 0;
         auto z = 0;
-        auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-        auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-        auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
+        auto zx = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
+        auto zy = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
+        auto zz = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
         std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
         zorder_chunk_span[combined] = 8;
     }
@@ -376,9 +377,9 @@ int main() {
         auto x = 0;
         auto y = 0;
         auto z = 2;
-        auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-        auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-        auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
+        auto zx = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
+        auto zy = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
+        auto zz = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
         std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
         zorder_chunk_span[combined] = 8;
     }
@@ -386,9 +387,9 @@ int main() {
         auto x = 15;
         auto y = 15;
         auto z = 15;
-        auto zx = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
-        auto zy = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
-        auto zz = uul::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
+        auto zx = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(x);
+        auto zy = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(y);
+        auto zz = czdr::bit_interlace<std::uint16_t, std::uint16_t, 5, 3>(z);
         std::uint16_t combined = zx | (zy << 1u) | (zz << 2u);
         zorder_chunk_span[combined] = 5;
     }
@@ -634,9 +635,11 @@ int main() {
     }
 
     auto resizeSwapchain = [&window, &swapchainBuilder, &swapchain, &surface, &physicalDevice]() {
-        auto size = window.getFramebufferSize();
+        auto temp_size = window.get_framebuffer_size().value();
+        auto size = glm::ivec2(temp_size.width, temp_size.height);
         while (size == glm::ivec2(0)) {
-            size = window.getFramebufferSize();
+            temp_size = window.get_framebuffer_size().value();
+            size = glm::ivec2(temp_size.width, temp_size.height);
             glfwWaitEvents();
         }
         // swapchain = swapchainBuilder.resize(swapchain, window.getFramebufferExtent()).assertValue();
@@ -824,7 +827,7 @@ int main() {
                                              0);
 
 
-    while (!window.shouldClose()) {
+    while (!window.should_close()) {
         using namespace std::chrono_literals;
 //        std::this_thread::sleep_for(1000us);
 //        std::this_thread::sleep_for(32ms) ;
@@ -835,7 +838,7 @@ int main() {
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
-        auto cursor_pos = window.getCursorPosition();
+        auto cursor_pos = window.get_cursor_pos().value();
         // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
         {
             static float f = 0.0f;
@@ -865,8 +868,8 @@ int main() {
                         1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
 
-            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.x,
-                                    cursor_pos.y).c_str());
+            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.xpos,
+                                    cursor_pos.ypos).c_str());
             ImGui::Text(fmt::format("CameraPos {},{},{}\n", camera.getPosition().x, camera.getPosition().y,
                                     camera.getPosition().z).c_str());
             ImGui::End();
@@ -932,28 +935,28 @@ int main() {
                 bool right = false;
                 bool up = false;
                 bool down = false;
-                if (window.keyPressed(GLFW_KEY_W)) {
+                if (window.key_pressed(glfw::Key::W)) {
                     forward = true;
                 }
-                if (window.keyPressed(GLFW_KEY_S)) {
+                if (window.key_pressed(glfw::Key::S)) {
                     back = true;
                 }
-                if (window.keyPressed(GLFW_KEY_A)) {
+                if (window.key_pressed(glfw::Key::A)) {
                     left = true;
                 }
-                if (window.keyPressed(GLFW_KEY_D)) {
+                if (window.key_pressed(glfw::Key::D)) {
                     right = true;
                 }
-                if (window.keyPressed(GLFW_KEY_SPACE)) {
+                if (window.key_pressed(glfw::Key::Space)) {
                     up = true;
                 }
-                if (window.keyPressed(GLFW_KEY_LEFT_CONTROL)) {
+                if (window.key_pressed(glfw::Key::LeftControl)) {
                     down = true;
                 }
-                if (window.keyPressed(GLFW_KEY_1)) {
+                if (window.key_pressed(glfw::Key::_1)) {
                     toggle_spread = !toggle_spread;
                 }
-                if (window.keyPressed(GLFW_KEY_2)) {
+                if (window.key_pressed(glfw::Key::_2)) {
                     toggle_density = !toggle_density;
                 }
                 camera.move(forward, back, left, right, up, down, deltaTime,
@@ -963,16 +966,16 @@ int main() {
                 bool rotate_down = false;
                 bool rotate_left = false;
                 bool rotate_right = false;
-                if (window.keyPressed(GLFW_KEY_UP)) {
+                if (window.key_pressed(glfw::Key::Up)) {
                     rotate_up = true;
                 }
-                if (window.keyPressed(GLFW_KEY_DOWN)) {
+                if (window.key_pressed(glfw::Key::Down)) {
                     rotate_down = true;
                 }
-                if (window.keyPressed(GLFW_KEY_LEFT)) {
+                if (window.key_pressed(glfw::Key::Left)) {
                     rotate_left = true;
                 }
-                if (window.keyPressed(GLFW_KEY_RIGHT)) {
+                if (window.key_pressed(glfw::Key::Right)) {
                     rotate_right = true;
                 }
                 camera.rotate(rotate_up, rotate_down, rotate_left, rotate_right,
@@ -1007,6 +1010,7 @@ int main() {
 
         imguiRenderer.render();
 
+        using namespace czdr::literals;
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {
@@ -1020,7 +1024,7 @@ int main() {
                     commandBuffer.pushConstants(jfaInitPipelineLayout,
                                                 vul::ShaderStageFlagBits::ComputeBit,
                                                 jfa_init_push_constant);
-                    auto workgroup_dim = uul::integer_ceil(vul::chunk_consts::chunk_width, 8);
+                    auto workgroup_dim = czdr::ceil(vul::chunk_consts::chunk_width, 8_u8);
                     commandBuffer.pipelineBarrier(computeComputeDepInfo);
                     commandBuffer.dispatch(workgroup_dim, workgroup_dim, workgroup_dim);
                     commandBuffer.bindPipeline(jfaIterationPipleline);
@@ -1103,8 +1107,8 @@ int main() {
                     commandBuffer.pushConstants(raytraceBitfieldRenderer.getPipelineLayout(),
                                                 vul::ShaderStageFlagBits::ComputeBit,
                                                 pushConstant);
-                    auto workgroup_dim_x = uul::integer_ceil(swapchain.getExtent().width, 32);
-                    auto workgroup_dim_y = uul::integer_ceil(swapchain.getExtent().height, 32);
+                    auto workgroup_dim_x = czdr::ceil(swapchain.getExtent().width, 32u);
+                    auto workgroup_dim_y = czdr::ceil(swapchain.getExtent().height, 32u);
                     commandBuffer.dispatch(workgroup_dim_x, workgroup_dim_y, 1);
                 }
 

@@ -25,12 +25,15 @@ namespace vul {
 
     class Swapchain;
 }
+namespace glfw{
+    class Window;
+}
 namespace gul {
     class GlfwWindow;
     class ImguiRenderer {
     public:
         ImguiRenderer(
-                gul::GlfwWindow &window,
+                glfw::Window &window,
                 const vul::Instance &instance,
                 const vul::Device &device,
                 const vul::Swapchain &swapchain,

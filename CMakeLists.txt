@@ -33,10 +33,13 @@ target_compile_definitions(glfw INTERFACE
         -DGLFW_INCLUDE_VULKAN
         )
 find_package(czdr-vkutil CONFIG REQUIRED)
+find_package(czdr-bitutil CONFIG REQUIRED)
+find_package(czdr-stdutil CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(Microsoft.GSL CONFIG REQUIRED)
 find_package(range-v3 CONFIG REQUIRED)
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
+find_package(czdr-glfw-wrapper CONFIG REQUIRED)
 option(TINYGLTF_BUILD_LOADER_EXAMPLE "" OFF)
 option(TINYGLTF_HEADER_ONLY "" OFF)
 add_subdirectory(external/tinygltf)
@@ -65,7 +68,7 @@ target_include_directories(pcg_cpp INTERFACE
 #add_subdirectory(external/glslang)
 
 add_subdirectory(vulgenerated)
-add_subdirectory(uul)
+#add_subdirectory(uul)
 #add_subdirectory(vul)
 add_subdirectory(gul)
 
@@ -94,4 +97,3 @@ add_subdirectory(vulgridworld)
 add_subdirectory(vulantworld)
 add_subdirectory(hlspv_lang)
 add_subdirectory(vullifeengine)
-add_subdirectory(openaltest)

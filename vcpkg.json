@@ -12,7 +12,13 @@
       "name": "openal-soft"
     },
     "vulkan-memory-allocator",
-    "czdr-vkutil"
+    "czdr-vkutil",
+    "czdr-bitutil",
+    "czdr-stdutil",
+    {"name":    "czdr-glfw-wrapper",
+      "features" : ["integrate-czdr-vkutil"]
+    }
+
   ],
   "builtin-baseline": "f1c6efee2245009540dde947e0e3d008f3aa7dbb"
 }
