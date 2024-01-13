@@ -2,6 +2,7 @@
   "name": "test",
   "version-string": "0.1.0-dev",
   "dependencies": [
+    "nlohmann-json",
     "ms-gsl",
     "fmt",
     "glm",
@@ -15,6 +16,7 @@
     "czdr-vkutil",
     "czdr-bitutil",
     "czdr-stdutil",
+    "czdr-cmakeutil",
     {"name":    "czdr-glfw-wrapper",
       "features" : ["integrate-czdr-vkutil"]
     }

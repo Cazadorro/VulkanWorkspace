@@ -123,6 +123,7 @@ struct alignas(8) JFAIterationPushConstant {
 static_assert(sizeof(JFAIterationPushConstant) == 32);
 
 #include <czdr/glfw/core.h>
+
 int main() {
 
     glfw::Library glfw_lib;
@@ -868,8 +869,8 @@ int main() {
                         1000.0f / ImGui::GetIO().Framerate,
                         ImGui::GetIO().Framerate);
 
-            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.xpos,
-                                    cursor_pos.ypos).c_str());
+            ImGui::Text(fmt::format("cursor_pos x:{},y:{}", cursor_pos.xpos.count(),
+                                    cursor_pos.ypos.count()).c_str());
             ImGui::Text(fmt::format("CameraPos {},{},{}\n", camera.getPosition().x, camera.getPosition().y,
                                     camera.getPosition().z).c_str());
             ImGui::End();
@@ -1010,7 +1011,7 @@ int main() {
 
         imguiRenderer.render();
 
-        using namespace czdr::literals;
+        using namespace czdr::std_literals;
 
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {

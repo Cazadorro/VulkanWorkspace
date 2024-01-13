@@ -3,9 +3,9 @@
     {
       "kind": "git",
       "repository": "https://github.com/Cazadorro/czdr-registry",
-      "baseline": "996b3cc9dde59dd0f4c23a505bcae34aae08f04d",
+      "baseline": "dac1fa8aadbde4312b0f72e98a6ec2c5de12e3ff",
       "packages": [
-        "libsndfile-wrapper", "czdr-*", "stb-image"
+       "czdr-*", "stb-image"
       ]
     }
   ],
