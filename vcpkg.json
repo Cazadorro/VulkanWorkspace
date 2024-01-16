@@ -2,6 +2,7 @@
   "name": "test",
   "version-string": "0.1.0-dev",
   "dependencies": [
+
     "nlohmann-json",
     "ms-gsl",
     "fmt",
@@ -19,8 +20,8 @@
     "czdr-cmakeutil",
     {"name":    "czdr-glfw-wrapper",
       "features" : ["integrate-czdr-vkutil"]
-    }
-
+    },
+    "moodycamel-readerwriterqueue"
   ],
   "builtin-baseline": "f1c6efee2245009540dde947e0e3d008f3aa7dbb"
 }

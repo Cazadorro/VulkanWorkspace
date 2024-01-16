@@ -53,8 +53,8 @@ layout (location = 1) out uint material_id;
 
 void main(){
     uint object_index = gl_VertexIndex / 6;
-    vec2 quad_vertex = calc_quad_vertex(gl_VertexIndex);
-    texcoord = quad_vertex;
+    vec2 quad_vertex = calc_quad_vertex_ccw(gl_VertexIndex);
+    texcoord = quad_to_texcoord(quad_vertex);
     vec3 position3d = vec3(quad_vertex * 2.0f + -1.0f, 1.0f);
     mat3x3 affine_matrix = mat3x3(u_affine_matrices[object_index].data);
     affine_matrix[2][2] = 1.0f;
@@ -74,5 +74,8 @@ void main(){
 //    if(quad_vertex == 0){
 //        gl_Position =  vec4(1.0, 0.0, 0.0, 1.0);
 //    }
-    gl_Position = vp_mat * position;
+    position = vp_mat * position;
+    position.y *= -1.0;
+    gl_Position = position;
+//    gl_Position = vp_mat * position;
 }

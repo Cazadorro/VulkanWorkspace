@@ -41,22 +41,27 @@ layout(location = 0) out vec4 out_color;
 layout (constant_id = 0) const uint BLOCK_ID = 2;
 layout (constant_id = 1) const uint BLOCK_SOLID_ID = 3;
 
-const uint MATERIAL_IDS[2] =  uint[2](
-    BLOCK_ID,
-    BLOCK_SOLID_ID
-);
+
+uint get_material_id(uint indirect_material_id){
+    if(indirect_material_id == 1){
+        return BLOCK_SOLID_ID;
+    }
+    else {
+        return BLOCK_ID;
+    }
+}
+//layout (constant_id = 3) const vec4 BLOCK_TEST = vec4(1.0);
+////layout (constant_id = 4) const int[4] BLOCK_TEST2 = int[4](1,2,3,4);
+//const uint MATERIAL_IDS[2] = uint[2](
+//    2,
+//    3
+//);
 
 const uint INDIRECT_MATERIAL_ID_MASK =  0xF0000000u;
 const uint COLOR_ID_MASK = ~INDIRECT_MATERIAL_ID_MASK;
 
-uint extract_indirect_material_id(uint complex_material_id){
-    //gets first 4 bits
-    return (complex_material_id & INDIRECT_MATERIAL_ID_MASK) >> 28;
-}
-
 uint extract_color_id(uint complex_material_id){
-    //gets last 28 bits.
-    return (complex_material_id & COLOR_ID_MASK);
+    return complex_material_id;
 }
 
 //TODO specialization constant these values too?
@@ -70,10 +75,13 @@ const vec4[6] COLOR_VALUES = vec4[6](
 );
 //TODO potential issue with coloring with 0 instead of just not rendering it at the initial vertex generation, could be perf issue?
 void main() {
-    uint indirect_material_id = extract_material_id(in_complex_material_id);
-    uint material_id = MATERIAL_IDS[indirect_material_id];
+    uint material_id = get_material_id(in_complex_material_id);
     uint color_id = extract_color_id(in_complex_material_id);
     vec4 color_multiplier = COLOR_VALUES[color_id];
 
-    out_color = texture(sampler2D(u_materials[material_id], u_sampler), in_texcoord) * color_multiplier;
+    vec4 color = texture(sampler2D(u_materials[material_id], u_sampler), in_texcoord) * color_multiplier;
+    if(color.a < 0.5){
+        discard;
+    }
+    out_color = color;
 }

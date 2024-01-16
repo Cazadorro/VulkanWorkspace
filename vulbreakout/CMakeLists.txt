@@ -4,7 +4,9 @@ project(VulkanWorkspace)
 set(CMAKE_CXX_STANDARD 20)
 
 
-add_executable(vulbreakout ./main.cpp)
+add_executable(vulbreakout ./main.cpp
+        game_state.cpp
+        game_state.h)
 target_link_libraries(vulbreakout PRIVATE
         czdr::vkutil
         gul
@@ -15,6 +17,7 @@ target_link_libraries(vulbreakout PRIVATE
         czdr::bitutil
         czdr::glfw-wrapper
         Freetype::Freetype
+        moodycamel::readerwriterqueue
         )
 target_compile_options(vulbreakout PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
@@ -27,6 +30,8 @@ target_compile_options(vulbreakout
 target_shader_postbuild(vulbreakout
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/render_sprites_2d.vert
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/render_sprites_2d.frag
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/render_grid_sprites_2d.vert
+        ${CMAKE_CURRENT_SOURCE_DIR}/shaders/render_grid_sprites_2d.frag
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/render_fullscreen_texture.vert
         ${CMAKE_CURRENT_SOURCE_DIR}/shaders/render_fullscreen_texture.frag)
 

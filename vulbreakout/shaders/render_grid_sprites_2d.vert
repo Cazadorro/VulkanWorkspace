@@ -40,8 +40,6 @@ layout(set = 0, binding = 2) uniform texture2D u_materials[];
 
 layout(push_constant) uniform PushConstantBlock {
     uint32_ref u_complex_material_ids;
-    float u_element_width;
-    float u_element_height;
     uint u_width;
     uint u_height;
     mat3x2 u_affine_matrix;
@@ -52,23 +50,26 @@ layout (location = 1) out uint complex_material_id;
 
 void main(){
     uint object_index = gl_VertexIndex / 6;
-    vec2 quad_vertex = calc_quad_vertex(gl_VertexIndex);
-    texcoord = quad_vertex;
-    vec2 centered_position = quad_vertex * 2.0f + -1.0f; //now -1 -> 1 space, should we just keep it in zero space?
+    vec2 quad_vertex = calc_quad_vertex_clip_ccw(gl_VertexIndex);
+    texcoord = quad_to_texcoord(quad_vertex);
+    vec2 centered_position = quad_vertex;// * 2.0f + -1.0f; //now -1 -> 1 space, should we just keep it in zero space?
     uint object_x = object_index % u_width;
     uint object_y = object_index / u_width;
 
-    vec2 object_offset = vec2(float(object_x) * u_element_width,  float(object_y) * u_element_height);
+    vec2 object_offset = vec2(float(object_x), float(object_y));
     //Centered, so we offset? probably offset by half a block though, if we start in -1.0 -> 1.0 space.
-    object_offset -= vec2(u_width / 2, u_height / 2);
+//    object_offset -= vec2(u_width / 2, u_height / 4);
     vec2 offset_position = centered_position + object_offset;
     vec3 position3d = vec3(offset_position, 1.0f);
     mat3x3 affine_matrix = mat3x3(u_affine_matrix);
     affine_matrix[2][2] = 1.0f;
     position3d = affine_matrix *  position3d;
-    material_id = u_complex_material_ids[object_index].data;
+    complex_material_id = u_complex_material_ids[object_index].data;
     vec4 position = vec4(position3d.x, position3d.y, 0.0f, 1.0f);
     //we are relying on our view projection matrix scaling us here, though we should probably be scaling this our selves first with an affine model matrix?
     mat4x4 vp_mat = u_proj * u_view;
-    gl_Position = vp_mat * position;
+    position = vp_mat * position;
+//    position.y *= -1.0;
+    gl_Position = position;
+//    gl_Position = vp_mat * position;
 }

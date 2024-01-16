@@ -110,23 +110,23 @@ static_assert(sizeof(RenderFullscreenPushConstantBlock) == 8);
 
 struct alignas(8) RenderGridSpritesPushConstantBlock {
     vul::DeviceAddress u_complex_material_ids; //8
-    float u_element_width; //16
-    float u_element_height; //24
     std::uint32_t u_width;
-    std::uint32_t u_height;  //32
+    std::uint32_t u_height;  //16
     glm::mat3x2 u_affine_matrix;
 };
-static_assert(sizeof(RenderGridSpritesPushConstantBlock) == 48);
-
+static_assert(sizeof(RenderGridSpritesPushConstantBlock) == 40);
 
 
 #include <czdr/glfw/core.h>
 #include <glm/gtx/matrix_transform_2d.hpp>
+
 int main() {
 
     glfw::Library glfw_lib;
     glfw_lib.window_hint_client_api(glfw::OpenglClientApiType::NoApi);
-    auto window = glfw_lib.create_window(800, 600, "Example Window").value();
+    constexpr std::int32_t window_width = 800;
+    constexpr std::int32_t window_height = 600;
+    auto window = glfw_lib.create_window(window_width, window_height, "Example Window").value();
     gul::FirstPersonCamera camera;
     camera.setPosition(glm::vec3(0.0, 0.0, -48.0));
     //camera.lookAt(glm::vec3(0.0,0.0,0.0));
@@ -140,6 +140,7 @@ int main() {
     };
 
     window.set_framebuffer_size_callback(framebuffer_callback);
+
 
     auto glfwExtensions = glfw_lib.get_required_instance_extensions();
     auto instanceExtensions = ranges::views::concat(glfwExtensions,
@@ -262,12 +263,12 @@ int main() {
     }
     //value used to determine which host buffer to use to copy on transfer.
     //next buffer = 0 + 1, current semaphore = 0; t % 2 if !=, upload index, swap buffers to use. otherwise keep updating current buffer.
-    vul::TimelineSemaphore uploadFinishedSemaphore =  device.createTimelineSemaphore(0).assertValue();
+    vul::TimelineSemaphore uploadFinishedSemaphore = device.createTimelineSemaphore(0).assertValue();
     //value used to determine which device buffer can be used to copy to.
     //copy to next buffer when all frames in flight sit on buffer , swapchain size used here
     // swapchain size of 3 means x % 6 = 0->5, if 0,1,2,3 0,3 good, if 1,2,4,5 not done.  if 0 means done at first.
     // signal when specifying using given semiphore.
-    vul::TimelineSemaphore framesUsingSemaphore =  device.createTimelineSemaphore(0).assertValue();
+    vul::TimelineSemaphore framesUsingSemaphore = device.createTimelineSemaphore(0).assertValue();
 
     std::array validSwapchainResults = {vul::Result::SuboptimalKhr,
                                         vul::Result::ErrorOutOfDateKhr};
@@ -319,9 +320,15 @@ int main() {
 // * we need to ignore subpass dependency otherwise. based on this:
 // https://github.com/KhronosGroup/Vulkan-Docs/issues/726
 // and instead use the equivalent pipeline barriers.
-    auto firstColorPassBuilder = vul::RenderPassBuilder::createSimpleRenderPassBuilder(vul::AttachmentReusePolicy::First, {swapchain.getFormat()}, vul::AttachmentReusePolicy::First, vul::Format::D24UnormS8Uint);
-    auto nextColorPassBuilder = vul::RenderPassBuilder::createSimpleRenderPassBuilder(vul::AttachmentReusePolicy::Next, {swapchain.getFormat()}, vul::AttachmentReusePolicy::Next, vul::Format::D24UnormS8Uint);
-    auto presentationRenderPassBuilder = vul::RenderPassBuilder::createLastPresentationRenderPassBuilder(swapchain, vul::Format::D24UnormS8Uint);
+    auto firstColorPassBuilder = vul::RenderPassBuilder::createSimpleRenderPassBuilder(
+            vul::AttachmentReusePolicy::First, {swapchain.getFormat()}, vul::AttachmentReusePolicy::First,
+            vul::Format::D24UnormS8Uint);
+    auto nextColorPassBuilder = vul::RenderPassBuilder::createSimpleRenderPassBuilder(vul::AttachmentReusePolicy::Next,
+                                                                                      {swapchain.getFormat()},
+                                                                                      vul::AttachmentReusePolicy::Next,
+                                                                                      vul::Format::D24UnormS8Uint);
+    auto presentationRenderPassBuilder = vul::RenderPassBuilder::createLastPresentationRenderPassBuilder(swapchain,
+                                                                                                         vul::Format::D24UnormS8Uint);
 // this was for depth being re-used later. We now have seperate depth attachments for each frame in flight.
 //    subpassBuilder.add(vul::ExternalPreSubpassDependency{
 //            vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
@@ -342,19 +349,24 @@ int main() {
             presentationQueue.getQueueFamilyIndex(),
             vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
+    auto transferCommandPool = device.createCommandPool(
+            transferQueue.getQueueFamilyIndex(),
+            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+
+
     auto images_to_load = 5;
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
     descriptorSetLayoutBuilder.setFlags(vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit)
-    .setBindings({vul::UniformBufferBinding(0,
-                                                                      vul::ShaderStageFlagBits::VertexBit |
-                                                                      vul::ShaderStageFlagBits::FragmentBit),
-                                            vul::SamplerBinding(1,
-                                                                vul::ShaderStageFlagBits::FragmentBit),
-                                            vul::SampledImageBinding(2,
-                                                                     vul::ShaderStageFlagBits::FragmentBit,
-                                                                     images_to_load),
-                                           },
-                                           {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
+            .setBindings({vul::UniformBufferBinding(0,
+                                                    vul::ShaderStageFlagBits::VertexBit |
+                                                    vul::ShaderStageFlagBits::FragmentBit),
+                          vul::SamplerBinding(1,
+                                              vul::ShaderStageFlagBits::FragmentBit),
+                          vul::SampledImageBinding(2,
+                                                   vul::ShaderStageFlagBits::FragmentBit,
+                                                   images_to_load),
+                         },
+                         {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
 
 
@@ -372,12 +384,17 @@ int main() {
 
     std::vector<vul::Buffer> host_staging_affine_matrices_arrays;
     std::vector<vul::Buffer> host_staging_material_id_arrays;
+    std::vector<vul::Buffer> host_staging_grid_complex_id_arrays;
+    constexpr std::size_t break_out_grid_width = 15;
+    constexpr std::size_t break_out_grid_height = 8;
+    constexpr std::size_t break_out_grid_size = 15 * 8;
     //simplest way is to update data every time?
     //or hold on to currently updated,
     //a buffer for an array of values for each swapchain.
     std::vector<vul::Buffer> device_affine_matrices_arrays;
     std::vector<vul::Buffer> device_material_id_arrays;
-    constexpr std::size_t  n_buffer_size = 2;
+    std::vector<vul::Buffer> device_grid_complex_id_arrays;
+    constexpr std::size_t n_buffer_size = 2;
     for (std::size_t i = 0; i < n_buffer_size; ++i) {
         host_staging_affine_matrices_arrays.push_back(allocator.createMappedCoherentBuffer(
                 sizeof(glm::mat3x2) * 1024,
@@ -385,10 +402,16 @@ int main() {
         host_staging_material_id_arrays.push_back(allocator.createMappedCoherentBuffer(
                 sizeof(std::uint32_t) * 1024,
                 vul::BufferUsageFlagBits::TransferSrcBit).assertValue());
+        host_staging_grid_complex_id_arrays.push_back(allocator.createMappedCoherentBuffer(
+                sizeof(std::uint32_t) * break_out_grid_size,
+                vul::BufferUsageFlagBits::TransferSrcBit).assertValue());
         device_affine_matrices_arrays.push_back(allocator.createDeviceBuffer(sizeof(glm::mat3x2) * 1024,
                                                                              vul::BufferUsageFlagBits::ShaderDeviceAddressBit |
                                                                              vul::BufferUsageFlagBits::TransferDstBit).assertValue());
         device_material_id_arrays.push_back(allocator.createDeviceBuffer(sizeof(std::uint32_t) * 1024,
+                                                                         vul::BufferUsageFlagBits::ShaderDeviceAddressBit |
+                                                                         vul::BufferUsageFlagBits::TransferDstBit).assertValue());
+        device_grid_complex_id_arrays.push_back(allocator.createDeviceBuffer(sizeof(std::uint32_t) * break_out_grid_size,
                                                                          vul::BufferUsageFlagBits::ShaderDeviceAddressBit |
                                                                          vul::BufferUsageFlagBits::TransferDstBit).assertValue());
     }
@@ -397,9 +420,11 @@ int main() {
     pipelineBuilder.setPrimitiveStateInfo();
     pipelineBuilder.setViewportStateFromExtent(swapchain.getExtent());
     pipelineBuilder.setDynamicState({vul::DynamicState::Viewport, vul::DynamicState::Scissor});
-    pipelineBuilder.setRasterizationState(vul::PipelineRasterizationStateCreateInfo::fromCullMode(vul::CullModeFlagBits::None));
+    pipelineBuilder.setRasterizationState(
+            vul::PipelineRasterizationStateCreateInfo::fromCullMode(vul::CullModeFlagBits::BackBit));
     pipelineBuilder.setMultisampleState();
-    pipelineBuilder.setDepthStencilState(vul::PipelineDepthStencilStateCreateInfo::fromCompareOp(vul::CompareOp::LessOrEqual));
+    pipelineBuilder.setDepthStencilState(
+            vul::PipelineDepthStencilStateCreateInfo::fromCompareOp(vul::CompareOp::LessOrEqual));
     pipelineBuilder.setBlendState({vul::PipelineColorBlendAttachmentState::disableBlendRGBA()});
     pipelineBuilder.setRenderPass(presentationRenderPass, 0);
 
@@ -425,7 +450,7 @@ int main() {
 
     auto renderFullscreenTexturePipelineLayout = device.createPipelineLayout(
             descriptorLayout,
-            vul::PushConstantRange::create<RenderSprites2dPushConstantBlock>((vul::ShaderStageFlagBits::VertexBit |
+            vul::PushConstantRange::create<RenderFullscreenPushConstantBlock>((vul::ShaderStageFlagBits::VertexBit |
                                                                               vul::ShaderStageFlagBits::FragmentBit))
     ).assertValue();
     {
@@ -446,7 +471,7 @@ int main() {
     auto renderGridSprites2dPipelineLayout = device.createPipelineLayout(
             descriptorLayout,
             vul::PushConstantRange::create<RenderGridSpritesPushConstantBlock>((vul::ShaderStageFlagBits::VertexBit |
-                                                                              vul::ShaderStageFlagBits::FragmentBit))
+                                                                                vul::ShaderStageFlagBits::FragmentBit))
     ).assertValue();
     {
 
@@ -537,11 +562,11 @@ int main() {
     auto statue_of_david_texture_img = allocator.createDeviceTexture(commandPool,
                                                                      presentationQueue,
                                                                      vul::TempArrayProxy(
-                                                              statue_of_david_img.size(),
-                                                              statue_of_david_img.data()),
+                                                                             statue_of_david_img.size(),
+                                                                             statue_of_david_img.data()),
                                                                      vul::ImageCreateInfo::texture2D(
-                                                              statue_of_david_img.getExtent2D(),
-                                                              vul::Format::R8g8b8a8Srgb)).assertValue();
+                                                                             statue_of_david_img.getExtent2D(),
+                                                                             vul::Format::R8g8b8a8Srgb)).assertValue();
     auto background_texture_img = allocator.createDeviceTexture(commandPool,
                                                                 presentationQueue,
                                                                 vul::TempArrayProxy(
@@ -549,31 +574,31 @@ int main() {
                                                                         background_img.data()),
                                                                 vul::ImageCreateInfo::texture2D(
                                                                         background_img.getExtent2D(),
-                                                              vul::Format::R8g8b8a8Srgb)).assertValue();
+                                                                        vul::Format::R8g8b8a8Srgb)).assertValue();
     auto block_texture_img = allocator.createDeviceTexture(commandPool,
-                                                      presentationQueue,
-                                                      vul::TempArrayProxy(
-                                                              block_img.size(),
-                                                              block_img.data()),
-                                                      vul::ImageCreateInfo::texture2D(
-                                                              block_img.getExtent2D(),
-                                                              vul::Format::R8g8b8a8Srgb)).assertValue();
+                                                           presentationQueue,
+                                                           vul::TempArrayProxy(
+                                                                   block_img.size(),
+                                                                   block_img.data()),
+                                                           vul::ImageCreateInfo::texture2D(
+                                                                   block_img.getExtent2D(),
+                                                                   vul::Format::R8g8b8a8Srgb)).assertValue();
     auto block_solid_texture_img = allocator.createDeviceTexture(commandPool,
-                                                      presentationQueue,
-                                                      vul::TempArrayProxy(
-                                                              block_solid_img.size(),
-                                                              block_solid_img.data()),
-                                                      vul::ImageCreateInfo::texture2D(
-                                                              block_solid_img.getExtent2D(),
-                                                              vul::Format::R8g8b8a8Srgb)).assertValue();
+                                                                 presentationQueue,
+                                                                 vul::TempArrayProxy(
+                                                                         block_solid_img.size(),
+                                                                         block_solid_img.data()),
+                                                                 vul::ImageCreateInfo::texture2D(
+                                                                         block_solid_img.getExtent2D(),
+                                                                         vul::Format::R8g8b8a8Srgb)).assertValue();
     auto paddle_texture_img = allocator.createDeviceTexture(commandPool,
-                                                      presentationQueue,
-                                                      vul::TempArrayProxy(
-                                                              paddle_img.size(),
-                                                              paddle_img.data()),
-                                                      vul::ImageCreateInfo::texture2D(
-                                                              paddle_img.getExtent2D(),
-                                                              vul::Format::R8g8b8a8Srgb)).assertValue();
+                                                            presentationQueue,
+                                                            vul::TempArrayProxy(
+                                                                    paddle_img.size(),
+                                                                    paddle_img.data()),
+                                                            vul::ImageCreateInfo::texture2D(
+                                                                    paddle_img.getExtent2D(),
+                                                                    vul::Format::R8g8b8a8Srgb)).assertValue();
 
     auto statue_of_david_texture_img_view = statue_of_david_texture_img.createImageView().assertValue();
     auto background_texture_img_view = background_texture_img.createImageView().assertValue();
@@ -611,15 +636,21 @@ int main() {
                                                     descriptorSetLayoutBuilder.createDescriptorTypeCounts());
         writeBuilder[0] = {&uniformBuffers[i]};
         writeBuilder[1].set({&sampler});
-        writeBuilder[2].set({&statue_of_david_texture_img_view, &background_texture_img_view, &block_texture_img_view, &block_solid_texture_img_view, &paddle_texture_img_view});
+        writeBuilder[2].set({&statue_of_david_texture_img_view, &background_texture_img_view, &block_texture_img_view,
+                             &block_solid_texture_img_view, &paddle_texture_img_view});
         auto write_span = writeBuilder.getWrites();
         device.updateDescriptorSets(write_span);
     }
 
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
+    for(std::size_t i = 0; i < commandBuffers.size(); ++i){
+        commandBuffers[i].setObjectName("Command Buffer " + std::to_string(i));
+    }
+
     //single command buffer, but... what if in use? use semaphore to determine that!
-    auto transferCommandBuffer = commandPool.createPrimaryCommandBuffer().assertValue();
+    auto transferCommandBuffer = transferCommandPool.createPrimaryCommandBuffer().assertValue();
+    transferCommandBuffer.setObjectName("Transfer Command Buffer");
 
     gul::ImguiRenderer imguiRenderer(window, instance, device, swapchain,
                                      presentationQueue,
@@ -649,6 +680,25 @@ int main() {
     std::uint64_t last_upload_buffer_sent_idx = 0;
     std::uint64_t frames_using_uploaded_buffer_counter = 0;
 
+    std::array<std::uint32_t, break_out_grid_size> init_grid = {
+            5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u,
+            5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u, 5u,
+            4u, 4u, 4u, 4u, 4u, 0u, 0u, 0u, 0u, 0u, 4u, 4u, 4u, 4u, 4u,
+            4u, 1u, 4u, 1u, 4u, 0u, 0u, 1u, 0u, 0u, 4u, 1u, 4u, 1u, 4u,
+            3u, 3u, 3u, 3u, 3u, 0u, 0u, 0u, 0u, 0u, 3u, 3u, 3u, 3u, 3u,
+            3u, 3u, 1u, 3u, 3u, 3u, 3u, 3u, 3u, 3u, 3u, 3u, 1u, 3u, 3u,
+            2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u,
+            2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u, 2u,
+    };
+    std::array<bool, n_buffer_size> grid_updated;
+    for(std::size_t i = 0; i < n_buffer_size; ++i){
+        auto grid_ptr = host_staging_grid_complex_id_arrays[i].mapMemory();
+        std::copy(init_grid.begin(), init_grid.end(), reinterpret_cast<std::uint32_t*>(grid_ptr));
+        grid_updated[i] = true;
+    }
+
+
+
     while (!window.should_close()) {
         static auto startTime = std::chrono::high_resolution_clock::now();
         static auto lastTime = std::chrono::high_resolution_clock::now();
@@ -662,7 +712,7 @@ int main() {
 //        std::this_thread::sleep_for(1000us);
 //        std::this_thread::sleep_for(32ms) ;
 //        presentationQueue.waitIdle();
-        glfwPollEvents();
+        glfw_lib.poll_events();
         imguiRenderer.newFrame();
 
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
@@ -744,7 +794,6 @@ int main() {
         {
 
 
-
             bool toggle_spread = false;
             bool toggle_density = false;
             ImGuiIO &io = ImGui::GetIO();
@@ -822,10 +871,17 @@ int main() {
                                         (float) swapchain.getExtent().height,
                                         0.1f,
                                         1000.0f);
-            ubo.proj[1][1] *= -1;
+
             //New orthographic 2D version.
             ubo.view = glm::identity<glm::mat4x4>();
-            ubo.proj = glm::ortho(-400.0f, 400.0f, 300.0f, -300.0f, -1.0f, 10.0f);
+            ubo.proj = glm::ortho(-400.0f, 400.0f, -300.0f, 300.0f, -1.0f, 10.0f);
+//            ubo.proj[1][1] *= -1;
+            auto test_0 = ubo.proj * glm::vec4(400.0,300.0,0.0,1.0);
+            auto test_1 = ubo.proj * glm::vec4(400.0,-300.0,0.0,1.0);
+            auto test_2 = ubo.proj * glm::vec4(-400.0,-300.0,0.0,1.0);
+            auto test_3 = ubo.proj * glm::vec4(-400.0,300.0,0.0,1.0);
+
+
 
 
             static float u_time = 0;
@@ -837,18 +893,20 @@ int main() {
         //currentNBufferInUse
         //We retrieve the counter value for the current frames using,
         auto current_frame_counter_value = framesUsingSemaphore.getCounterValue().assertValue();
-        auto current_upload_counter_value =uploadFinishedSemaphore.getCounterValue().assertValue();
-        std::uint64_t n_buffer_index = (last_upload_buffer_sent_idx + 1) % n_buffer_size;
+        auto current_upload_counter_value = uploadFinishedSemaphore.getCounterValue().assertValue();
+        std::uint64_t next_buffer_index = (last_upload_buffer_sent_idx + 1) % n_buffer_size;
         auto last_upload_buffer_idx = current_upload_counter_value % n_buffer_size;
         bool last_upload_finished = last_upload_buffer_idx == last_upload_buffer_sent_idx;
-        auto last_upload_frames_used = (current_frame_counter_value % (2*swapchainSize)) / swapchainSize;
-        bool last_upload_frames_used_was_last_upload = last_upload_frames_used = last_upload_buffer_sent_idx;
-        bool all_frames_using_last_upload = current_frame_counter_value % swapchainSize == 0;
-        bool all_frames_in_flight_using_last_upload = last_upload_frames_used_was_last_upload && all_frames_using_last_upload;
+        auto last_upload_frames_used = (current_frame_counter_value % (2 * swapchainSize)) / swapchainSize;
+        bool last_upload_frames_used_was_last_upload = last_upload_frames_used == last_upload_buffer_sent_idx;
+        bool all_frames_using_last_upload = (current_frame_counter_value % swapchainSize) == 0;
+        bool all_frames_in_flight_using_last_upload =
+                last_upload_frames_used_was_last_upload && all_frames_using_last_upload;
+        std::size_t edited_size = 3;
 
         {
-            auto affine_matrices_memory = reinterpret_cast<glm::mat3x2 *>(host_staging_affine_matrices_arrays[n_buffer_index].mapMemory());
-            auto material_id_memory = reinterpret_cast<std::uint32_t *>(host_staging_material_id_arrays[n_buffer_index].mapMemory());
+            auto affine_matrices_memory = reinterpret_cast<glm::mat3x2 *>(host_staging_affine_matrices_arrays[next_buffer_index].mapMemory());
+            auto material_id_memory = reinterpret_cast<std::uint32_t *>(host_staging_material_id_arrays[next_buffer_index].mapMemory());
             auto affine_matrix = glm::scale(glm::identity<glm::mat3x3>(), glm::vec2(100.0f));
             affine_matrix = glm::rotate(affine_matrix, time);
             affine_matrices_memory[0] = static_cast<glm::mat3x2>(affine_matrix);
@@ -858,9 +916,9 @@ int main() {
         }
 
         {
-            auto affine_matrices_memory = reinterpret_cast<glm::mat3x2 *>(host_staging_affine_matrices_arrays[n_buffer_index].mapMemory());
-            auto material_id_memory = reinterpret_cast<std::uint32_t *>(host_staging_material_id_arrays[n_buffer_index].mapMemory());
-            auto affine_matrix = glm::translate(glm::identity<glm::mat3x3>(), glm::vec2(glm::sin(time) *200, 0.0f));
+            auto affine_matrices_memory = reinterpret_cast<glm::mat3x2 *>(host_staging_affine_matrices_arrays[next_buffer_index].mapMemory());
+            auto material_id_memory = reinterpret_cast<std::uint32_t *>(host_staging_material_id_arrays[next_buffer_index].mapMemory());
+            auto affine_matrix = glm::translate(glm::identity<glm::mat3x3>(), glm::vec2(glm::sin(time) * 200, 0.0f));
             affine_matrix = glm::scale(affine_matrix, glm::vec2(100.0f));
             affine_matrix = glm::rotate(affine_matrix, time);
             affine_matrices_memory[1] = static_cast<glm::mat3x2>(affine_matrix);
@@ -868,57 +926,95 @@ int main() {
             static_assert(sizeof(glm::mat3x2) == 24);
             material_id_memory[1] = 1u;
         }
-        if(all_frames_in_flight_using_last_upload){
+        {
+            auto affine_matrices_memory = reinterpret_cast<glm::mat3x2 *>(host_staging_affine_matrices_arrays[next_buffer_index].mapMemory());
+            auto material_id_memory = reinterpret_cast<std::uint32_t *>(host_staging_material_id_arrays[next_buffer_index].mapMemory());
+            auto affine_matrix = glm::identity<glm::mat3x3>();
+//            affine_matrix = glm::translate(glm::identity<glm::mat3x3>(), glm::vec2(-glm::abs(glm::sin(time)*10.0f)));
+            affine_matrix = glm::scale(affine_matrix, glm::vec2(100.0f));
+            affine_matrix = glm::translate(affine_matrix, glm::vec2(0.0, -glm::abs(glm::sin(time)*10.0f)));
+//            affine_matrix = glm::rotate(affine_matrix, time);
+            affine_matrices_memory[2] = static_cast<glm::mat3x2>(affine_matrix);
+
+            static_assert(sizeof(glm::mat3x2) == 24);
+            material_id_memory[2] = 0u;
+        }
+        if (all_frames_in_flight_using_last_upload) {
 
             {
                 transferCommandBuffer.begin(
                         vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
                 {
-                    transferCommandBuffer.copyBuffer(host_staging_affine_matrices_arrays[n_buffer_index],
-                                             device_affine_matrices_arrays[n_buffer_index]);
-                    transferCommandBuffer.copyBuffer(host_staging_material_id_arrays[n_buffer_index],
-                                             device_material_id_arrays[n_buffer_index]);
-
+                    transferCommandBuffer.copyBuffer(host_staging_affine_matrices_arrays[next_buffer_index],
+                                                     device_affine_matrices_arrays[next_buffer_index]);
+                    transferCommandBuffer.copyBuffer(host_staging_material_id_arrays[next_buffer_index],
+                                                     device_material_id_arrays[next_buffer_index]);
+                    if(grid_updated[next_buffer_index]){
+                        transferCommandBuffer.copyBuffer(host_staging_grid_complex_id_arrays[next_buffer_index],
+                                                         device_grid_complex_id_arrays[next_buffer_index]);
+                    }
                     //TODO don't know if I need to specify dst access mask here if doing queue transfer?
-                    auto transferToGraphicsBarriers = {
+                    //https://github.com/KhronosGroup/Vulkan-ValidationLayers/pull/3337 doesn't matter for dst
+                    auto transferToGraphicsBarriers = std::vector{
                             vul::BufferMemoryBarrier::fromBuffer(
-                            device_affine_matrices_arrays[n_buffer_index],
-                            vul::PipelineStageFlagBits2::TransferBit,
-                            vul::AccessFlagBits2::MemoryWriteBit,
-                            vul::PipelineStageFlagBits2::VertexShaderBit,
-                            vul::AccessFlagBits2::MemoryReadBit,
-                            transferQueue.getQueueFamilyIndex(),
-                            presentationQueue.getQueueFamilyIndex()
+                                    device_affine_matrices_arrays[next_buffer_index],
+                                    vul::PipelineStageFlagBits2::TransferBit,
+                                    vul::AccessFlagBits2::MemoryWriteBit,
+                                    vul::PipelineStageFlagBits2::TopOfPipeBit,
+                                    vul::AccessFlagBits2::MemoryReadBit,
+                                    presentationQueue.getQueueFamilyIndex(),
+                                    transferQueue.getQueueFamilyIndex()
                             ),
                             vul::BufferMemoryBarrier::fromBuffer(
-                            device_material_id_arrays[n_buffer_index],
-                            vul::PipelineStageFlagBits2::TransferBit,
-                            vul::AccessFlagBits2::MemoryWriteBit,
-                            vul::PipelineStageFlagBits2::VertexShaderBit,
-                            vul::AccessFlagBits2::MemoryReadBit,
-                            transferQueue.getQueueFamilyIndex(),
-                            presentationQueue.getQueueFamilyIndex()
+                                    device_material_id_arrays[next_buffer_index],
+                                    vul::PipelineStageFlagBits2::TransferBit,
+                                    vul::AccessFlagBits2::MemoryWriteBit,
+                                    vul::PipelineStageFlagBits2::TopOfPipeBit,
+                                    vul::AccessFlagBits2::MemoryReadBit,
+                                    presentationQueue.getQueueFamilyIndex(),
+                                    transferQueue.getQueueFamilyIndex()
                             )
-                           };
+                    };
+                    if(grid_updated[next_buffer_index]){
+                        transferToGraphicsBarriers.push_back(vul::BufferMemoryBarrier::fromBuffer(
+                                device_grid_complex_id_arrays[next_buffer_index],
+                                vul::PipelineStageFlagBits2::TransferBit,
+                                vul::AccessFlagBits2::MemoryWriteBit,
+                                vul::PipelineStageFlagBits2::TopOfPipeBit,
+                                vul::AccessFlagBits2::MemoryReadBit,
+                                presentationQueue.getQueueFamilyIndex(),
+                                transferQueue.getQueueFamilyIndex()
+                        ));
+                    }
                     auto transferGraphicsDepInfo = vul::DependencyInfo({}, transferToGraphicsBarriers, {});
                     transferCommandBuffer.pipelineBarrier(transferGraphicsDepInfo);
                 }
                 transferCommandBuffer.end();
-                last_upload_buffer_sent_idx = (last_upload_buffer_sent_idx +  1) % n_buffer_size;
+                last_upload_buffer_sent_idx = (last_upload_buffer_sent_idx + 1) % n_buffer_size;
 
             }
 
 
             std::array<VkSemaphoreSubmitInfoKHR, 1> signalInfos;
             signalInfos[0] = uploadFinishedSemaphore.createSubmitInfo(
-                    frameCounters[currentFrameIndex],
+                    current_upload_counter_value + 1,
                     vul::PipelineStageFlagBits2::AllCommandsBit);
 
             transferQueue.submit(vul::SubmitInfoBuilder()
-                                             //.waitSemaphoreInfos(presentationWaitInfo)
-                                             .commandBufferInfos(transferCommandBuffer.createSubmitInfo())
-                                             .signalSemaphoreInfos(signalInfos)
-                                             .create());
+                                         //.waitSemaphoreInfos(presentationWaitInfo)
+                                         .commandBufferInfos(transferCommandBuffer.createSubmitInfo())
+                                         .signalSemaphoreInfos(signalInfos)
+                                         .create());
+
+            auto following_buffer_index = (next_buffer_index + 1) % n_buffer_size;
+            std::memcpy(
+                    host_staging_affine_matrices_arrays[following_buffer_index].mapMemory(),
+                    host_staging_affine_matrices_arrays[next_buffer_index].mapMemory(),
+                    sizeof(glm::mat3x2) * edited_size);
+            std::memcpy(
+                    host_staging_material_id_arrays[following_buffer_index].mapMemory(),
+                    host_staging_material_id_arrays[next_buffer_index].mapMemory(),
+                    sizeof(glm::uint32_t) * edited_size);
 
         }
 
@@ -927,74 +1023,59 @@ int main() {
 
         using namespace czdr::std_literals;
 
+        bool not_using_latest_uploaded_buffer = (frames_using_uploaded_buffer_counter % (2 * swapchainSize)) / swapchainSize != last_upload_buffer_sent_idx;
+        bool havent_ownership_transfered_yet = not_using_latest_uploaded_buffer && (frames_using_uploaded_buffer_counter % (2 * swapchainSize)) % swapchainSize == 0;
         auto &commandBuffer = commandBuffers[swapchainImageIndex];
         {
             commandBuffer.begin(
                     vul::CommandBufferUsageFlagBits::OneTimeSubmitBit);
             {
-                commandBuffer.copyBuffer(host_staging_affine_matrices_arrays[swapchainImageIndex],
-                                         device_affine_matrices_arrays[swapchainImageIndex]);
-                commandBuffer.copyBuffer(host_staging_material_id_arrays[swapchainImageIndex],
-                                         device_material_id_arrays[swapchainImageIndex]);
-                if((current_frame_counter_value % (2*swapchainSize)) / swapchainSize != last_upload_buffer_sent_idx){
-                    current_frame_counter_value += 1;
+
+                if (not_using_latest_uploaded_buffer) {
+                    frames_using_uploaded_buffer_counter += 1;
+
+//                    bool havent_ownership_transfered_yet = (frames_using_uploaded_buffer_counter % (2 * swapchainSize)) % swapchainSize == 1;
+                    if (havent_ownership_transfered_yet) {
 //                    TODO Only record this section when we know we need to update?
 //                     How do we know if we need an update? If upload index value is different than expectation?
 //                     index += 1 (until % 6)/3 = value to upload?
 
-                        auto transferToGraphicsBarriers = {
+                        auto transferToGraphicsBarriers = std::vector{
                                 vul::BufferMemoryBarrier::fromBuffer(
-                                device_affine_matrices_arrays[n_buffer_index],
-                                vul::PipelineStageFlagBits2::TransferBit,
-                                vul::AccessFlagBits2::MemoryWriteBit,
-                                vul::PipelineStageFlagBits2::VertexShaderBit,
-                                vul::AccessFlagBits2::MemoryReadBit,
-                                transferQueue.getQueueFamilyIndex(),
-                                presentationQueue.getQueueFamilyIndex()
+                                        device_affine_matrices_arrays[next_buffer_index],
+                                        vul::PipelineStageFlagBits2::TransferBit,
+                                        vul::AccessFlagBits2::MemoryWriteBit,
+                                        vul::PipelineStageFlagBits2::TopOfPipeBit,
+                                        vul::AccessFlagBits2::MemoryReadBit,
+                                        presentationQueue.getQueueFamilyIndex(),
+                                        transferQueue.getQueueFamilyIndex()
                                 ),
                                 vul::BufferMemoryBarrier::fromBuffer(
-                                device_material_id_arrays[n_buffer_index],
-                                vul::PipelineStageFlagBits2::TransferBit,
-                                vul::AccessFlagBits2::MemoryWriteBit,
-                                vul::PipelineStageFlagBits2::VertexShaderBit,
-                                vul::AccessFlagBits2::MemoryReadBit,
-                                transferQueue.getQueueFamilyIndex(),
-                                presentationQueue.getQueueFamilyIndex()
+                                        device_material_id_arrays[next_buffer_index],
+                                        vul::PipelineStageFlagBits2::TransferBit,
+                                        vul::AccessFlagBits2::MemoryWriteBit,
+                                        vul::PipelineStageFlagBits2::TopOfPipeBit,
+                                        vul::AccessFlagBits2::MemoryReadBit,
+                                        presentationQueue.getQueueFamilyIndex(),
+                                        transferQueue.getQueueFamilyIndex()
                                 )
-                               };
+                        };
+                        if(grid_updated[next_buffer_index]){
+                            transferToGraphicsBarriers.push_back(vul::BufferMemoryBarrier::fromBuffer(
+                                    device_grid_complex_id_arrays[next_buffer_index],
+                                    vul::PipelineStageFlagBits2::TransferBit,
+                                    vul::AccessFlagBits2::MemoryWriteBit,
+                                    vul::PipelineStageFlagBits2::TopOfPipeBit,
+                                    vul::AccessFlagBits2::MemoryReadBit,
+                                    presentationQueue.getQueueFamilyIndex(),
+                                    transferQueue.getQueueFamilyIndex()
+                            ));
+                        }
+                        grid_updated[next_buffer_index] = false;
                         auto transferGraphicsDepInfo = vul::DependencyInfo({}, transferToGraphicsBarriers, {});
-                    auto transferGraphicsDepInfo = vul::DependencyInfo({transferToGraphicsBarrier}, {}, {});
+                        commandBuffer.pipelineBarrier(transferGraphicsDepInfo);
+                    }
                 }
-
-
-//
-//                    VkMemoryBarrier2KHR memoryBarrier = {
-//                            ...
-//                            .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT_KHR,
-//                            .srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT_KHR,
-//                            .dstStageMask = VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT_KHR,
-//                            .dstAccessMask = VK_ACCESS_2_MEMORY_READ_BIT_KHR};
-//
-//                    VkDependencyInfoKHR dependencyInfo = {
-//                            ...
-//                            1,                 // memoryBarrierCount
-//                            &memoryBarrier,    // pMemoryBarriers
-//                            ...
-//                    }
-//
-//                    vkCmdPipelineBarrier2KHR(commandBuffer, &dependencyInfo);
-
-                auto transferToGraphicsBarrier = {vul::MemoryBarrier{
-                        nullptr,
-                        vul::PipelineStageFlagBits2::TransferBit,
-                        vul::AccessFlagBits2::MemoryWriteBit,
-                        vul::PipelineStageFlagBits2::VertexShaderBit,
-                        vul::AccessFlagBits2::MemoryReadBit,
-                }};
-                auto transferGraphicsDepInfo = vul::DependencyInfo({transferToGraphicsBarrier}, {}, {});
-
-
-                commandBuffer.pipelineBarrier(transferGraphicsDepInfo);
                 auto extent = swapchain.getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent).get());
                 commandBuffer.setScissor(vul::Rect2D(extent).get());
@@ -1032,10 +1113,55 @@ int main() {
                 auto renderPassToRenderPassBarriers = {
                         vul::ImageMemoryBarrier::depthStencilAttachmentReuse(depthImages[swapchainImageIndex]),
                         vul::ImageMemoryBarrier::colorAttachmentReuse(swapchain.getImages()[swapchainImageIndex],
-                                                                      vul::ImageSubresourceRange(vul::getImageAspect(swapchain.getFormat())))
+                                                                      vul::ImageSubresourceRange(vul::getImageAspect(
+                                                                              swapchain.getFormat())))
                 };
                 auto renderPassToRenderPassDepInfo = vul::DependencyInfo({}, {}, renderPassToRenderPassBarriers);
-                commandBuffer.pipelineBarrier(transferGraphicsDepInfo);
+                commandBuffer.pipelineBarrier(renderPassToRenderPassDepInfo);
+
+                {
+                    auto renderPassBlock = commandBuffer.beginRenderPass(
+                            nextColorPass,
+                            swapchainFramebuffers[swapchainImageIndex],
+                            VkRect2D{{0, 0}, extent},
+                            {});
+                    commandBuffer.bindPipeline(renderGridSprites2dPipeline);
+                    //TODO don't actually need to rebind descriptor sets.
+                    commandBuffer.bindDescriptorSets(
+                            vul::PipelineBindPoint::Graphics, renderGridSprites2dPipelineLayout,
+                            descriptorSets[swapchainImageIndex]);
+                    auto current_swapchain_resource_index = last_upload_buffer_sent_idx;
+                    auto affine_mat = glm::identity<glm::mat3x3>();
+
+                    glm::vec2 element_size(
+                            window_width / static_cast<float>(break_out_grid_width) * 1.0f,
+                            (window_height / 2 ) / static_cast<float>(break_out_grid_height) * 1.0f
+                            );
+
+                    glm::vec2 breakout_grid_dim(static_cast<float>(break_out_grid_width),
+                                                static_cast<float>(break_out_grid_height));
+
+                    affine_mat = glm::translate(affine_mat, glm::vec2(-static_cast<float>(window_width)/2.0,
+                                                                      -static_cast<float>(window_height)/2.0));
+                    affine_mat = glm::scale(affine_mat, element_size);
+//                    affine_mat[1][1] *= -1;
+                    RenderGridSpritesPushConstantBlock pushConstant = {
+                            device_grid_complex_id_arrays[current_swapchain_resource_index].getDeviceAddress(),
+                            static_cast<std::uint32_t>(break_out_grid_width),
+                            static_cast<std::uint32_t>(break_out_grid_height),
+                            glm::mat3x2(affine_mat)
+                    };
+
+
+                    commandBuffer.pushConstants(renderGridSprites2dPipelineLayout,
+                                                vul::ShaderStageFlagBits::VertexBit |
+                                                vul::ShaderStageFlagBits::FragmentBit,
+                                                pushConstant);
+                    auto vertex_count = break_out_grid_size * 6;
+                    renderPassBlock.draw(vertex_count);
+                }
+                //re-use old dep info.
+                commandBuffer.pipelineBarrier(renderPassToRenderPassDepInfo);
                 {
                     auto renderPassBlock = commandBuffer.beginRenderPass(
                             presentationRenderPass,
@@ -1049,19 +1175,18 @@ int main() {
                     std::uint32_t box_vertex_count = 36;
                     std::uint32_t vertex_split_pass_count = 5;
 
-                    auto current_swapchain_resource_index = static_cast<std::uint32_t>(
-                            frame_counter %
-                            swapchainSize);
+                    auto current_swapchain_resource_index =last_upload_buffer_sent_idx;
                     RenderSprites2dPushConstantBlock pushConstant = {
                             device_affine_matrices_arrays[current_swapchain_resource_index].getDeviceAddress(),
                             device_material_id_arrays[current_swapchain_resource_index].getDeviceAddress(),
                     };
 
+
                     commandBuffer.pushConstants(renderSprites2dPipelineLayout,
                                                 vul::ShaderStageFlagBits::VertexBit |
                                                 vul::ShaderStageFlagBits::FragmentBit,
                                                 pushConstant);
-                    auto vertex_count = 12;
+                    auto vertex_count = 6 * edited_size;
                     renderPassBlock.draw(vertex_count);
                 }
             }
@@ -1071,18 +1196,29 @@ int main() {
 
 
         frameCounters[currentFrameIndex] += 1;
-        auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit);
-        std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
-        signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
+        std::vector<VkSemaphoreSubmitInfoKHR> waitInfos;
+//        std::array<VkSemaphoreSubmitInfoKHR, 2> waitInfos;
+        waitInfos.push_back(presentationFinishedSemaphore.createSubmitInfo(
+                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit));
+        if(havent_ownership_transfered_yet) {
+            waitInfos.push_back(uploadFinishedSemaphore.createSubmitInfo(
+                    current_upload_counter_value + 1,
+                    vul::PipelineStageFlagBits2::AllCommandsBit));
+        }
+
+        std::vector<VkSemaphoreSubmitInfoKHR>signalInfos;
+        signalInfos.push_back(renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
                 frameCounters[currentFrameIndex],
-                vul::PipelineStageFlagBits2::AllCommandsBit);
-        signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2::AllCommandsBit);
-
-
+                vul::PipelineStageFlagBits2::AllCommandsBit));
+        signalInfos.push_back(binaryRenderFinishedSemaphore.createSubmitInfo(
+                vul::PipelineStageFlagBits2::AllCommandsBit));
+        if(not_using_latest_uploaded_buffer) {
+            signalInfos.push_back(framesUsingSemaphore.createSubmitInfo(
+                    frames_using_uploaded_buffer_counter,
+                    vul::PipelineStageFlagBits2::AllCommandsBit));
+        }
         presentationQueue.submit(vul::SubmitInfoBuilder()
-                                         .waitSemaphoreInfos(presentationWaitInfo)
+                                         .waitSemaphoreInfos(waitInfos)
                                          .commandBufferInfos(commandBuffer.createSubmitInfo())
                                          .signalSemaphoreInfos(signalInfos)
                                          .create());

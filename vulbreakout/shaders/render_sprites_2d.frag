@@ -39,5 +39,9 @@ layout (location = 1) flat in uint material_id;
 layout(location = 0) out vec4 out_color;
 
 void main() {
-    out_color = texture(sampler2D(u_materials[material_id], u_sampler), texcoord);
+    vec4 color = texture(sampler2D(u_materials[material_id], u_sampler), texcoord);
+    if(color.a < 0.5){
+        discard;
+    }
+    out_color = color;
 }
