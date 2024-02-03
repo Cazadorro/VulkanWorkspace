@@ -31,7 +31,6 @@ StylusUpdate mix(const in StylusUpdate v0, const in StylusUpdate v1, float t){
     return result;
 }
 
-
 StylusUpdate get_interpolated_stylus_update(uint stylus_update_count, const in StylusUpdate_ref stylus_updates, uint tip_index, float spacing){
     if(stylus_update_count == 1){
         return stylus_updates.data[0];

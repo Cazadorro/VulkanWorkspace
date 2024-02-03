@@ -85,7 +85,8 @@ void main() {
                                                                 spacing);
 
     //create a bounding box in ceiled bounding box space around the current stylus position using diameter.
-    TileBbox bbox = create_bbox(u_brushes.data[u_brush_id], vec2(stylus_update.x, stylus_update.y), TILE_DATA_WIDTH, u_canvas_size);
+    TileBbox bbox = create_bbox(u_brushes.data[u_brush_id], vec2(stylus_update.x, stylus_update.y), TILE_DATA_WIDTH,
+                                u_canvas_size, stylus_update.normal_pressure);
 
      uvec2 tile_size = ceil(u_canvas_size, TILE_DATA_WIDTH);
 

@@ -30,7 +30,7 @@
 #include "brush_utils.glsl"
 #include "stylus_utils.glsl"
 #include "tile_utils.glsl"
-
+#include "bitutils.glsl"
 
 #define WORKGROUP_SIZE 1024
 layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
@@ -99,45 +99,95 @@ layout(push_constant) uniform PushConstantBlock {
 // this means tile list also needs to be added (32 x 4 = 128 bytes).
 // will also want to load brush in?
 
-const uint SHARED_BRUSH_TIP_LOAD_SIZE = 128;
+const uint CACHED_BRUSH_TIP_LOAD_SIZE = 64;
+//TODO have stylus distance be a different metric?
+//TODO have all stylus attributes be SOA-ized?
+
+// 16 * 4 = 64 * sizeof(StylusUpdate) (64) = 4096 bytes;
+shared StylusUpdate shared_stylus_updates[CACHED_BRUSH_TIP_LOAD_SIZE];
+
+uint find_shared_stylus_update_start_interpolation_index(uint stylus_update_count,  uint tip_index, float spacing){
+    if(stylus_update_count == 1u){
+        return 0u;
+    }
+    int end_interp_idx = 0;
+    int start_interp_idx = 1;
+    float tip_distance = tip_index * spacing;
+    if(stylus_update_count > 2u){
+        //binary search for stylus update with distance <= tip_distance.
+        int low_idx = 0;
+        int high_idx = int(stylus_update_count);
+        while (low_idx < high_idx){
+            //https://zhu45.org/posts/2018/Jan/12/how-to-write-binary-search-correctly/
+            //http://coldattic.info/post/95/
+            //https://stackoverflow.com/questions/504335/what-are-the-pitfalls-in-implementing-binary-search
+            int mid_idx = low_idx + (high_idx - low_idx) / 2;
+            //note it should be impossible for distance to be less than 0, and our tip distance should never be less than zero. \
+            // int should save us from accidental underflow.
+            if (shared_stylus_updates[mid_idx].distance <= tip_distance) {
+                low_idx = mid_idx + 1;
+            } else { // stylus_updates.data[mid_idx].distance > tip_distance
+                high_idx = mid_idx;
+            }
+        }
+        //high should never be 0.
+        end_interp_idx = high;
+        start_interp_idx = high - 1;
+    }
+    return start_interp_idx;
+}
+
+//TileBbox create_bbox(const in BrushSettings brush, vec2 pos, uint tile_dim_px, uvec2 image_size, float stylus_radius_modifier)
+TileBbox create_interp_bbox(const in BrushSettings brush, uvec2 image_size, uint stylus_interp_idx, uint tip_index, float spacing){
+    float tip_distance = tip_index * spacing;
+    float start_stylus_distance = shared_stylus_updates[stylus_interp_idx].distance;
+    float interpolant = tip_distance - start_stylus_distance;
+    //only extracting data relevant to bbox creation.
+    float normal_pressure = mix(shared_stylus_updates[stylus_interp_idx].normal_pressure, shared_stylus_updates[end_interp_idx].normal_pressure, interpolant);
+    float stylus_x = mix(shared_stylus_updates[stylus_interp_idx].x, shared_stylus_updates[stylus_interp_idx + 1].x, interpolant);
+    float stylus_y = mix(shared_stylus_updates[stylus_interp_idx].y, shared_stylus_updates[stylus_interp_idx + 1].y, interpolant);
+    vec2 stylus_pos = vec2(stylus_x,stylus_y);
+    return create_bbox(brush, stylus_pos, TILE_DATA_WIDTH,  image_size, normal_pressure);
+}
+
+vec2 shared_stylus_interp_pos(uint stylus_interp_idx, float interpolant){
+    float stylus_x = mix(shared_stylus_updates[stylus_interp_idx].x, shared_stylus_updates[stylus_interp_idx + 1].x, interpolant);
+    float stylus_y = mix(shared_stylus_updates[stylus_interp_idx].y, shared_stylus_updates[stylus_interp_idx + 1].y, interpolant);
+    return vec2(stylus_x,stylus_y);
+}
+
+float shared_stylus_interp_normal_pressure(uint stylus_interp_idx, float interpolant){
+   return mix(shared_stylus_updates[stylus_interp_idx].normal_pressure, shared_stylus_updates[stylus_interp_idx + 1].normal_pressure, interpolant);
+}
+
+vec2 shared_stylus_interp_tilt(uint stylus_interp_idx, float interpolant){
+    float stylus_x = mix(shared_stylus_updates[stylus_interp_idx].x_tilt, shared_stylus_updates[stylus_interp_idx + 1].x_tilt, interpolant);
+    float stylus_y = mix(shared_stylus_updates[stylus_interp_idx].y_tilt, shared_stylus_updates[stylus_interp_idx + 1].y_tilt, interpolant);
+    return vec2(stylus_x,stylus_y);
+}
+
+const uint TIP_INDEX_OUT_OF_BOUNDS = 0xFFFFFFFF;
+
 void main() {
 
     shared BrushSettings shared_brush;
-    shared StylusUpdate shared_stylus_updates[SHARED_BRUSH_TIP_LOAD_SIZE]; // 16 * 4 = 64 * 128 = 8192 bytes;
-    shared TileBbox shared_brush_tile_bboxes[SHARED_BRUSH_TIP_LOAD_SIZE]; // 4 * 128 = 512 bytes;
-    shared uint shared_bbox_inside_tile_flags[SHARED_BRUSH_TIP_LOAD_SIZE];
     shared uint shared_warp_tile_idxs[32];
+
+
     uint updated_tile_count = u_counter_data.data[0].updated_tile_count;
     uint global_subgroup_idx = gl_WorkGroupID * gl_NumSubgroups + gl_SubgroupID;
-    bool tile_out_of_bounds = global_subgroup_idx < updated_tile_count;
+    bool subgroup_tile_in_bounds = global_subgroup_idx < updated_tile_count;
     uint thread_idx = gl_GlobalInvocationIndex;
     uvec2 tile_size = ceil(u_canvas_size, TILE_DATA_WIDTH);
 
     if(gl_LocalInvocationIndex == 0u){
         shared_brush = u_brushes.data[u_brush_id];
     }
-    //if the second subgroup.
-    if(gl_SubgroupID == 1u){
-        uint warp_tile_idx = (gl_WorkGroupID * gl_NumSubgroups) + gl_SubgroupInvocationID;
-        //TODO assuming size 32 warp. if outside number of tiles updated, don't set.
-        if(warp_tile_idx < updated_tile_count){
-            shared_warp_tile_idxs[gl_SubgroupInvocationID] = u_updated_tile_index_list.data[(gl_WorkGroupID * gl_NumSubgroups) + gl_SubgroupInvocationID];
-        }else{
-            shared_warp_tile_idxs[gl_SubgroupInvocationID] = TILE_INVALID;
-        }
-    }
-    if(gl_SubgroupID >= 2u){
+    if(gl_SubgroupID >= 1u){
         uint temp_subgroup_id = ((gl_SubgroupID - 2) * gl_SubgroupSize) + gl_SubgroupInvocationID;
-        for(uint i = temp_subgroup_id; i < SHARED_BRUSH_TIP_LOAD_SIZE && i < u_brush_tip_count; i += gl_SubgroupSize){
+        for(uint i = temp_subgroup_id; i < min(CACHED_BRUSH_TIP_LOAD_SIZE, u_stylus_update_count); i += gl_SubgroupSize){
             uint tip_index = i;
-            shared_stylus_updates[i] = get_interpolated_stylus_update(u_stylus_update_count,
-                                                                      u_stylus_updates,
-                                                                      tip_index,
-                                                                      shared_brush.spacing);
-            shared_brush_tile_bboxes[i] = create_bbox(u_brushes.data[u_brush_id],
-                                                      vec2(shared_stylus_updates[i].x,
-                                                           shared_stylus_updates[i].y),
-                                                      TILE_DATA_WIDTH, u_canvas_size);
+            shared_stylus_updates[i] = u_stylus_updates[i];
         }
     }
     memoryBarrier(gl_ScopeWorkgroup, gl_StorageSemanticsShared, gl_SemanticsAcquireRelease);
@@ -145,13 +195,13 @@ void main() {
     uint brush_tips_left = u_brush_tip_count;
 
     // should do a broadcast load per warp. each warp handles a single tile, so only one tile id per warp.
-
-    uint tile_and_bit_idx = (global_subgroup_idx < updated_tile_count) ? shared_warp_tile_idxs[gl_SubgroupID] : TILE_INVALID;
+    uint tile_and_bit_idx = (subgroup_tile_in_bounds) ? u_updated_tile_index_list.data[global_subgroup_idx] : TILE_INVALID;
     uint tile_idx = tile_and_bit_idx & ~TILE_IDX_NEW_BIT;
     bool is_new_tile = ((tile_and_bit_idx & TILE_IDX_NEW_BIT) == TILE_IDX_NEW_BIT);
     bool was_new_tile = is_new_tile;
     uint tile_x = tile_idx / tile_size.x;
     uint tile_y = tile_idx % tile_size.x;
+    float brush_tip_spacing = shared_brush.spacing;
     bool column_empty = true;
     //TODO need to load into pointer the actual tile location
     TileArena_ref tile_reference = TileArena_ref(0);
@@ -163,8 +213,8 @@ void main() {
         //Note will still need to use .data[0]
         tile_reference = tile_arena_reference[arena_tile_index];
     }
-    while(brush_tips_left != 0){
 
+    for(uint brush_tip_grouping = 0; brush_tip_grouping < ceil(u_brush_tip_count, gl_SubgroupSize); ++brush_tip_grouping){
         subgroupBarrier();
         //each subgroup checks for all subgroups.
 
@@ -192,64 +242,150 @@ void main() {
         }
         //TODO will need to check if at edge of canvas and slice off?
         if(tile_and_bit_idx != TILE_INVALID){
-            //TODO fix this, should probably find a better way to ensure always checked.
-            // resetting because value is always loaded back for column,
-            // resetting gaurantees at end we *actually* know if empty.
-            column_empty = true;
 
-            uint subgroup_intersect_check_mask = 1u << gl_SubgroupID;
-            //either we continually write to global memory every invocation, or we load a line at a time,
-            // iterate through all the stylus tips currently queued to check, and apply their data.
-            for(uint tile_row_idx = 0; tile_row_idx < TILE_DATA_HEIGHT; ++i){
-                uint tile_col_idx = gl_SubgroupInvocationID;
+            uint brush_tip_index = brush_tip_grouping * gl_SubgroupSize + gl_SubgroupInvocationID;
+            uint stylus_interp_idx = (subgroup_brush_tip_idx < u_brush_tip_count) ?
+                            find_shared_stylus_update_start_interpolation_index(
+                                u_stylus_update_count,
+                                subgroup_brush_tip_idx,
+                                brush_tip_spacing) : TIP_INDEX_OUT_OF_BOUNDS;
+            bool brush_tip_bbox_intersects_tile = false;
+            if(stylus_interp_start_idx != TIP_INDEX_OUT_OF_BOUNDS){
+                TileBbox bbox = create_interp_bbox(shared_brush, u_canvas_size, stylus_interp_idx, brush_tip_index, brush_tip_spacing);
+                brush_tip_bbox_intersects_tile = !(iter_tile_and_bit_idx == TILE_INVALID) && (iter_tile_x >= bbox.left_x) && (iter_tile_x <= bbox.right_x)
+                && (iter_tile_y >= bbox.top_y) && (iter_tile_y <= bbox.bot_y);
+            }
+            subgroupBarrier();
+            uint subgroup_box_intersect_flags =  subgroupBallot(bbox_intersects_tile).x;
 
 
-                u8vec4 uint_color_data = is_new_tile ? u8vec4(0u) : tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx];
-                //converting https://www.khronos.org/opengl/wiki/Normalized_Integer
-                vec4 float_color_data = vec4(uint_color_data.r,uint_color_data.g,uint_color_data.b,uint_color_data.a) / 255.0f;
-                for (uint shared_brush_tip_idx = 0; shared_brush_tip_idx < min(SHARED_BRUSH_TIP_LOAD_SIZE, brush_tips_left); ++shared_brush_tip_idx){
-                    // if the bounding box intersected.
-                    if ((subgroup_intersect_check_mask & shared_bbox_inside_tile_flags[shared_brush_tip_idx]) != 0u){
 
-                        if(shared_brush.shape == BRUSH_SHAPE_CIRCLE){
 
-                            //TODO handle mutli sampling
-                            if(shared_brush.fade_type == BRUSH_FADE_LINEAR){
-                                vec2 brush_tip_pos = vec2(shared_stylus_updates[shared_brush_tip_idx].x,
-                                                          shared_stylus_updates[shared_brush_tip_idx].y);
-                                vec2 pixel_center_pos = vec2(tile_x * TILE_DATA_WIDTH + tile_col_idx, tile_y * TILE_DATA_HEIGHT + tile_row_idx) + vec2(0.5);
+            while(subgroup_box_intersect_flags != 0u){
+                //broadcast the first box which we actually intersect with.
+                uint broadcast_invocation_id =  findLSB(subgroup_box_intersect_flags);
+                //no longer need to process this, so remove it from next iteration.
+                subgroup_box_intersect_flags = clear_bit(subgroup_box_intersect_flags, broadcast_invocation_id);
+                //no need to litterally broadcast this value, can derive it locallly.
+                uint broadcast_tip_index = brush_tip_grouping * gl_SubgroupSize + broadcast_invocation_id;
+                //the base interpolation index.
+                uint broadcast_interp_idx = subgroupBroadcast(stylus_interp_idx, broadcast_invocation_id);
 
-                                float pixel_distance = distance(brush_tip_pos, pixel_center_pos);
+                float broadcast_tip_distance = broadcast_tip_index * spacing;
+                float broadcast_interpolation_distance = broadcast_tip_distance - shared_stylus_updates[broadcast_interp_idx].distance;
 
-                                //TODO handle non linked fade
-                                float fade = shared_brush.fade_parameter.x;
+                //TODO fix this, should probably find a better way to ensure always checked.
+                // resetting because value is always loaded back for column,
+                // resetting gaurantees at end we *actually* know if empty.
+                column_empty = true;
+                //TODO either have to continually load and store from global, or, load through each shared brush tip in groups of 32 for each row
+                // TODO maybe better to brush tip interpolate and fetch shared many times?  Should be a broadcast load, since all should
+                // TODO be getting the same values at the same time.
+                for (uint tile_row_idx = 0; tile_row_idx < TILE_DATA_HEIGHT; ++i){
+                    uint tile_col_idx = gl_SubgroupInvocationID;
+                    //if we were flagged as creating a new tile from previous kernels, set value to zero initially.
+                    vec4 uint_color_data = is_new_tile ? u8vec4(0u) : tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx];
+                    //converting from normalized uint according to OpenGL spec https://www.khronos.org/opengl/wiki/Normalized_Integer
+                    vec4 float_color_data = vec4(uint_color_data.r, uint_color_data.g, uint_color_data.b, uint_color_data.a) / 255.0f;
 
-                                float radius = shared_brush.diameter / 2.0f;
 
-                                radius *= shared_stylus_updates[shared_brush_tip_idx].normal_pressure;
 
-                                float normalized_distance = pixel_distance / radius;
+                    //TODO handle different parameters differently.
+                    if (shared_brush.shape == BRUSH_SHAPE_CIRCLE){
 
-                                float alpha_adjustment = (normalized_distance - fade);
+                        //TODO handle mutli sampling
+                        if (shared_brush.fade_type == BRUSH_FADE_LINEAR){
+                            vec2 brush_tip_pos = vec2(shared_stylus_updates[shared_brush_tip_idx].x,
+                            shared_stylus_updates[shared_brush_tip_idx].y);
+                            vec2 pixel_center_pos = vec2(tile_x * TILE_DATA_WIDTH + tile_col_idx, tile_y * TILE_DATA_HEIGHT + tile_row_idx) + vec2(0.5);
 
-                                vec4 adjusted_color = clamp(u_brush_color, 0.0, 1.0);
-                                adjusted_color.a *= alpha_adjustment;
-                                float_color_data.rgb = (float_color_data.rgb + (1.0 - adjusted_color.a)) + adjusted_color.rgb * adjusted_color.a;
-                                float_color_data.a += adjusted_color.a;
+                            float pixel_distance = distance(brush_tip_pos, pixel_center_pos);
 
-                            }
+                            //TODO handle non linked fade
+                            float fade = shared_brush.fade_parameter.x;
+
+                            float radius = shared_brush.diameter / 2.0f;
+
+                            radius *= shared_stylus_updates[shared_brush_tip_idx].normal_pressure;
+
+                            float normalized_distance = pixel_distance / radius;
+
+                            float alpha_adjustment = (normalized_distance - fade);
+
+                            vec4 adjusted_color = clamp(u_brush_color, 0.0, 1.0);
+                            adjusted_color.a *= alpha_adjustment;
+                            float_color_data.rgb = (float_color_data.rgb + (1.0 - adjusted_color.a)) + adjusted_color.rgb * adjusted_color.a;
+                            float_color_data.a += adjusted_color.a;
 
                         }
 
                     }
+
+
                 }
-                if(color_data.a != 0u){
-                    column_empty = false;
+
+
+                //TODO comeback to this, this is where we figure out which value to look at. remove last, keep going. until no bboxes to process.
+
+                //TODO fix this, should probably find a better way to ensure always checked.
+                // resetting because value is always loaded back for column,
+                // resetting gaurantees at end we *actually* know if empty.
+                column_empty = true;
+
+                uint subgroup_intersect_check_mask = 1u << gl_SubgroupID;
+                //either we continually write to global memory every invocation, or we load a line at a time,
+                // iterate through all the stylus tips currently queued to check, and apply their data.
+                for (uint tile_row_idx = 0; tile_row_idx < TILE_DATA_HEIGHT; ++i){
+                    uint tile_col_idx = gl_SubgroupInvocationID;
+
+
+                    u8vec4 uint_color_data = is_new_tile ? u8vec4(0u) : tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx];
+                    //converting https://www.khronos.org/opengl/wiki/Normalized_Integer
+                    vec4 float_color_data = vec4(uint_color_data.r, uint_color_data.g, uint_color_data.b, uint_color_data.a) / 255.0f;
+                    for (uint shared_brush_tip_idx = 0; shared_brush_tip_idx < min(SHARED_BRUSH_TIP_LOAD_SIZE, brush_tips_left); ++shared_brush_tip_idx){
+                        // if the bounding box intersected.
+                        if ((subgroup_intersect_check_mask & shared_bbox_inside_tile_flags[shared_brush_tip_idx]) != 0u){
+
+                            if (shared_brush.shape == BRUSH_SHAPE_CIRCLE){
+
+                                //TODO handle mutli sampling
+                                if (shared_brush.fade_type == BRUSH_FADE_LINEAR){
+                                    vec2 brush_tip_pos = vec2(shared_stylus_updates[shared_brush_tip_idx].x,
+                                    shared_stylus_updates[shared_brush_tip_idx].y);
+                                    vec2 pixel_center_pos = vec2(tile_x * TILE_DATA_WIDTH + tile_col_idx, tile_y * TILE_DATA_HEIGHT + tile_row_idx) + vec2(0.5);
+
+                                    float pixel_distance = distance(brush_tip_pos, pixel_center_pos);
+
+                                    //TODO handle non linked fade
+                                    float fade = shared_brush.fade_parameter.x;
+
+                                    float radius = shared_brush.diameter / 2.0f;
+
+                                    radius *= shared_stylus_updates[shared_brush_tip_idx].normal_pressure;
+
+                                    float normalized_distance = pixel_distance / radius;
+
+                                    float alpha_adjustment = (normalized_distance - fade);
+
+                                    vec4 adjusted_color = clamp(u_brush_color, 0.0, 1.0);
+                                    adjusted_color.a *= alpha_adjustment;
+                                    float_color_data.rgb = (float_color_data.rgb + (1.0 - adjusted_color.a)) + adjusted_color.rgb * adjusted_color.a;
+                                    float_color_data.a += adjusted_color.a;
+
+                                }
+
+                            }
+
+                        }
+                    }
+                    if (color_data.a != 0u){
+                        column_empty = false;
+                    }
+                    float_color_data *= 255.0f;
+                    float_color_data = clamp(float_color_data, 0.0f, 255.0f);
+                    uint_color_data = u8vec4(float_color_data.r, float_color_data.g, float_color_data.b, float_color_data.a);
+                    tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx] = uint_color_data;
                 }
-                float_color_data *= 255.0f;
-                float_color_data = clamp(float_color_data, 0.0f, 255.0f);
-                uint_color_data = u8vec4(float_color_data.r,float_color_data.g,float_color_data.b,float_color_data.a);
-                tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx] = uint_color_data;
             }
         }
         is_new_tile = false;

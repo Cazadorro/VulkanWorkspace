@@ -93,9 +93,11 @@ uvec2 ceil(uvec2 numerator, uvec2 denominator){
 }
 
 
-TileBbox create_bbox(const in BrushSettings brush, vec2 pos, uint tile_dim_px, uvec2 image_size){
+TileBbox create_bbox(const in BrushSettings brush, vec2 pos, uint tile_dim_px, uvec2 image_size, float stylus_radius_modifier){
     //TODO assuming image size can fit into float, implicitly defining size to be within 2^23.
     float radius = diameter / 2.0;
+
+    radius *= stylus_radius_modifier;
 
     TileBbox bbox;
     float left_x = clamp(pos.x - radius, 0.0, float(image_size.x));
