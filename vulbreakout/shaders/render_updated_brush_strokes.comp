@@ -1,0 +1,303 @@
+#version 460
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+#extension GL_KHR_shader_subgroup_shuffle: enable
+#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+#extension GL_KHR_shader_subgroup_clustered: enable
+#extension GL_KHR_shader_subgroup_quad: enable
+#extension GL_KHR_memory_scope_semantics : enable
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+#extension GL_KHR_memory_scope_semantics : enable
+#pragma use_vulkan_memory_model
+
+#include "brush_utils.glsl"
+#include "stylus_utils.glsl"
+#include "tile_utils.glsl"
+
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+
+
+//TODO don't know the consequences of doing something like this?
+//layout(buffer_reference, buffer_reference_align=4*32*32, scalar) buffer ColorData_ref {
+//    u8vec8 color_data[32*32];
+//};
+
+
+
+layout(set = 0, binding = 0) uniform UniformCanvasSettingsBlock{
+    uvec2 u_image_size;
+};
+
+
+
+//layout(push_constant) uniform PushConstantBlock {
+//    StylusUpdate_ref u_stylus_updates;  // structure of arrays of all the previous transforms.
+//    TileArenaPointerList_ref u_tile_arena_pointers;
+//    BrushSettings_ref u_brushes;
+//    TileMap_ref u_tiles;
+//    CounterData_ref u_counter_data;
+//    TileIndex_ref u_updated_tile_index_list;
+//    TileHasValueBitArrayList_ref u_tile_arena_has_value_bitarrays;
+////48 bytes
+//    vec4 u_brush_color;
+////64 bytes,
+//    uint u_brush_id;
+//    uint u_stylus_update_count;
+//    uint u_brush_tip_count; //how many times brush actually hit; maybe not need though, could calculate this our selves?
+//    uint pc_padding;
+////80 bytes.
+//};
+
+layout(push_constant) uniform PushConstantBlock {
+    StylusUpdate_ref u_stylus_updates;  // structure of arrays of all the previous transforms.
+    TileMemoryData_ref u_tile_memory;
+    BrushSettings_ref u_brushes;
+    TileMap_ref u_tiles;
+    CounterData_ref u_counter_data;
+    TileIndex_ref u_updated_tile_index_list;
+//48 bytes
+    vec4 u_brush_color;
+//64 bytes,
+    uint u_brush_id;
+    uint u_stylus_update_count;
+    uint u_brush_tip_count; //how many times brush actually hit; maybe not need though, could calculate this our selves?
+    uint pc_padding;
+//80 bytes.
+//    vec2 brush_start_pos; //initial starting position for where
+//maybe not necssary, could instead take another "faked" brush update from the previous brush
+//  and put it into stylus update queue.
+};
+
+
+// 64 bytes per stylus update, pre-load stylus updates, as they all need to be checked anyway
+// load into shared, load 128 at a time (some warps will have to wait) 8k memory? Or maybe even modify it
+//(since every value is a float) based on how many of the properties are even used by the brush?
+//Check if values even cover area?
+// 128 (8k) of actual stylus updates
+// 128 (512) of bboxes?
+// prechecks for each warp if bboxes even intersect warp area (32 warps, can use entire set of warps to check per warp, 32 x 128 instances of work)
+// this means tile list also needs to be added (32 x 4 = 128 bytes).
+// will also want to load brush in?
+
+const uint SHARED_BRUSH_TIP_LOAD_SIZE = 128;
+void main() {
+
+    shared BrushSettings shared_brush;
+    shared StylusUpdate shared_stylus_updates[SHARED_BRUSH_TIP_LOAD_SIZE]; // 16 * 4 = 64 * 128 = 8192 bytes;
+    shared TileBbox shared_brush_tile_bboxes[SHARED_BRUSH_TIP_LOAD_SIZE]; // 4 * 128 = 512 bytes;
+    shared uint shared_bbox_inside_tile_flags[SHARED_BRUSH_TIP_LOAD_SIZE];
+    shared uint shared_warp_tile_idxs[32];
+    uint updated_tile_count = u_counter_data.data[0].updated_tile_count;
+    uint global_subgroup_idx = gl_WorkGroupID * gl_NumSubgroups + gl_SubgroupID;
+    bool tile_out_of_bounds = global_subgroup_idx < updated_tile_count;
+    uint thread_idx = gl_GlobalInvocationIndex;
+    uvec2 tile_size = ceil(u_canvas_size, TILE_DATA_WIDTH);
+
+    if(gl_LocalInvocationIndex == 0u){
+        shared_brush = u_brushes.data[u_brush_id];
+    }
+    //if the second subgroup.
+    if(gl_SubgroupID == 1u){
+        uint warp_tile_idx = (gl_WorkGroupID * gl_NumSubgroups) + gl_SubgroupInvocationID;
+        //TODO assuming size 32 warp. if outside number of tiles updated, don't set.
+        if(warp_tile_idx < updated_tile_count){
+            shared_warp_tile_idxs[gl_SubgroupInvocationID] = u_updated_tile_index_list.data[(gl_WorkGroupID * gl_NumSubgroups) + gl_SubgroupInvocationID];
+        }else{
+            shared_warp_tile_idxs[gl_SubgroupInvocationID] = TILE_INVALID;
+        }
+    }
+    if(gl_SubgroupID >= 2u){
+        uint temp_subgroup_id = ((gl_SubgroupID - 2) * gl_SubgroupSize) + gl_SubgroupInvocationID;
+        for(uint i = temp_subgroup_id; i < SHARED_BRUSH_TIP_LOAD_SIZE && i < u_brush_tip_count; i += gl_SubgroupSize){
+            uint tip_index = i;
+            shared_stylus_updates[i] = get_interpolated_stylus_update(u_stylus_update_count,
+                                                                      u_stylus_updates,
+                                                                      tip_index,
+                                                                      shared_brush.spacing);
+            shared_brush_tile_bboxes[i] = create_bbox(u_brushes.data[u_brush_id],
+                                                      vec2(shared_stylus_updates[i].x,
+                                                           shared_stylus_updates[i].y),
+                                                      TILE_DATA_WIDTH, u_canvas_size);
+        }
+    }
+    memoryBarrier(gl_ScopeWorkgroup, gl_StorageSemanticsShared, gl_SemanticsAcquireRelease);
+
+    uint brush_tips_left = u_brush_tip_count;
+
+    // should do a broadcast load per warp. each warp handles a single tile, so only one tile id per warp.
+
+    uint tile_and_bit_idx = (global_subgroup_idx < updated_tile_count) ? shared_warp_tile_idxs[gl_SubgroupID] : TILE_INVALID;
+    uint tile_idx = tile_and_bit_idx & ~TILE_IDX_NEW_BIT;
+    bool is_new_tile = ((tile_and_bit_idx & TILE_IDX_NEW_BIT) == TILE_IDX_NEW_BIT);
+    bool was_new_tile = is_new_tile;
+    uint tile_x = tile_idx / tile_size.x;
+    uint tile_y = tile_idx % tile_size.x;
+    bool column_empty = true;
+    //TODO need to load into pointer the actual tile location
+    TileArena_ref tile_reference = TileArena_ref(0);
+    if(tile_and_bit_idx != TILE_INVALID){
+        uint tile_arena_handle = u_tiles.data[tile_idx];
+        uint arena_index = TILE_ARENA_BITS & tile_arena_handle >> 16;
+        uint arena_tile_index = tile_arena_handle & ARENA_TILE_BITS;
+        TileArena_ref tile_arena_reference = u_tile_memory.data[0].area_pointers.data[arena_index];
+        //Note will still need to use .data[0]
+        tile_reference = tile_arena_reference[arena_tile_index];
+    }
+    while(brush_tips_left != 0){
+
+        subgroupBarrier();
+        //each subgroup checks for all subgroups.
+
+        for (uint i = gl_SubgroupID; i < min(SHARED_BRUSH_TIP_LOAD_SIZE, brush_tips_left); i += gl_SubgroupSize){
+            TileBbox bbox = shared_brush_tile_bboxes[i];
+            uint bbox_x = i % calc_width(bbox);
+            uint bbox_y = i / calc_width(bbox);
+
+            //TODO assuming subgroup size 32.
+            uint iter_tile_and_bit_idx = shared_warp_tile_idxs[gl_SubgroupInvocationID];
+            uint iter_tile_idx = tile_and_bit_idx & ~TILE_IDX_NEW_BIT;
+            uint iter_tile_x = iter_tile_idx / tile_size.x;
+            uint iter_tile_y = iter_tile_idx % tile_size.x;
+
+            bool bbox_intersects_tile = !(iter_tile_and_bit_idx == TILE_INVALID) && (iter_tile_x >= bbox.left_x) && (iter_tile_x <= bbox.right_x)
+            && (iter_tile_y >= bbox.top_y) && (iter_tile_y <= bbox.bot_y);
+            subgroupBarrier();
+
+            uint intersect_vote =  subgroupBallot(bbox_intersects_tile).x;
+
+            if (subgroupElect()){
+                shared_bbox_inside_tile_flags[i] = intersect_vote;
+            }
+            subgroupBarrier();
+        }
+        //TODO will need to check if at edge of canvas and slice off?
+        if(tile_and_bit_idx != TILE_INVALID){
+            //TODO fix this, should probably find a better way to ensure always checked.
+            // resetting because value is always loaded back for column,
+            // resetting gaurantees at end we *actually* know if empty.
+            column_empty = true;
+
+            uint subgroup_intersect_check_mask = 1u << gl_SubgroupID;
+            //either we continually write to global memory every invocation, or we load a line at a time,
+            // iterate through all the stylus tips currently queued to check, and apply their data.
+            for(uint tile_row_idx = 0; tile_row_idx < TILE_DATA_HEIGHT; ++i){
+                uint tile_col_idx = gl_SubgroupInvocationID;
+
+
+                u8vec4 uint_color_data = is_new_tile ? u8vec4(0u) : tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx];
+                //converting https://www.khronos.org/opengl/wiki/Normalized_Integer
+                vec4 float_color_data = vec4(uint_color_data.r,uint_color_data.g,uint_color_data.b,uint_color_data.a) / 255.0f;
+                for (uint shared_brush_tip_idx = 0; shared_brush_tip_idx < min(SHARED_BRUSH_TIP_LOAD_SIZE, brush_tips_left); ++shared_brush_tip_idx){
+                    // if the bounding box intersected.
+                    if ((subgroup_intersect_check_mask & shared_bbox_inside_tile_flags[shared_brush_tip_idx]) != 0u){
+
+                        if(shared_brush.shape == BRUSH_SHAPE_CIRCLE){
+
+                            //TODO handle mutli sampling
+                            if(shared_brush.fade_type == BRUSH_FADE_LINEAR){
+                                vec2 brush_tip_pos = vec2(shared_stylus_updates[shared_brush_tip_idx].x,
+                                                          shared_stylus_updates[shared_brush_tip_idx].y);
+                                vec2 pixel_center_pos = vec2(tile_x * TILE_DATA_WIDTH + tile_col_idx, tile_y * TILE_DATA_HEIGHT + tile_row_idx) + vec2(0.5);
+
+                                float pixel_distance = distance(brush_tip_pos, pixel_center_pos);
+
+                                //TODO handle non linked fade
+                                float fade = shared_brush.fade_parameter.x;
+
+                                float radius = shared_brush.diameter / 2.0f;
+
+                                radius *= shared_stylus_updates[shared_brush_tip_idx].normal_pressure;
+
+                                float normalized_distance = pixel_distance / radius;
+
+                                float alpha_adjustment = (normalized_distance - fade);
+
+                                vec4 adjusted_color = clamp(u_brush_color, 0.0, 1.0);
+                                adjusted_color.a *= alpha_adjustment;
+                                float_color_data.rgb = (float_color_data.rgb + (1.0 - adjusted_color.a)) + adjusted_color.rgb * adjusted_color.a;
+                                float_color_data.a += adjusted_color.a;
+
+                            }
+
+                        }
+
+                    }
+                }
+                if(color_data.a != 0u){
+                    column_empty = false;
+                }
+                float_color_data *= 255.0f;
+                float_color_data = clamp(float_color_data, 0.0f, 255.0f);
+                uint_color_data = u8vec4(float_color_data.r,float_color_data.g,float_color_data.b,float_color_data.a);
+                tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx] = uint_color_data;
+            }
+        }
+        is_new_tile = false;
+        brush_tips_left =  SHARED_BRUSH_TIP_LOAD_SIZE > brush_tips_left ? 0 : brush_tips_left - SHARED_BRUSH_TIP_LOAD_SIZE;
+        //TODO need to load in next set of data into shared.
+    }
+    if(tile_and_bit_idx != TILE_INVALID){
+        subgroupBarrier();
+        uint empty_column_mask = subgroupBallot(column_empty).x;
+        bool entire_tile_empty = empty_column_mask == 0xFFFFFFFFu;
+        if(subgroupElect()){ // only need leading subgoup invocation to do things.
+            //if column_empty clear
+            //if was_new_tile set bitmask.
+            uint tile_arena_handle = u_tiles.data[tile_idx];
+            uint arena_index = TILE_ARENA_BITS & tile_arena_handle >> 16;
+            uint arena_tile_index = tile_arena_handle & ARENA_TILE_BITS;
+            TileHasValueBitArray_ref tile_bit_array_reference =  u_tile_memory.data[0].arena_valid_tile_bitmasks.data[arena_index];
+            //Note will still need to use .data[0]
+            uint tile_word_bit_mask = ~(1u << (arena_tile_index % 32));
+            if (entire_tile_empty){
+                //while 1:1 doing things with given tile, the value accessed is a single bit inside of a 32bit integer, which
+                //*may* be accessed at the same time from seperate threads.
+                uint zero_tile_word_bit_mask = ~tile_word_bit_mask;
+                uint previous_mask = atomicAnd(tile_bit_array_reference.data[arena_tile_index / 32], zero_tile_word_bit_mask, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+                if((previous_mask & tile_word_bit_mask) == tile_word_bit_mask){
+                    atomicAdd(u_tile_memory.data[0].arena_meta_data.data[arena_index].tile_count, -1, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+                }
+            }else if(was_new_tile){
+                atomicOr(tile_bit_array_reference.data[arena_tile_index / 32], tile_word_bit_mask, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+                atomicAdd(u_tile_memory.data[0].arena_meta_data.data[arena_index].tile_count, 1, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+            }
+        }
+    }
+
+
+    if(gl_GlobalInvocationIndex == 0u){
+        //make sure that this thread is the only one out of the whole invocation to update this.
+        u_counter_data.data[0].latest_avilible_tile_idx +=  u_counter_data.data[0].new_tile_count;
+        //I guess we can manually set these two to zero? via transfer/memory commands?
+//        u_counter_data.data[0].new_tile_count = 0;
+//        u_counter_data.data[0].updated_tile_count = 0;
+    }
+
+    // TODO how to defrag data? can occasionally just copy to seperate area, but then would need to be "locked".
+    // TODO need to tell bitmask stuff has been filled for given data.
+
+
+
+    ////TODO need to figure out where to put this, pack with tile arena? Or put in it's own thing?
+}
+

@@ -3,7 +3,7 @@
     {
       "kind": "git",
       "repository": "https://github.com/Cazadorro/czdr-registry",
-      "baseline": "d9ec8736040f50d55a6cb1c1b206615190323086",
+      "baseline": "2fab7070b9e0e75e58abc53acfd4e92dcda85efe",
       "packages": [
        "czdr-*", "stb-image", "moodycamel-*"
       ]

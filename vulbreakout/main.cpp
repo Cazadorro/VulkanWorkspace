@@ -118,6 +118,7 @@ static_assert(sizeof(RenderGridSpritesPushConstantBlock) == 40);
 
 
 #include <czdr/glfw/core.h>
+#include <czdr/utility/assert.h>
 #include <glm/gtx/matrix_transform_2d.hpp>
 
 int main() {
@@ -203,7 +204,7 @@ int main() {
 
     auto device = physicalDevice.createDevice(surface,
                                               {graphicsComputeFamily},
-                                              {computeTransferFamily, transferFamily},
+                                              {computeTransferFamily, transferFamily, transferFamily},
                                               deviceExtensions,
                                               features).assertValue();
     //TODO what to do when queue is same for all but we try to parrallelize? only return references to queues? Have internal mutexes etc??
@@ -213,7 +214,8 @@ int main() {
     vul::Queue presentationQueue = device.getQueueAt(0).value();
     vul::Queue computeQueue = device.getQueueAt(1).value();
     vul::Queue transferQueue = device.getQueueAt(2).value();
-
+    //sets default command stream to this queue so that it can be used by default for object creation
+    CZDR_ASSERT(device.setDefaultCommandStream(3));
 
     auto surfaceCapabilities = surface.getCapabilitiesFrom(physicalDevice);
     vul::SwapchainBuilder swapchainBuilder(device);
