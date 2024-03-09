@@ -212,6 +212,31 @@ f32vec4 sort_dsc(f32vec4 value){
 float32_t median(float32_t a, float32_t b, float32_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+
+float32_t ternary(bool c, float32_t a, float32_t b){
+    return c ? a : b;
+}
+
+f32vec2 ternary(bvec2 c, f32vec2 a, f32vec2 b){
+    //https://community.khronos.org/t/vector-version-of-ternary-operator/105282
+    //wtf glsl? mix basically has an overload to act like vectorized ternary, false = first, true = second.
+
+    return mix(b, a, c);
+}
+
+f32vec3 ternary(bvec3 c, f32vec3 a, f32vec3 b){
+    return mix(b, a, c);
+}
+
+f32vec4 ternary(bvec4 c, f32vec4 a, f32vec4 b){
+    return mix(b, a, c);
+}
+
+
+
+
+
     //////
 
 #endif //ALGORITHMF32_GLSL

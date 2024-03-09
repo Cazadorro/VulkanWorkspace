@@ -213,6 +213,22 @@ int8_t median(int8_t a, int8_t b, int8_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
 
+
+int8_t ternary(bool c , int8_t a, int8_t b ){
+    return c ? a : b;
+}
+
+i8vec2 ternary(bvec2 c, i8vec2 a, i8vec2 b ){
+    return mix(b, a, c);
+}
+
+i8vec3 ternary(bvec3 c, i8vec3 a, i8vec3 b ){
+    return mix(b, a, c);
+}
+
+i8vec4 ternary(bvec4 c, i8vec4 a, i8vec4 b ){
+    return mix(b, a, c);
+}
     //////
 
 #endif //ALGORITHMI8_GLSL

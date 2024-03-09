@@ -97,7 +97,7 @@ add_subdirectory(vulraytracingweekend)
 #add_subdirectory(external/enkiMI)
 #add_subdirectory(chunk_compression_testing)
 
-#add_subdirectory(vulclouds)
+add_subdirectory(vulclouds)
 add_subdirectory(cudaexample)
 #add_subdirectory(vuladdexample)
 #add_subdirectory(vultext)

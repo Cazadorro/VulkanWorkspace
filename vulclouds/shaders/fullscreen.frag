@@ -1,7 +1,7 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier : enable
 
-layout(binding = 0, location = 0) uniform sampler2D texSampler[];
+layout(set = 0, binding = 0) uniform sampler2D texSampler[];
 layout(location = 0) in vec2 texcoord;
 layout(location = 0) out vec4 out_color;
 

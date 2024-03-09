@@ -3,7 +3,7 @@
 //
 
 #include "bvh.h"
-#include <vul/vkassert.h>
+#include <czdr/utility/assert.h>
 #include <glm/common.hpp>
 #include <range/v3/view/zip.hpp>
 #include <random>
@@ -92,9 +92,9 @@ vul::Axis vul::Box::max_axis() const {
 }
 
 double vul::Box::volume() const {
-    VUL_ASSERT(dim.x >= 0.0);
-    VUL_ASSERT(dim.y >= 0.0);
-    VUL_ASSERT(dim.z >= 0.0);
+    CZDR_ASSERT(dim.x >= 0.0);
+    CZDR_ASSERT(dim.y >= 0.0);
+    CZDR_ASSERT(dim.z >= 0.0);
     return dim.x * dim.y * dim.z;
 }
 
@@ -153,7 +153,7 @@ void vul::fill_nodes(
         auto result_box = Box(host_sphere_data[result_idx], host_path_data[result_idx]);
         //if volume takes up more than 75% of space, split up
         auto lhs_size = idxs.size() / 2;
-        VUL_ASSERT(result_box.volume() < total_bbox.volume()); //becarefull once, iddin't work?
+        CZDR_ASSERT(result_box.volume() < total_bbox.volume()); //becarefull once, iddin't work?
         if((result_box.volume() / total_bbox.volume()) > 0.99){
             //set to one so we can still use the rest of the function exactly the same.
             lhs_size = 1;
@@ -184,8 +184,8 @@ void vul::fill_nodes(
 }
 vul::FlatBVH vul::create_bvh(const gsl::span<Sphere> &host_sphere_data,
               const gsl::span<PathEnd> &host_path_data) {
-    VUL_ASSERT(!host_sphere_data.empty() && !host_sphere_data.empty());
-    VUL_ASSERT(host_path_data.size() == host_path_data.size());
+    CZDR_ASSERT(!host_sphere_data.empty() && !host_sphere_data.empty());
+    CZDR_ASSERT(host_path_data.size() == host_path_data.size());
 
     std::vector<std::uint32_t> idxs(host_sphere_data.size());
     std::iota(idxs.begin(), idxs.end(), 0);

@@ -1,0 +1,172 @@
+#version 460
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+#extension GL_KHR_shader_subgroup_shuffle: enable
+#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+#extension GL_KHR_shader_subgroup_clustered: enable
+#extension GL_KHR_shader_subgroup_quad: enable
+#extension GL_KHR_memory_scope_semantics : enable
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+#extension GL_KHR_memory_scope_semantics : enable
+#pragma use_vulkan_memory_model
+
+#include "brush_utils.glsl"
+#include "stylus_utils.glsl"
+#include "tile_utils.glsl"
+
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, scalar) uniform UniformCanvasSettingsBlock{
+    uvec2 u_canvas_size;
+    CounterData_ref u_counter_data;
+    TileMemoryData_ref u_tile_memory;
+    BrushSettings_ref u_brushes;
+//4 * 8 = 32 bytes
+};
+
+
+layout(push_constant) uniform PushConstantBlock {
+    StylusUpdate_ref u_stylus_updates;  // structure of arrays of all the previous transforms.
+    TileMap_ref u_tiles;
+    TileIndex_ref u_updated_tile_index_list;
+//3 * 8 bytes
+    vec4 u_brush_color;
+//5 * 8 bytes,
+    uint u_brush_id;
+    uint u_stylus_update_count;
+    uint u_brush_tip_count; //how many times brush actually hit; maybe not need though, could calculate this our selves?
+    uint u_padding; // not used for this shader.
+//7 * 8 bytes.= 56 bytes.
+//    vec2 brush_start_pos; //initial starting position for where
+//maybe not necssary, could instead take another "faked" brush update from the previous brush
+//  and put it into stylus update queue.
+};
+
+
+
+// TODO could handle copied tiles (if copied directly), don't know if worth it, would require another bit in the tile
+// layer info. and would only work on 1:1 copies, so probably not super usefull.
+
+// defragment layer? copy to new.  Test degragment by checking adjacent tile indices?
+
+
+
+void main() {
+
+    uint tip_index = gl_GlobalInvocationID.x;
+
+    //TODO don't know if this is actually safe.
+    if(tip_index >= u_stylus_update_count){
+        return;
+    }
+    float spacing = u_brushes.data[u_brush_id].spacing;
+    //interpolate stuylus for each inbetween position.
+    StylusUpdate stylus_update = get_interpolated_stylus_update(u_stylus_update_count,
+                                                                u_stylus_updates,
+                                                                tip_index,
+                                                                spacing);
+
+    //create a bounding box in ceiled bounding box space around the current stylus position using diameter.
+    TileBbox bbox = create_bbox(u_brushes.data[u_brush_id], vec2(stylus_update.x, stylus_update.y), TILE_DATA_WIDTH,
+                                u_canvas_size, stylus_update.normal_pressure);
+
+     uvec2 tile_size = ceil(u_canvas_size, TILE_DATA_WIDTH);
+
+    uint bbox_width = calc_width(bbox);
+    uint bbox_height = calc_height(bbox);
+    uint max_iterations = bbox_width * bbox_height;
+
+    //iterate through every possible tile that the given brush stroke tip hit.
+    for(int i = 0; i < max_iterations; ++i){
+        uint bbox_x = i % bbox_width;
+        uint bbox_y = i / bbox_width;
+        uint tile_x = bbox.left_x + bbox_x;
+        uint tile_y = bbox.top_y + bbox_y;
+        uint tile_idx = tile_y * tile_size.x + tile.x;
+
+        uint broadcast_invocation_id = 0u;
+        //tiles is a N x M array of handles to 32x32 tiles inside u_tile_arena_pointers which represent *actual* image data.
+        // so each value in tiles reprsents a u31 handle that can be used to retrieve the real data
+        // plus a flag bit at the begining that specified whether or not it's being updated.
+        // This flag gets reset when it's done being used.
+        uint current_tile_value = atomicLoad(u_tiles.data[tile_idx], gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+        //check if has the tile updated bit.
+        bool current_tile_arlraedy_occupied = (TILE_UPDATED_BIT & current_tile_value) == TILE_UPDATED_BIT;
+        //avoid participating in subgroup operations if given subgroup invocation has already done work.
+        tile_idx = current_tile_arlraedy_occupied ? tile_idx : TILE_INVALID;
+        // any value which has already been processed can be skipped.
+        uint already_processed_invocations = subgroupBallot(current_tile_already_updated).x;
+        //TODO don't know if u_stylus_update_count check isn't safe, can use that to simply set TILE_INVALID.
+        while(already_processed_invocations != ALL_INVOCATIONS_PROCESSED){
+            //find the lowest subgroup index invocation *not* already processed, use that to test against.
+            broadcast_invocation_id = findLSB(~already_processed_invocations);
+            // broad cast "lead" subgroup tile, and check if it matches current subgroup's
+            // tile_idx.
+            uint broadcast_tile_idx = subgroupBroadcast(tile_idx, broadcast_invocation_id);
+            uvec4 vote_result = subgroupBallot(broadcast_tile_idx == tile_idx);
+
+            // set the tile to invalid (so no work is done later) if we we have a matching tile_idx with out being
+            // the leading broadcast_invocation_id.
+            if(broadcast_tile_idx == tile_idx){
+                if (gl_SubgroupInvocationID != broadcast_invocation_id){
+                    tile_idx = TILE_INVALID;
+                }
+            }
+            //make sure subgroups are done before next invocation, may not need this though?
+            subgroupBarrier();
+            // TODO assuming subgroup size 32, not portable beyond AMD and Nvidia.
+            // anybody that returned true for the vote result has already been processed.
+            already_processed_invocations |= vote_result.x;
+        }
+
+        if(tile_idx != TILE_INVALID){
+            uint last_tile_value = current_tile_value;
+            //TODO add proper memory semantics...?
+            //Check the result set in tile (could have changed since last check)
+            // Only update with TILE_UPDATED_BIT, because we don't actually know what to put here, but also we need
+            // to prevent other threads from updating this as well.  Doing this will basically "lock" this value to us
+            // no other thread will modify this.
+            uint tile_value_result = atomicCompSwap(u_tiles.data[tile_idx], last_tile_value, TILE_UPDATED_BIT);
+            if(tile_value_result == last_tile_value){
+                //if the tile doesn't have backing data, we need to assign it new data.
+                // we assume there's *always* enough data for *an entire canvas* worth of tiles.
+                // It's not *that* much data in the grand scheme of things, and simplifies edge cases here.
+                if(last_tile_value == TILE_EMPTY){
+                    // we use relaxed here, since we don't care the precise order of update, we just need to make sure
+                    // updated atomically
+                    uint new_tile_memory_idx = atomicAdd(u_counter_data.data[0].new_tile_count, 1, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+                    //no need to atomically load this value, never updated in this shader, need to make sure set to updated.
+                    uint new_tile_memory_value = (u_counter_data.data[0].latest_avilible_tile_idx) + (new_tile_memory_idx | TILE_UPDATED_BIT);
+                    // still need to atomically store this to ensure visibility.
+                    atomicStore(u_tiles.data[tile_idx], new_tile_memory_value, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+                }
+                //always update this though.
+                uint updated_tile_idx = atomicAdd(u_counter_data.data[0].updated_tile_count, 1, gl_ScopeDevice, gl_StorageSematicsBuffer, gl_SemanticsRelaxed);
+                //tell which tile was updated
+                u_updated_tile_index_list.data[updated_tile_idx] = tile_idx | TILE_IDX_NEW_BIT;
+            }
+        }
+        //need to synchronize again here, may take a *while* to get back. This is likely not worth efficient.
+        subgroupBarrier();
+    }
+}
+

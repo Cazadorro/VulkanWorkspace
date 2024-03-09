@@ -93,11 +93,11 @@ int32_t prod(i32vec2 value){
 }
 
 int32_t prod(i32vec3 value){
-    return sum(value.xy) * value.z;
+    return prod(value.xy) * value.z;
 }
 
 int32_t prod(i32vec4 value){
-    return sum(value.xy) * sum(value.zw);
+    return prod(value.xy) * prod(value.zw);
 }
 
 void swap(inout int32_t a, inout int32_t b){
@@ -224,6 +224,22 @@ i32vec3 wrap(i32vec3 value, int32_t max){
 }
 i32vec4 wrap(i32vec4 value, int32_t max){
     return i32vec4(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max), wrap(value.w, max));
+}
+
+int32_t ternary(bool c, int32_t a, int32_t b){
+    return c ? a : b;
+}
+
+i32vec2 ternary( bvec2 c, i32vec2 a, i32vec2 b){
+    return mix(b, a, c);
+}
+
+i32vec3 ternary( bvec3 c, i32vec3 a, i32vec3 b){
+    return mix(b, a, c);
+}
+
+i32vec4 ternary( bvec4 c, i32vec4 a, i32vec4 b){
+    return mix(b, a, c);
 }
 
 

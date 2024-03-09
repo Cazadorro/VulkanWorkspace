@@ -5,7 +5,8 @@
 #include <gul/imguirenderer.h>
 #include <gul/firstpersoncamera.h>
 #include <gul/stbimage.h>
-#include <gul/glfwwindow.h>
+#include <vul/submitinfobuilder.h>
+#include <vul/writedescriptorset.h>
 #include <gul/geometry.h>
 #include <gul/kdtree.h>
 #include <range/v3/view/drop.hpp>
@@ -14,6 +15,7 @@
 #include <vul/computepipeline.h>
 #include <vul/vkstructutils.h>
 #include <vul/sampler.h>
+#include <vul/pushconstantrange.h>
 #include <vul/framebuffer.h>
 #include <vul/imageview.h>
 #include <vul/image.h>
@@ -38,7 +40,7 @@
 #include <vul/debugutils.h>
 #include <vul/physicaldevice.h>
 #include <vul/features.h>
-#include <vul/bitmasks.h>
+
 #include <vul/expectedresult.h>
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
@@ -64,6 +66,11 @@
 
 #include <iostream>
 
+#include <czdr/glfw/core.h>
+#include <czdr/utility/assert.h>
+#include <glm/gtx/matrix_transform_2d.hpp>
+
+#include <gul/kdtree.h>
 
 //see https://github.com/KhronosGroup/Vulkan-Samples/tree/master/samples/extensions
 //see https://www.khronos.org/blog/vulkan-timeline-semaphores
@@ -331,7 +338,11 @@ RLEPoints generate_closest_distance_id2(std::size_t segment_count, std::size_t d
 
 
 int main() {
-    gul::GlfwWindow window(800, 600, "ExampleWindow");
+    glfw::Library glfw_lib;
+    glfw_lib.window_hint_client_api(glfw::OpenglClientApiType::NoApi);
+    constexpr std::int32_t window_width = 800;
+    constexpr std::int32_t window_height = 600;
+    auto window = glfw_lib.create_window(window_width, window_height, "Example Window").value();
     gul::FirstPersonCamera camera;
 //    camera.setPosition(glm::vec3(0.0, 0.0, 0.0));
     camera.setPosition(glm::vec3(13.0,2.0,-3.0));
@@ -341,13 +352,13 @@ int main() {
 
     bool framebufferResized = false;
     auto framebuffer_callback = [&framebufferResized](
-            gul::GlfwWindow &/*window*/,
-            int /*width*/, int /*height*/) {
+            glfw::Window */*window*/,
+            glfw::PixelSize<int>) {
         framebufferResized = true;
     };
-    window.setFramebufferSizeCallback(framebuffer_callback);
+    window.set_framebuffer_size_callback(framebuffer_callback);
 
-    auto glfwExtensions = gul::GlfwWindow::getRequiredInstanceExtensions();
+    auto glfwExtensions = glfw_lib.get_required_instance_extensions();
     auto instanceExtensions = ranges::views::concat(glfwExtensions,
                                                     vul::Instance::debugUtilsExtensions) |
                               ranges::to<std::vector>();
@@ -357,7 +368,7 @@ int main() {
     appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
     appInfo.pEngineName = "No Engine";
     appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_2;
+    appInfo.apiVersion = VK_API_VERSION_1_3;
     vul::Instance instance = vul::Instance::withDebugCallback(
             appInfo, vul::Instance::validationLayers,
             instanceExtensions).assertValue();
@@ -367,75 +378,33 @@ int main() {
                     .setDefaults()
                     .create()
                     .assertValue();
-    vul::Features features;
-    features.getPhysicalDeviceFeatures().samplerAnisotropy = VK_TRUE;
-#ifdef NDEBUG
-    std::cout << "NOT IN NDEBUG!" << std::endl;
-    features.getPhysicalDeviceFeatures().robustBufferAccess = VK_FALSE;
-#else
-    features.getPhysicalDeviceFeatures().robustBufferAccess = VK_TRUE;
-#endif
-    features.getPhysicalDeviceFeatures().shaderFloat64 = VK_TRUE;
-    features.getPhysicalDeviceFeatures().shaderInt64 = VK_TRUE;
-    features.getPhysicalDeviceFeatures().shaderInt16 = VK_TRUE;
-
-    features.physicalDeviceVulkan11Features.storageBuffer16BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan11Features.uniformAndStorageBuffer16BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan11Features.storagePushConstant16 = VK_TRUE;
-    //features.physicalDeviceVulkan11Features.storageInputOutput16 = VK_TRUE; in/out for shaders, not very important.
-
-    features.physicalDeviceVulkan12Features.storageBuffer8BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan12Features.uniformAndStorageBuffer8BitAccess = VK_TRUE;
-    features.physicalDeviceVulkan12Features.storagePushConstant8 = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderBufferInt64Atomics = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderSharedInt64Atomics = VK_TRUE;
-    //features.physicalDeviceVulkan12Features.shaderFloat16 = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderInt8 = VK_TRUE;
-    //all the descriptor indexing stuff we need
-    features.physicalDeviceVulkan12Features.descriptorIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderStorageImageArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    features.physicalDeviceVulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
-    features.physicalDeviceVulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
-
-//    features.physicalDeviceVulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+    auto features = vul::Features::withMaxFeatureSetNVMaxwell();
+//    features.physicalDeviceVulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = VK_TRUE;
+//    features.physicalDeviceVulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = VK_TRUE;
+    features.physicalDeviceVulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingStorageImageUpdateAfterBind = VK_TRUE;
     features.physicalDeviceVulkan12Features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
-
 //    features.physicalDeviceVulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind = VK_TRUE;
 //    features.physicalDeviceVulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind = VK_TRUE;
-
-    features.physicalDeviceVulkan12Features.runtimeDescriptorArray = VK_TRUE;
-
-    features.physicalDeviceVulkan12Features.scalarBlockLayout = VK_TRUE;
-    features.physicalDeviceVulkan12Features.timelineSemaphore = VK_TRUE;
-    features.physicalDeviceVulkan12Features.bufferDeviceAddress = VK_TRUE;
-    features.physicalDeviceVulkan12Features.bufferDeviceAddressCaptureReplay = VK_TRUE;
-
-    features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32AtomicAdd = VK_TRUE;
-    features.physicalDeviceShaderAtomicFloatFeaturesEXT.shaderBufferFloat32Atomics = VK_TRUE;
-
-    features.physicalDeviceSynchronization2FeaturesKHR.synchronization2 = VK_TRUE;
     const std::vector<const char *> deviceExtensions = {
             VK_KHR_SWAPCHAIN_EXTENSION_NAME,
             VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME,
             VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME
     };
-    vul::Device device; //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
-    vul::Surface surface = window.createSurface(instance);
+    //TODO fix issue where swapchain is both a member of surface, but must be deleted before device, need to move swapchain back out?
+    vul::Surface surface = window.create_surface(instance).assertValue();
     //TODO will need to capitalize letters?
-//    const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Srgb,
-//                                                     vul::ColorSpaceKHR::SrgbNonlinear};
+    //srgb vul::Format::B8g8r8a8Srgb,
     const vul::SurfaceFormat defaultSurfaceFormat = {vul::Format::B8g8r8a8Unorm,
                                                      vul::ColorSpaceKHR::SrgbNonlinear};
+
     const auto defaultPresentMode = vul::PresentModeKHR::Mailbox;
     auto physicalDeviceOpt = pickPhysicalDevice(instance, surface, features,
                                                 deviceExtensions,
                                                 defaultSurfaceFormat,
                                                 defaultPresentMode);
+
     if (!physicalDeviceOpt.has_value()) {
         throw std::runtime_error("failed to find a suitable GPU!");
     }
@@ -446,45 +415,22 @@ int main() {
                                  vul::QueueFlagBits::TransferBit;
     auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
                                  vul::QueueFlagBits::TransferBit;
+    auto transferFamily = vul::QueueFlagBits::TransferBit;
 
-    auto queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-    auto graphicsQueueFamilyIndexes = queueFamilyProperties.getQueueFamilyIndexes(
-            graphicsComputeFamily);
-    auto computeQueueFamilyIndexes = queueFamilyProperties.getQueueFamilyIndexes(
-            computeTransferFamily);
-    auto presentationQueueFamilyIndexes = queueFamilyProperties.getPresentationQueueFamilyIndexes(
-            surface, graphicsComputeFamily);
-    auto presentFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
-            presentationQueueFamilyIndexes);
-    if (!presentFamilyIndexResult.has_value()) {
-        throw std::runtime_error(
-                "failed to find a suitable presentation queue!");
-    }
-    auto graphicsFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
-            graphicsQueueFamilyIndexes);
-    if (!graphicsFamilyIndexResult.has_value()) {
-        throw std::runtime_error("failed to find a suitable graphics queue!");
-    }
-    auto computeFamilyIndexResult = queueFamilyProperties.getMinimumQueueFamilyIndex(
-            computeQueueFamilyIndexes);
-    if (!computeFamilyIndexResult.has_value()) {
-        throw std::runtime_error("failed to find a suitable compute queue!");
-    }
-    std::uint32_t presentQueueIndex = presentFamilyIndexResult.value();
-    std::uint32_t graphicsQueueIndex = graphicsFamilyIndexResult.value();
-    std::uint32_t computeQueueIndex = computeFamilyIndexResult.value();
-    std::vector<vul::SingleQueueCreateInfo> queueCreateInfos = {
-            vul::SingleQueueCreateInfo{presentQueueIndex},
-            vul::SingleQueueCreateInfo{computeQueueIndex}};
-    device = physicalDevice.createDevice(queueCreateInfos, deviceExtensions,
-                                         features).assertValue();
+    auto device = physicalDevice.createDevice(surface,
+                                              {graphicsComputeFamily},
+                                              {computeTransferFamily, transferFamily, transferFamily},
+                                              deviceExtensions,
+                                              features).assertValue();
     //TODO what to do when queue is same for all but we try to parrallelize? only return references to queues? Have internal mutexes etc??
     //Make queues exclusive? that way you have to manually pass ownership? will get a queue per thing anyway, not a big deal.
     //TODO give queues knowledge of what index they correspond to so they can be returned to the device?
     //TODO Always combine present and graphics, no current implementation splits them up.
     vul::Queue presentationQueue = device.getQueueAt(0).value();
     vul::Queue computeQueue = device.getQueueAt(1).value();
-
+    vul::Queue transferQueue = device.getQueueAt(2).value();
+    //sets default command stream to this queue so that it can be used by default for object creation
+    CZDR_ASSERT(device.setDefaultCommandStream(3));
 
     auto surfaceCapabilities = surface.getCapabilitiesFrom(physicalDevice);
     vul::SwapchainBuilder swapchainBuilder(device);
@@ -494,7 +440,7 @@ int main() {
             .minImageCount(surfaceCapabilities.calcSwapchainImageCount())
             .surfaceFormat(defaultSurfaceFormat)
             .imageExtent(surfaceCapabilities.calcSwapchainExtent(
-                    window.getFramebufferExtent()))
+                    window.get_framebuffer_extent()))
             .imageUsage(vul::ImageUsageFlagBits::ColorAttachmentBit)
             .preTransform(surfaceCapabilities.currentTransform)
             .presentMode(defaultPresentMode)
@@ -511,7 +457,10 @@ int main() {
 //        swapchainBuilder.imageSharingMode(vul::SharingMode::Exclusive);
 //    }
 
-    surface.createSwapchain(swapchainBuilder);
+
+    auto swapchain = swapchainBuilder.create(surface).assertValue();
+    const auto &swapchainImageViews = swapchain.getImageViews();
+    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
     auto allocator = vul::VmaAllocator::create(instance, physicalDevice,
                                                device,
                                                VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT).assertValue();
@@ -529,35 +478,48 @@ int main() {
         renderFinishedSemaphores.push_back(
                 device.createTimelineSemaphore(0).assertValue());
     }
+    //value used to determine which host buffer to use to copy on transfer.
+    //next buffer = 0 + 1, current semaphore = 0; t % 2 if !=, upload index, swap buffers to use. otherwise keep updating current buffer.
+    vul::TimelineSemaphore uploadFinishedSemaphore = device.createTimelineSemaphore(0).assertValue();
+    //value used to determine which device buffer can be used to copy to.
+    //copy to next buffer when all frames in flight sit on buffer , swapchain size used here
+    // swapchain size of 3 means x % 6 = 0->5, if 0,1,2,3 0,3 good, if 1,2,4,5 not done.  if 0 means done at first.
+    // signal when specifying using given semiphore.
+    vul::TimelineSemaphore framesUsingSemaphore = device.createTimelineSemaphore(0).assertValue();
 
     std::array validSwapchainResults = {vul::Result::SuboptimalKhr,
                                         vul::Result::ErrorOutOfDateKhr};
     std::uint64_t frame_counter = 0;
 
-    auto subpassBuilder = vul::SubpassGraph(
-            {vul::AttachmentDescription::PresentTemp(
-                    surface.getSwapchain()->getFormat()),
-             vul::AttachmentDescription::DepthTemp(
-                     vul::Format::D24UnormS8Uint)}, 1);
-    subpassBuilder.subpassAt(0).setWrites({0, 1})
-            .setPreDependExternal(
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
-                    vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
-                    vul::PipelineStageFlagBits::ColorAttachmentOutputBit |
-                    vul::PipelineStageFlagBits::EarlyFragmentTestsBit,
-                    {},
-                    vul::AccessFlagBits::ColorAttachmentWriteBit |
-                    vul::AccessFlagBits::DepthStencilAttachmentWriteBit);
-    auto renderPass = subpassBuilder.createRenderPass(device).assertValue();
-    renderPass.setObjectName("MyActualRenderPass");
+    auto firstColorPassBuilder = vul::RenderPassBuilder::createSimpleRenderPassBuilder(
+            vul::AttachmentReusePolicy::First, {swapchain.getFormat()}, vul::AttachmentReusePolicy::First,
+            vul::Format::D24UnormS8Uint);
+    auto nextColorPassBuilder = vul::RenderPassBuilder::createSimpleRenderPassBuilder(vul::AttachmentReusePolicy::Next,
+                                                                                      {swapchain.getFormat()},
+                                                                                      vul::AttachmentReusePolicy::Next,
+                                                                                      vul::Format::D24UnormS8Uint);
+    auto presentationRenderPassBuilder = vul::RenderPassBuilder::createTempPresentationRenderPassBuilder(swapchain,
+                                                                                                         vul::Format::D24UnormS8Uint);
+    auto firstColorPass = firstColorPassBuilder.createRenderPass(device).assertValue();
+    firstColorPass.setObjectName("firstColorPass");
+    auto nextColorPass = nextColorPassBuilder.createRenderPass(device).assertValue();
+    firstColorPass.setObjectName("nextColorPass");
+    auto presentationRenderPass = presentationRenderPassBuilder.createRenderPass(device).assertValue();
+    presentationRenderPass.setObjectName("presentationRenderPass");
+    auto commandPool = device.createCommandPool(
+            presentationQueue.getQueueFamilyIndex(),
+            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
+
+    auto transferCommandPool = device.createCommandPool(
+            transferQueue.getQueueFamilyIndex(),
+            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
     auto descriptorSetLayoutBuilder = vul::DescriptorSetLayoutBuilder(device);
     descriptorSetLayoutBuilder.setFlags(
-            vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit);
-    descriptorSetLayoutBuilder.setBindings(
+            vul::DescriptorSetLayoutCreateFlagBits::UpdateAfterBindPoolBit).setBindings(
             {vul::CombinedSamplerBinding(0,
                                          vul::ShaderStageFlagBits::FragmentBit,
-                                         3).get()
+                                         3)
             },
             {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
     auto descriptorLayout = descriptorSetLayoutBuilder.create().assertValue();
@@ -570,37 +532,23 @@ int main() {
 
     auto pipelineLayout = device.createPipelineLayout(
             descriptorLayout,
-            VkPushConstantRange{
-                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::FragmentBit),
-                    0,
-                    sizeof(std::uint32_t)
-            }).assertValue();
+            vul::PushConstantRange::create<std::uint32_t>((vul::ShaderStageFlagBits::FragmentBit))).assertValue();
     auto pipelineBuilder = vul::GraphicsPipelineBuilder(device);
 
 
 //    pipelineBuilder.setVertexBinding<Vertex>(0);
 
-    pipelineBuilder.setPrimitiveStateInfo(
-            vul::PrimitiveTopology::TriangleList);
+    pipelineBuilder.setPrimitiveStateInfo();
     pipelineBuilder.setViewportStateFromExtent(
-            surface.getSwapchain()->getExtent());
+            swapchain.getExtent());
     pipelineBuilder.setDynamicState(
             {vul::DynamicState::Viewport, vul::DynamicState::Scissor});
-    pipelineBuilder.setDefaultRasterizationState(
-            vul::CullModeFlagBits::FrontBit); //TODO turn triangle around...? why did they make it front culling...
-    pipelineBuilder.setDefaultMultisampleState();
-    pipelineBuilder.setDefaultDepthStencilStateEnable();
+    pipelineBuilder.setRasterizationState( vul::PipelineRasterizationStateCreateInfo::fromCullMode(vul::CullModeFlagBits::FrontBit)); //TODO turn triangle around...? why did they make it front culling...
+    pipelineBuilder.setMultisampleState();
+    pipelineBuilder.setDepthStencilState();
     VkPipelineColorBlendAttachmentState blendState = {};
-    blendState.blendEnable = VK_FALSE;
-    blendState.colorWriteMask =
-            VK_COLOR_COMPONENT_R_BIT |
-            VK_COLOR_COMPONENT_G_BIT |
-            VK_COLOR_COMPONENT_B_BIT |
-            VK_COLOR_COMPONENT_A_BIT;
-
-
-    pipelineBuilder.setBlendState({blendState});
-    pipelineBuilder.setRenderPass(renderPass, 0);
+    pipelineBuilder.setBlendState({vul::PipelineColorBlendAttachmentState::disableBlendRGBA()});
+    pipelineBuilder.setRenderPass(presentationRenderPass, 0);
     pipelineBuilder.setPipelineLayout(pipelineLayout);
     {
         auto vertexShader = device.createShaderModule(
@@ -613,77 +561,61 @@ int main() {
         graphicsPipeline = pipelineBuilder.create().assertValue();
     }
 
-    auto commandPool = device.createCommandPool(
-            presentQueueIndex,
-            vul::CommandPoolCreateFlagBits::ResetCommandBufferBit).assertValue();
 
-    vul::Image depthImage = allocator.createDeviceImage(
-            vul::createSimple2DImageInfo(
-                    vul::Format::D24UnormS8Uint,
-                    surface.getSwapchain()->getExtent(),
-                    vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
-    ).assertValue();
 
-    auto depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
-            vul::ImageAspectFlagBits::DepthBit)).assertValue();
+    std::vector<vul::Image> depthImages(swapchainSize);
+
+    for (auto &depthImage: depthImages) {
+        depthImage = allocator.createDeviceImage(
+                vul::ImageCreateInfo::depthStencilAttachment2D(swapchain.getExtent())).assertValue();
+    }
+
+    std::vector<vul::ImageView> depthImageViews(swapchainSize);
+    for (auto [i, depthImageView]: depthImageViews | ranges::views::enumerate) {
+        depthImageView = depthImages[i].createImageView().assertValue();
+    }
+
+
 
 
     std::vector<vul::Framebuffer> swapchainFramebuffers;
-    const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-    auto swapchainSize = static_cast<std::uint32_t>(swapchainImageViews.size());
-
-    for (const auto &imageView: swapchainImageViews) {
-        std::array<const vul::ImageView *, 2> imageViews = {&imageView,
-                                                            &depthImageView};
+    for (const auto &[imageView, depthImageView]: ranges::views::zip(swapchainImageViews, depthImageViews)) {
         vul::FramebufferBuilder framebufferBuilder(device);
-        framebufferBuilder.setAttachments(imageViews);
-        framebufferBuilder.setDimensions(surface.getSwapchain()->getExtent());
-        framebufferBuilder.setRenderPass(renderPass);
+        framebufferBuilder.setAttachments({&imageView,
+                                           &depthImageView});
+        framebufferBuilder.setDimensions(swapchain.getExtent());
+        framebufferBuilder.setRenderPass(presentationRenderPass);
         swapchainFramebuffers.push_back(
                 framebufferBuilder.create().assertValue());
     }
 
-    auto resizeSwapchain = [&window, &presentationQueue, &surface, &swapchainBuilder,
-            &pipelineBuilder, &graphicsPipeline, &depthImage, &depthImageView,
-            &allocator, &swapchainFramebuffers, &device, &renderPass]() {
-        auto size = window.getFramebufferSize();
+
+    auto resizeSwapchain = [&window, &swapchainBuilder, &swapchain, &surface, &physicalDevice]() {
+        auto temp_size = window.get_framebuffer_size().value();
+        auto size = glm::ivec2(temp_size.width, temp_size.height);
         while (size == glm::ivec2(0)) {
-            size = window.getFramebufferSize();
+            temp_size = window.get_framebuffer_size().value();
+            size = glm::ivec2(temp_size.width, temp_size.height);
             glfwWaitEvents();
         }
-        //TODO will need to recreate associated assets (like framebuffers or images that match the size of the window).
-        //TODO need to add framebuffers to assets possibly managed by swapchain?
-        presentationQueue.waitIdle();
+        // swapchain = swapchainBuilder.resize(swapchain, window.getFramebufferExtent()).assertValue();
+        // use surface capabilities used instead of framebuffer extent (should be the same) so that validation layers
+        // get properly updated cached values for vkGetPhysicalDeviceSurfaceCapabilitiesKHR, otherwise they don't know
+        // the current extent of the surface and use the old initial one.
+        swapchain = swapchainBuilder.resize(swapchain,
+                                            surface.getCapabilitiesFrom(physicalDevice).currentExtent).assertValue();
+    };
 
-
-        swapchainFramebuffers.clear();
-
-//        surface.resizeSwapchain(swapchainBuilder,
-//                                window.getFramebufferExtent());
-        swapchainBuilder.imageExtent(window.getFramebufferExtent());
-        surface.createSwapchain(swapchainBuilder);
-
-        depthImage = allocator.createDeviceImage(
-                vul::createSimple2DImageInfo(
-                        vul::Format::D24UnormS8Uint,
-                        surface.getSwapchain()->getExtent(),
-                        vul::ImageUsageFlagBits::DepthStencilAttachmentBit)
-        ).assertValue();
-
-        depthImageView = depthImage.createImageView(vul::ImageSubresourceRange(
-                vul::ImageAspectFlagBits::DepthBit)).assertValue();
-        const auto &swapchainImageViews = surface.getSwapchain()->getImageViews();
-        for (const auto &imageView: swapchainImageViews) {
-            std::array<const vul::ImageView *, 2> imageViews = {&imageView,
-                                                                &depthImageView};
-            vul::FramebufferBuilder framebufferBuilder(device);
-            framebufferBuilder.setAttachments(imageViews);
-            framebufferBuilder.setDimensions(
-                    surface.getSwapchain()->getExtent());
-            framebufferBuilder.setRenderPass(renderPass);
-            swapchainFramebuffers.push_back(
-                    framebufferBuilder.create().assertValue());
-        }
+    auto resizeSwapchainFramebuffers = [&](std::size_t swapchainImageIndex) {
+        depthImages[swapchainImageIndex] = allocator.createDeviceImage(
+                vul::ImageCreateInfo::depthStencilAttachment2D(swapchain.getExtent())).assertValue();
+        depthImageViews[swapchainImageIndex] = depthImages[swapchainImageIndex].createImageView().assertValue();
+        const auto &imageView = swapchain.getImageViews()[swapchainImageIndex];
+        vul::FramebufferBuilder framebufferBuilder(device);
+        framebufferBuilder.setAttachments({&imageView, &depthImageViews[swapchainImageIndex]});
+        framebufferBuilder.setDimensions(swapchain.getExtent());
+        framebufferBuilder.setRenderPass(presentationRenderPass);
+        swapchainFramebuffers[swapchainImageIndex] = framebufferBuilder.create().assertValue();
     };
 
 
@@ -703,9 +635,7 @@ int main() {
                                                               vul::ImageUsageFlagBits::TransferDstBit |
                                                               vul::ImageUsageFlagBits::SampledBit)).assertValue();
 
-    auto textureImageView = textureImage.createImageView(
-            vul::ImageSubresourceRange(
-                    vul::ImageAspectFlagBits::ColorBit)).assertValue();
+    auto textureImageView = textureImage.createImageView().assertValue();
 
     vul::SamplerBuilder samplerBuilder(device);
     samplerBuilder.setFilter(vul::Filter::Linear);
@@ -728,9 +658,9 @@ int main() {
     auto commandBuffers = commandPool.createPrimaryCommandBuffers(
             swapchainSize).assertValue();
 
-    gul::ImguiRenderer imguiRenderer(window, instance, device, surface,
-                                     presentQueueIndex, presentationQueue,
-                                     surface.getSwapchain()->getFormat());
+    gul::ImguiRenderer imguiRenderer(window, instance, device, swapchain,
+                                     presentationQueue,
+                                     swapchain.getFormat());
 
 
 //    struct alignas(4) RayTracingPushConstant {
@@ -746,7 +676,7 @@ int main() {
 //    };
 //    static_assert(sizeof(RayTracingPushConstant) == 40);
     struct alignas(8) RayTracingPushConstant {
-        std::uint64_t u_view_state;
+        vul::DeviceAddress u_view_state;
         glm::vec3 u_camera_origin;
         std::uint32_t u_frame_idx;
         glm::vec3 u_camera_rotation;
@@ -773,18 +703,15 @@ int main() {
     raytraceDescriptorLayoutBuilder.setBindings(
             {vul::StorageImageBinding(0,
                                       vul::ShaderStageFlagBits::ComputeBit,
-                                      3).get()},
+                                      3)},
             {vul::DescriptorBindingFlagBits::UpdateAfterBindBit});
 
 
     auto raytraceDescriptorLayout = raytraceDescriptorLayoutBuilder.create().assertValue();
     auto raytracePipelineLayout = device.createPipelineLayout(
             raytraceDescriptorLayout,
-            VkPushConstantRange{
-                    static_cast<VkShaderStageFlags>(vul::ShaderStageFlagBits::ComputeBit),
-                    0,
-                    sizeof(RayTracingPushConstant)
-            }).assertValue();
+            vul::PushConstantRange::create<RayTracingPushConstant>((vul::ShaderStageFlagBits::ComputeBit))
+            ).assertValue();
     auto computeBuilder = vul::ComputePipelineBuilder(device);
     vul::ComputePipeline raytracePipeline;
     {
@@ -858,19 +785,17 @@ int main() {
             raytracedImages.push_back(allocator.createDeviceImage(
                     vul::createSimple2DImageInfo(
                             vul::Format::R8g8b8a8Unorm,
-                            surface.getSwapchain()->getExtent(),
+                            swapchain.getExtent(),
                             vul::ImageUsageFlagBits::SampledBit |
                             vul::ImageUsageFlagBits::StorageBit)).assertValue());
             vul::transition(raytracedImages.back(), commandPool,
                             presentationQueue,
                             vul::ImageAspectFlagBits::ColorBit,
-                            vul::PipelineStageFlagBits2KHR::AllCommandsBit,
-                            vul::AccessFlagBits2KHR::ShaderWriteBit,
+                            vul::PipelineStageFlagBits2::AllCommandsBit,
+                            vul::AccessFlagBits2::ShaderWriteBit,
                             vul::ImageLayout::General);
             raytracedImagesViews.push_back(
-                    raytracedImages.back().createImageView(
-                            vul::ImageSubresourceRange(
-                                    vul::ImageAspectFlagBits::ColorBit)).assertValue());
+                    raytracedImages.back().createImageView().assertValue());
         }
 
 
@@ -916,10 +841,10 @@ int main() {
 
 
     struct alignas(8) ViewState {
-        std::uint64_t kdtree_aabb;
-        std::uint64_t kdtree_divisors;
-        std::uint64_t kdtree_indexes;
-        std::uint64_t kdtree_leafs;
+        vul::DeviceAddress kdtree_aabb;
+        vul::DeviceAddress kdtree_divisors;
+        vul::DeviceAddress kdtree_indexes;
+        vul::DeviceAddress kdtree_leafs;
 
         std::uint64_t material_ids;
         std::uint64_t material_data;
@@ -958,8 +883,8 @@ int main() {
     view_state.leaf_data = 0;
     view_state.parent_data = 0;
     view_state.element_count = 0;
-    view_state.image_width = surface.getSwapchain()->getExtent().width;
-    view_state.image_height = surface.getSwapchain()->getExtent().height;
+    view_state.image_width = swapchain.getExtent().width;
+    view_state.image_height = swapchain.getExtent().height;
     view_state.focus_dist = 10.0f;
     view_state.aperture = 0.1f;
     view_state.fov = glm::radians(90.0f);
@@ -977,7 +902,7 @@ int main() {
     std::vector<std::uint64_t> inflight_view_state_update_versions(swapchainSize,view_state_update_version);
 
     auto resizeDataBuffers= [&](){
-        auto extent =surface.getSwapchain()->getExtent();
+        auto extent =swapchain.getExtent();
         view_state.image_width = extent.width;
         view_state.image_height = extent.height;
         for(auto& device_view_state : device_view_states){
@@ -985,13 +910,21 @@ int main() {
         }
     };
 
+    std::vector<std::function<void(std::size_t swapchainImageIndex)>> frameResourceResizeFunctions = {{},
+                                                                                                      {},
+                                                                                                      {}};
 
-    auto resizeWindow = [&resizeSwapchain, resizeImGuiFramebuffers = imguiRenderer.createResizeCallback(
-            presentationQueue), &resizeDescriptorSets, &resizeDataBuffers]() {
-        resizeSwapchain();
-        resizeImGuiFramebuffers();
+    auto resizeImGuiFramebuffer = imguiRenderer.createResizeFrameCallback();
+    auto frameResourceResizeFunction = [&](std::size_t swapchainImageIndex) {
+        resizeImGuiFramebuffer(swapchainImageIndex);
+        resizeSwapchainFramebuffers(swapchainImageIndex);
         resizeDescriptorSets();
         resizeDataBuffers();
+    };
+    auto resizeWindow = [&resizeSwapchain, & frameResourceResizeFunctions, &frameResourceResizeFunction, &swapchain]() {
+        resizeSwapchain();
+        frameResourceResizeFunctions = {frameResourceResizeFunction, frameResourceResizeFunction,
+                                        frameResourceResizeFunction};
     };
 
     bool show_demo_window = true;
@@ -1003,11 +936,11 @@ int main() {
 
 //    computeBuilder.set
     auto start = std::chrono::high_resolution_clock::now();
-    while (!window.shouldClose()) {
+    while (!window.should_close()) {
 
         glfwPollEvents();
         imguiRenderer.newFrame();
-        auto windowExtent = surface.getSwapchain()->getExtent();
+        auto windowExtent = swapchain.getExtent();
         bool view_state_updated = false;
         // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
         if (show_demo_window)
@@ -1092,7 +1025,7 @@ int main() {
                 frameCounters[currentFrameIndex]);
         auto &presentationFinishedSemaphore = presentationFinishedSemaphores[currentFrameIndex];
         auto &binaryRenderFinishedSemaphore = binaryRenderFinishedSemaphores[currentFrameIndex];
-        auto swapchainImageIndexResult = surface.getSwapchain()->acquireNextImage(
+        auto swapchainImageIndexResult = swapchain.acquireNextImage(
                 presentationFinishedSemaphore);
 
         if (swapchainImageIndexResult.result ==
@@ -1128,31 +1061,28 @@ int main() {
                 bool up = false;
                 bool down = false;
                 bool shift = false;
-                if (window.keyPressed(GLFW_KEY_LEFT_SHIFT)) {
-                    shift = true;
-                }
-                if (window.keyPressed(GLFW_KEY_W)) {
+                if (window.key_pressed(glfw::Key::W)) {
                     forward = true;
                 }
-                if (window.keyPressed(GLFW_KEY_S)) {
+                if (window.key_pressed(glfw::Key::S)) {
                     back = true;
                 }
-                if (window.keyPressed(GLFW_KEY_A)) {
+                if (window.key_pressed(glfw::Key::A)) {
                     left = true;
                 }
-                if (window.keyPressed(GLFW_KEY_D)) {
+                if (window.key_pressed(glfw::Key::D)) {
                     right = true;
                 }
-                if (window.keyPressed(GLFW_KEY_SPACE)) {
+                if (window.key_pressed(glfw::Key::Space)) {
                     up = true;
                 }
-                if (window.keyPressed(GLFW_KEY_LEFT_CONTROL)) {
+                if (window.key_pressed(glfw::Key::LeftControl)) {
                     down = true;
                 }
-                if (window.keyPressed(GLFW_KEY_1)) {
+                if (window.key_pressed(glfw::Key::_1)) {
                     toggle_spread = !toggle_spread;
                 }
-                if (window.keyPressed(GLFW_KEY_2)) {
+                if (window.key_pressed(glfw::Key::_2)) {
                     toggle_density = !toggle_density;
                 }
                 if(shift){
@@ -1165,16 +1095,16 @@ int main() {
                 bool rotate_down = false;
                 bool rotate_left = false;
                 bool rotate_right = false;
-                if (window.keyPressed(GLFW_KEY_UP)) {
+                if (window.key_pressed(glfw::Key::Up)) {
                     rotate_up = true;
                 }
-                if (window.keyPressed(GLFW_KEY_DOWN)) {
+                if (window.key_pressed(glfw::Key::Down)) {
                     rotate_down = true;
                 }
-                if (window.keyPressed(GLFW_KEY_LEFT)) {
+                if (window.key_pressed(glfw::Key::Left)) {
                     rotate_left = true;
                 }
-                if (window.keyPressed(GLFW_KEY_RIGHT)) {
+                if (window.key_pressed(glfw::Key::Right)) {
                     rotate_right = true;
                 }
                 camera.rotate(rotate_up, rotate_down, rotate_left, rotate_right,
@@ -1193,8 +1123,8 @@ int main() {
 //                                   glm::vec3(0.0f, 1.0f, 0.0f));
             ubo.view = camera.calcViewMatrix();
             ubo.proj = glm::perspective(glm::radians(45.0f),
-                                        surface.getSwapchain()->getExtent().width /
-                                        (float) surface.getSwapchain()->getExtent().height,
+                                        swapchain.getExtent().width /
+                                        (float) swapchain.getExtent().height,
                                         0.1f,
                                         10.0f);
             ubo.proj[1][1] *= -1;
@@ -1232,13 +1162,13 @@ int main() {
                         vul::PipelineBindPoint::Compute, raytracePipelineLayout,
                         raytraceDescriptorSet);
                 auto computeComputeBarrier = vul::createMemoryBarrier(
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit |
-                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit |
-                        vul::AccessFlagBits2KHR::ShaderReadBit,
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit |
-                        vul::AccessFlagBits2KHR::ShaderReadBit);
+                        vul::PipelineStageFlagBits2::ComputeShaderBit |
+                        vul::PipelineStageFlagBits2::FragmentShaderBit,
+                        vul::AccessFlagBits2::ShaderWriteBit |
+                        vul::AccessFlagBits2::ShaderReadBit,
+                        vul::PipelineStageFlagBits2::ComputeShaderBit,
+                        vul::AccessFlagBits2::ShaderWriteBit |
+                        vul::AccessFlagBits2::ShaderReadBit);
                 auto computeComputeDepInfo = vul::createDependencyInfo(
                         computeComputeBarrier, {}, {});
                 {
@@ -1253,16 +1183,16 @@ int main() {
 
                 }
                 auto computeGraphicsBarrier = vul::createMemoryBarrier(
-                        vul::PipelineStageFlagBits2KHR::ComputeShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderWriteBit,
-                        vul::PipelineStageFlagBits2KHR::FragmentShaderBit,
-                        vul::AccessFlagBits2KHR::ShaderReadBit);
+                        vul::PipelineStageFlagBits2::ComputeShaderBit,
+                        vul::AccessFlagBits2::ShaderWriteBit,
+                        vul::PipelineStageFlagBits2::FragmentShaderBit,
+                        vul::AccessFlagBits2::ShaderReadBit);
                 auto dependencyInfo = vul::createDependencyInfo(
                         computeGraphicsBarrier, {}, {});
                 commandBuffer.pipelineBarrier(dependencyInfo);
             }
             {
-                auto extent = surface.getSwapchain()->getExtent();
+                auto extent = swapchain.getExtent();
                 commandBuffer.setViewport(vul::Viewport(extent));
                 commandBuffer.setScissor(vul::Rect2D(extent));
 
@@ -1274,7 +1204,7 @@ int main() {
                          clear_color.w}};
                 clearValues[1].depthStencil = {1.0f, 0};
                 auto renderPassBlock = commandBuffer.beginRenderPass(
-                        renderPass,
+                        presentationRenderPass,
                         swapchainFramebuffers[swapchainImageIndex],
                         vul::Rect2D(extent),
                         clearValues);
@@ -1296,13 +1226,13 @@ int main() {
 
         frameCounters[currentFrameIndex] += 1;
         auto presentationWaitInfo = presentationFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::ColorAttachmentOutputBit);
+                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit);
         std::array<VkSemaphoreSubmitInfoKHR, 2> signalInfos;
         signalInfos[0] = renderFinishedSemaphores[currentFrameIndex].createSubmitInfo(
                 frameCounters[currentFrameIndex],
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         signalInfos[1] = binaryRenderFinishedSemaphore.createSubmitInfo(
-                vul::PipelineStageFlagBits2KHR::AllCommandsBit);
+                vul::PipelineStageFlagBits2::AllCommandsBit);
         auto commandBufferInfo = commandBuffer.createSubmitInfo();
 
 
@@ -1316,12 +1246,19 @@ int main() {
         submitInfo.pCommandBufferInfos = &commandBufferInfo;
         submitInfo.signalSemaphoreInfoCount = signalInfos.size();
         submitInfo.pSignalSemaphoreInfos = signalInfos.data();
-
-        presentationQueue.submit(submitInfo);
+        std::vector<VkSemaphoreSubmitInfoKHR> waitInfos;
+//        std::array<VkSemaphoreSubmitInfoKHR, 2> waitInfos;
+        waitInfos.push_back(presentationFinishedSemaphore.createSubmitInfo(
+                vul::PipelineStageFlagBits2::ColorAttachmentOutputBit));
+        presentationQueue.submit(vul::SubmitInfoBuilder()
+                                         .waitSemaphoreInfos(waitInfos)
+                                         .commandBufferInfos(commandBuffer.createSubmitInfo())
+                                         .signalSemaphoreInfos(signalInfos)
+                                         .create());
         //TODO do actual render here
 
         imguiRenderer.postSubmit();
-        auto presentResult = surface.getSwapchain()->present(presentationQueue,
+        auto presentResult = swapchain.present(presentationQueue,
                                                              binaryRenderFinishedSemaphore,
                                                              swapchainImageIndex);
 

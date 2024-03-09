@@ -9,7 +9,7 @@
 #include <vul/imagememorybarrier.h>
 #include <gul/imguirenderer.h>
 #include <gul/noise/fbm.h>
-#include <czdr/bitutil/bit.h>
+
 #include <czdr/stdutil/math.h>
 #include <czdr/stdutil/math_literals.h>
 #include <gul/noise/opensimplex.h>
@@ -86,7 +86,7 @@
 #include <string_view>
 
 #include "raytrace_bitfield_renderer.h"
-
+#include <czdr/bitutil/bit.h>
 struct UniformBufferObject {
     alignas(16) glm::mat4 model;
     alignas(16) glm::mat4 view;
@@ -123,8 +123,11 @@ struct alignas(8) JFAIterationPushConstant {
 static_assert(sizeof(JFAIterationPushConstant) == 32);
 
 #include <czdr/glfw/core.h>
-
+#include <czdr/bitutil/bit.h>
 int main() {
+    float test3 = 0.345;
+    auto value_representation = std::bit_cast<std::array<std::byte, sizeof(float)>>(test3);
+    std::ranges::reverse(value_representation);
 
     glfw::Library glfw_lib;
     glfw_lib.window_hint_client_api(glfw::OpenglClientApiType::NoApi);
@@ -199,10 +202,11 @@ int main() {
                                  vul::QueueFlagBits::TransferBit;
     auto computeTransferFamily = vul::QueueFlagBits::ComputeBit |
                                  vul::QueueFlagBits::TransferBit;
+    auto transferFamily = vul::QueueFlagBits::TransferBit;
 
     auto device = physicalDevice.createDevice(surface,
                                               {graphicsComputeFamily},
-                                              {computeTransferFamily},
+                                              {computeTransferFamily, transferFamily, transferFamily},
                                               deviceExtensions,
                                               features).assertValue();
     //TODO what to do when queue is same for all but we try to parrallelize? only return references to queues? Have internal mutexes etc??

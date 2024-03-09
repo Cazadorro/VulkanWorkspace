@@ -212,6 +212,22 @@ u8vec4 sort_dsc(u8vec4 value){
 uint8_t median(uint8_t a, uint8_t b, uint8_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+uint8_t ternary(bool c , uint8_t a, uint8_t b ){
+    return c ? a : b;
+}
+
+u8vec2 ternary(bvec2 c, u8vec2 a, u8vec2 b ){
+    return mix(b, a, c);
+}
+
+u8vec3 ternary(bvec3 c, u8vec3 a, u8vec3 b ){
+    return mix(b, a, c);
+}
+
+u8vec4 ternary(bvec4 c, u8vec4 a, u8vec4 b ){
+    return mix(b, a, c);
+}
     //////
 
 #endif //ALGORITHMU8_GLSL

@@ -1,0 +1,116 @@
+#version 460
+
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_KHR_shader_subgroup_vote: enable
+#extension GL_KHR_shader_subgroup_ballot: enable
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+#extension GL_KHR_shader_subgroup_shuffle: enable
+#extension GL_KHR_shader_subgroup_shuffle_relative: enable
+#extension GL_KHR_shader_subgroup_clustered: enable
+#extension GL_KHR_shader_subgroup_quad: enable
+#extension GL_KHR_memory_scope_semantics : enable
+#extension GL_EXT_scalar_block_layout: enable
+//#extension GL_EXT_buffer_reference : require
+//#extension GL_EXT_buffer_reference_uvec2 : require
+#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference2 : enable
+//for uint64_t etc...
+#extension GL_EXT_shader_explicit_arithmetic_types         : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int8    : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int16   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int32   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_int64   : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float16 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float32 : enable
+#extension GL_EXT_shader_explicit_arithmetic_types_float64 : enable
+
+#extension GL_KHR_memory_scope_semantics : enable
+#pragma use_vulkan_memory_model
+
+#include "brush_utils.glsl"
+#include "stylus_utils.glsl"
+#include "tile_utils.glsl"
+#include "blend_utils.glsl"
+#include "layer_utils.glsl"
+#include "bitutils.glsl"
+
+#define WORKGROUP_SIZE 1024
+layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+layout(set = 0, binding = 0, scalar) uniform UniformCanvasSettingsBlock{
+    uvec2 u_canvas_size;
+    CounterData_ref u_counter_data;
+    TileMemoryData_ref u_tile_memory;
+    BrushSettings_ref u_brushes;
+//4 * 8 = 32 bytes
+};
+
+//rgba8 is a *normalized* unsigned format, so accepts floating point values 0.0f->1.0f.
+layout(set = 0, binding = 1, rgba8) uniform image2D u_output_image[];
+
+//TODO should this even be in a push constant? looks like all the ref settings stuff should be in a uniform buffer
+//
+layout(push_constant) uniform PushConstantBlock {
+    TileLayerList_ref u_layer_tiles;
+    LayerSettings_ref u_layer_settings; // can manually block update list on update.
+//5 * 8 bytes,
+    uint u_output_image_index;
+    uint u_layer_count;
+//7 * 8 bytes.= 56 bytes.
+
+
+//    vec2 brush_start_pos; //initial starting position for where
+//maybe not necssary, could instead take another "faked" brush update from the previous brush
+//  and put it into stylus update queue.
+};
+
+
+
+void main() {
+    uvec2 tile_size = ceil(u_canvas_size, TILE_DATA_WIDTH);
+    uint global_subgroup_idx = gl_WorkGroupID * gl_NumSubgroups + gl_SubgroupID;
+    bool subgroup_tile_in_bounds = global_subgroup_idx < updated_tile_count;
+    uint tile_idx = global_subgroup_idx;
+    uvec2 tile_pos = uvec2(tile_idx / tile_size.x, tile_idx % tile_size.x);
+    //happens to whole subgroup, safe.
+    if(tile_pos.x >= tile_size.x || tile_pos.y >= tile_size.y){
+        return;
+    }
+    for (uint tile_row_idx = 0; tile_row_idx < TILE_DATA_HEIGHT; ++i){
+        uint tile_col_idx = gl_SubgroupInvocationID;
+        vec2 pixel_pos = vec2(tile_pos.x * TILE_DATA_WIDTH + tile_col_idx, tile_pos.y * TILE_DATA_HEIGHT + tile_row_idx);
+        vec4 current_color_data = vec4(0.0);
+        if(u_layer_count > 0u){
+
+        }
+        for(uint layer_idx = 0; layer_idx < u_layer_count; ++layer_count){
+            if(!u_layer_settings.data[layer_idx].visible){
+                break;
+            }
+            TileArena_ref tile_reference = TileArena_ref(0);
+            {
+            uint tile_arena_handle = u_layer_tiles.data[layer_idx].data[tile_idx];
+            uint arena_index = TILE_ARENA_BITS & tile_arena_handle >> 16;
+            uint arena_tile_index = tile_arena_handle & ARENA_TILE_BITS;
+            TileArena_ref tile_arena_reference = u_tile_memory.data[0].area_pointers.data[arena_index];
+            //Note will still need to use .data[0]
+            tile_reference = tile_arena_reference[arena_tile_index];
+            }
+
+            //TODO how should data be laid out?  No gaurantee anyway that data accessed in adjacent warps will be anywhere near
+            //so all of a single tile's data adjacent?  Makes caching reasonable.
+            //if we were flagged as creating a new tile from previous kernels, set value to zero initially.
+            u8vec4 uint_color_data = tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx];
+            //converting from normalized uint according to OpenGL spec https://www.khronos.org/opengl/wiki/Normalized_Integer
+            vec4 layer_color_data = vec4(uint_color_data.r, uint_color_data.g, uint_color_data.b, uint_color_data.a) / 255.0f;
+
+
+
+            blend_composite(layer_color_data, current_color_data, u_layer_settings.data[layer_idx].overlap_intersect_load_bits, );
+
+        }
+
+        imageStore(u_output_image[u_output_image_index], pixel_pos, vec4(total_color, 1.0));
+    }
+
+}

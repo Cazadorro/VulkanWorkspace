@@ -16,6 +16,8 @@
 #include <array>
 #include <limits>
 
+#include <czdr/utility/assert.h>
+
 
 namespace gul {
 
@@ -101,7 +103,7 @@ namespace gul {
                             gul::Axis current_axis,
                             const std::array<predicte_type, 3> &predicates,
                             std::vector<KDTreeIndexPair>& last_indexes, std::vector<std::uint32_t>& parent_indexes) {
-            UUL_ASSERT(!current_segments.empty());
+            CZDR_ASSERT(!current_segments.empty());
 
             if (current_segments.size() <= 4) {
                 std::uint32_t lhs_leafs = m_leafs.size();
@@ -154,7 +156,7 @@ namespace gul {
         }
 
         explicit KDTree(const gsl::span<LineSegment<T>> &objects) {
-            UUL_ASSERT(!objects.empty() && objects.size() <
+            CZDR_ASSERT(!objects.empty() && objects.size() <
                                            std::numeric_limits<std::int32_t>::max());
             predicte_type predicate_x =
                     [](const LineSegment<T> &lhs, const LineSegment<T> &rhs) {

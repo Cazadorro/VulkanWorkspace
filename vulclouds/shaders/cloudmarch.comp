@@ -594,7 +594,8 @@ float volumetricShadow(const in CenterAABB box, const in FbmSettings fbm_setting
     float dist = length(to-from);
     dist = distance(to, from);
     HitRange hit_range;
-    if(!intersect(ray, box, 0.0, inf, hit_range)){
+    uint test_normal = 0;
+    if(!intersect(ray, box, 0.0, inf, hit_range, test_normal)){
         return 1.0;
 
     }
@@ -742,7 +743,8 @@ void main(){
         vec3 scatteredLight = vec3(0.0, 0.0, 0.0);
         step_size = step_size + step_size* ((rand01(frag_coord) + 1.0)/2.0) * 0.2;
         float original_step_size = step_size;
-        if(intersect(ray, box, 0.0, max_t, hit_range)){
+        uint test_normal;
+        if(intersect(ray, box, 0.0, max_t, hit_range, test_normal)){
 //            ray = move_to(ray, hit_range);
             float depth = hit_range.to_object + step_size;// + step_size * ((rand01(frag_coord) + 1.0)/2.0);
             for(int i = 0; i < max_steps; ++i){

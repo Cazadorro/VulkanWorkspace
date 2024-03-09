@@ -30,6 +30,7 @@
 #include "brush_utils.glsl"
 #include "stylus_utils.glsl"
 #include "tile_utils.glsl"
+#include "blend_utils.glsl"
 #include "bitutils.glsl"
 
 #define WORKGROUP_SIZE 1024
@@ -45,7 +46,7 @@ layout (local_size_x = WORKGROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
 
 
 layout(set = 0, binding = 0, scalar) uniform UniformCanvasSettingsBlock{
-    uvec2 u_image_size;
+    uvec2 u_canvas_size;
     CounterData_ref u_counter_data;
     TileMemoryData_ref u_tile_memory;
     BrushSettings_ref u_brushes;
@@ -83,7 +84,7 @@ layout(push_constant) uniform PushConstantBlock {
     uint u_brush_id;
     uint u_stylus_update_count;
     uint u_brush_tip_count; //how many times brush actually hit; maybe not need though, could calculate this our selves?
-    uint u_image_index_output; // not used for this shader.
+    uint u_padding; // not used for this shader.
 //7 * 8 bytes.= 56 bytes.
 //    vec2 brush_start_pos; //initial starting position for where
 //maybe not necssary, could instead take another "faked" brush update from the previous brush
@@ -124,54 +125,6 @@ vec4 render_brush_tip(uint broadcast_interp_idx,  uint broadcast_interpolation_d
 uint update_brush_tips_left(uint stylus_load_itr, uint brush_tips_left);
 
 
-//factor for alpha, factor for color
-//blend op for color, blend op for alpha.
-//
-struct BlendOp{
-    uint8_t value;
-};
-
-//split blend modes into bits inside uint32 and blend factors?
-//what about handling alpha?
-//alpha blending + color blending, then how to combine?
-//what about pre-multiplying alpha?
-
-const BlendOp BLEND_MODE_ADD  = BlendOp(uint16_t(0u));
-const BlendOp BLEND_MODE_SUB  = BlendOp(uint16_t(1u));
-const BlendOp BLEND_MODE_MUL  = BlendOp(uint16_t(2u));
-const BlendOp BLEND_MODE_DIV  = BlendOp(uint16_t(3u));
-
-const BlendOp BLEND_MODE_MIN  = BlendOp(uint16_t(4u));
-const BlendOp BLEND_MODE_MAX  = BlendOp(uint16_t(5u));
-const BlendOp BLEND_MODE_DIFF = BlendOp(uint16_t(6u));
-const BlendOp BLEND_MODE_RSUB = BlendOp(uint16_t(7u));
-const BlendOp BLEND_MODE_RDIV = BlendOp(uint16_t(8u));
-const BlendOp BLEND_MODE_SCREEN = BlendOp(uint16_t(8u));
-
-//independently take the max of one
-
-//Second source? Use it to implement screen?
-
-//figure out what to do with pre-multiplied alpha
-struct BlendFactor{
-    uint8_t value;
-};
-
-const BlendFactor BLEND_FACTOR_ZERO          = BlendFactor(uint16_t(0u));
-const BlendFactor BLEND_FACTOR_ONE           = BlendFactor(uint16_t(1u));
-const BlendFactor BLEND_FACTOR_SRC           = BlendFactor(uint16_t(2u));
-const BlendFactor BLEND_FACTOR_ONE_MINUS_SRC = BlendFactor(uint16_t(3u));
-const BlendFactor BLEND_FACTOR_DST           = BlendFactor(uint16_t(4u));
-const BlendFactor BLEND_FACTOR_ONE_MINUS_DST = BlendFactor(uint16_t(5u));
-
-
-// blend factor src, blend factor dst.
-// blend factor src alpha, blend factor dst alpha .
-// blend op for color
-// blend op for alpha
-// blend factor for src alpha, blend factor for dst alpha,
-// blend op for alpha and src
-// blend op for alpha and dst
 
 
 
@@ -282,6 +235,13 @@ void main() {
                                                         pixel_center_pos, brush_color, float_color_data);
                 } // end subgroup_tips_intersect_mask check.
             }// end uint brush_tip_grouping iter
+            //check if out of bounds, set to zero, but otherwise still have the invocation participate.
+            //note *writeing* more than the canvas size is supportted, tile still 32x32 even if usable pixels
+            //doesn't encompass whole scene.
+            uvec2 pixel_pos = uvec2(tile_x * TILE_DATA_WIDTH + tile_col_idx, tile_y * TILE_DATA_HEIGHT + tile_row_idx);
+            if(pixel_pos.x > u_canvas_size.x || pixel_pos.y > u_canvas_size.y){
+                color_data = vec4(0.0f);
+            }
             if (color_data.a != 0u){
                 column_empty = false;
             }
@@ -294,6 +254,7 @@ void main() {
             float_color_data *= 256.0f;
             float_color_data = clamp(float_color_data, 0.0f, 255.0f);
             uint_color_data = u8vec4(float_color_data.r, float_color_data.g, float_color_data.b, float_color_data.a);
+
             tile_reference.data[tile_row_idx * TILE_DATA_WIDTH + tile_col_idx] = uint_color_data;
         } // end tile_row_idx loop
 

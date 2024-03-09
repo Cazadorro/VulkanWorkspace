@@ -212,6 +212,24 @@ f64vec4 sort_dsc(f64vec4 value){
 float64_t median(float64_t a, float64_t b, float64_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+
+float64_t ternary(bool c, float64_t a, float64_t b){
+    return c ? a : b;
+}
+
+f64vec2 ternary( bvec2 c, f64vec2 a, f64vec2 b){
+    return mix(b, a, c);
+}
+
+f64vec3 ternary( bvec3 c, f64vec3 a, f64vec3 b){
+    return mix(b, a, c);
+}
+
+f64vec4 ternary( bvec4 c, f64vec4 a, f64vec4 b){
+    return mix(b, a, c);
+}
+
     //////
 
 #endif //ALGORITHMF64_GLSL

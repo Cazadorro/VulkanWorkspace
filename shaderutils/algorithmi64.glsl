@@ -225,6 +225,23 @@ i64vec3 wrap(i64vec3 value, int32_t max){
 i64vec4 wrap(i64vec4 value, int32_t max){
     return i64vec4(wrap(value.x, max), wrap(value.y, max), wrap(value.z, max), wrap(value.w, max));
 }
+
+
+int64_t ternary(bool c, int64_t a, int64_t b){
+    return c ? a : b;
+}
+
+i64vec2 ternary(bvec2 c, i64vec2 a, i64vec2 b){
+    return mix(b, a, c);
+}
+
+i64vec3 ternary(bvec3 c, i64vec3 a, i64vec3 b){
+    return mix(b, a, c);
+}
+
+i64vec4 ternary(bvec4 c, i64vec4 a, i64vec4 b){
+    return mix(b, a, c);
+}
     //////
 
 #endif //ALGORITHMI64_GLSL

@@ -1,11 +1,18 @@
 cmake_minimum_required(VERSION 3.21)
 project(VulkanWorkspace)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 
 add_executable(vulclouds ./main.cpp bvh.cpp bvh.h)
-target_link_libraries(vulclouds PRIVATE vul gul imgui)
+target_link_libraries(vulclouds PRIVATE
+        czdr::vkutil
+        gul
+        imgui
+        glm::glm
+        GPUOpen::VulkanMemoryAllocator
+        czdr::stdutil
+        czdr::bitutil
+        czdr::glfw-wrapper)
 target_compile_options(vulclouds PRIVATE
         $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:GNU>>:
         -Wall -Wextra -Wshadow -Wnon-virtual-dtor -pedantic -g -ggdb -fuse-ld=lld>)

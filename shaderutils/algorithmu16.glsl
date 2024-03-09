@@ -212,6 +212,24 @@ u16vec4 sort_dsc(u16vec4 value){
 uint16_t median(uint16_t a, uint16_t b, uint16_t c) {
     return max(min(a, b), min(max(a, b), c));
 }
+
+
+uint16_t ternary(bool c , uint16_t a, uint16_t b ){
+    return c ? a : b;
+}
+
+u16vec2 ternary(bvec2 c, u16vec2 a, u16vec2 b ){
+    return mix(b, a, c);
+}
+
+u16vec3 ternary(bvec3 c, u16vec3 a, u16vec3 b ){
+    return mix(b, a, c);
+}
+
+u16vec4 ternary(bvec4 c, u16vec4 a, u16vec4 b ){
+    return mix(b, a, c);
+}
+
     //////
 
     #endif //ALGORITHMU16_GLSL
